@@ -3,10 +3,10 @@
 See FILE_DESCRIPTIONS.md. This will give you a comprehensive sense of the architecture + where everything is. 
 
 These 4 files are old and are NOT used in the current architecture:
-.DS_Store
-TurboSAP_questions.json
-payroll_langgraph.py
-payroll_decision_tree.py
+- .DS_Store 
+- TurboSAP_questions.json
+- payroll_langgraph.py
+- payroll_decision_tree.py
 
 
 ## To Run
