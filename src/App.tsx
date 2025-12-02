@@ -2,8 +2,10 @@ import { useState } from 'react';
 import './App.css';
 import { ConfigPage } from './pages/ConfigPage';
 import { ChatPage } from './pages/ChatPage';
+import { QuestionsConfigPage } from './pages/QuestionsConfigPage';
 
-type PageType = 'config' | 'chat';
+
+type PageType = 'config' | 'chat' | 'questions';
 
 function App() {
   const [currentPage, setCurrentPage] = useState<PageType>('chat');
@@ -24,10 +26,18 @@ function App() {
         >
           Manual Configuration
         </button>
+        <button
+          className={`nav-button ${currentPage === 'questions' ? 'active' : ''}`}
+          onClick={() => setCurrentPage('questions')}
+        >
+          Questions Configuration
+        </button>
       </nav>
 
       {/* Render current page */}
-      {currentPage === 'chat' ? <ChatPage /> : <ConfigPage />}
+      {currentPage === 'chat' && <ChatPage />}
+      {currentPage === 'config' && <ConfigPage />}
+      {currentPage === 'questions' && <QuestionsConfigPage />}
     </div>
   );
 }

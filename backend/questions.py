@@ -5,6 +5,7 @@ Single source of truth: ../src/data/questions.json
 """
 
 import json
+import configuration
 from pathlib import Path
 
 # Path to the shared questions JSON
@@ -13,8 +14,10 @@ QUESTIONS_PATH = Path(__file__).parent.parent / "src" / "data" / "questions.json
 
 def load_questions() -> dict:
     """Load questions from JSON and index by ID."""
-    with open(QUESTIONS_PATH) as f:
-        data = json.load(f)
+    #with open(QUESTIONS_PATH) as f:
+    #    data = json.load(f)
+
+    data = configuration.load_current_questions()
     return {q["id"]: q for q in data["questions"]}
 
 
