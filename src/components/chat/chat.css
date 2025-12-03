@@ -41,6 +41,28 @@
   transition: width 0.3s ease;
 }
 
+/* Breadcrumb Navigation */
+.breadcrumb-container {
+  margin-top: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.9);
+  padding: 0.5rem 0.75rem;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+.breadcrumb-item {
+  font-weight: 500;
+}
+
+.breadcrumb-separator {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.875rem;
+}
+
 /* Messages Area */
 .messages-container {
   flex: 1;

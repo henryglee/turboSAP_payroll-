@@ -52,12 +52,16 @@ export interface PayrollArea {
   description: string;
   frequency: PayFrequencyType;
   calendarId: string; // "80", "20", "40", etc. (SAP calendar ID)
-  businessUnit: string;
+  businessUnit?: string;
   timeZone?: TimeZoneCode;
   union?: string; // Union code if applicable
   employeeCount: number;
-  generatedBy: 'system' | 'consultant'; // Was this auto-generated or manually added?
+  generatedBy?: 'system' | 'consultant'; // Was this auto-generated or manually added?
   reasoning: string[]; // Why this area was created (audit trail)
+  // Additional fields from LangGraph backend
+  periodPattern?: string; // "mon-sun", "sun-sat", etc.
+  payDay?: string; // "friday", "thursday", etc.
+  region?: string; // "mainland", "hawaii", etc.
 }
 
 export interface SAPCalendarRow {

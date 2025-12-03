@@ -1,32 +1,65 @@
 """
-Question loader - reads from the shared questions.json file.
+Shared question loader - loads module-specific questions from JSON files.
 
-Single source of truth: ../src/data/questions.json
+Module questions are stored in: ../src/data/{module_name}_questions.json
+
+Usage:
+    payroll_questions = load_questions("payroll_area")
+    payment_questions = load_questions("payment_method")
 """
 
 import json
 from pathlib import Path
 
-# Path to the shared questions JSON
-QUESTIONS_PATH = Path(__file__).parent.parent / "src" / "data" / "questions.json"
 
+def load_questions(module_name: str = "payroll_area") -> dict:
+    """
+    Load questions for a specific module and index by ID.
 
-def load_questions() -> dict:
-    """Load questions from JSON and index by ID."""
-    with open(QUESTIONS_PATH) as f:
+    Args:
+        module_name: Name of the module (e.g., "payroll_area", "payment_method")
+                    Defaults to "payroll_area" for backward compatibility
+
+    Returns:
+        Dict mapping question IDs to question objects
+    """
+    questions_path = Path(__file__).parent.parent / "src" / "data" / f"{module_name}_questions.json"
+
+    with open(questions_path) as f:
         data = json.load(f)
+
     return {q["id"]: q for q in data["questions"]}
 
 
-# Load once at module import
-QUESTIONS = load_questions()
+# Load payroll questions once at module import (backward compatibility)
+QUESTIONS = load_questions("payroll_area")
 
 
-def get_question(question_id: str) -> dict | None:
-    """Get a question by its ID."""
-    return QUESTIONS.get(question_id)
+def get_question(question_id: str, module_name: str = "payroll_area") -> dict | None:
+    """
+    Get a question by its ID from a specific module.
+
+    Args:
+        question_id: The question ID to retrieve
+        module_name: Module to load from (defaults to payroll_area for backward compat)
+
+    Returns:
+        Question dict or None if not found
+    """
+    questions = load_questions(module_name)
+    return questions.get(question_id)
 
 
-def get_first_question() -> dict:
-    """Get the first question in the flow."""
-    return QUESTIONS["q1_frequencies"]
+def get_first_question(module_name: str = "payroll_area") -> dict:
+    """
+    Get the first question for a module's flow.
+
+    Args:
+        module_name: Module to get first question from
+
+    Returns:
+        First question dict (assumes q1_frequencies for now)
+    """
+    questions = load_questions(module_name)
+    # TODO: Make this configurable per module
+    return questions.get("q1_frequencies") or list(questions.values())[0]

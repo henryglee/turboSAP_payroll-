@@ -2,52 +2,79 @@
 
 > Quick reference for file architecture.
 
+**Last Updated:** December 2024
+
+---
+
+## 🆕 Recent Changes (December 2024)
+
+### Backend Refactor: Modular Architecture
+- **graph.py** → Split into master orchestrator + module graphs
+- **payroll_area_graph.py** → Renamed from graph.py (payroll-specific logic)
+- **payment_method_graph.py** → NEW skeleton for payment method configuration
+- **questions.py** → Updated to support multi-module question loading
+
+### Frontend Enhancements
+- **ChatInterface.tsx** → Added breadcrumbing for context tracking
+- **PayrollAreasPanel.tsx** → Added editable table with add/delete row functionality
+- **types.ts** → Added periodPattern, payDay, region fields to PayrollArea
+- **store.ts** → Added updatePayrollArea() and setPayrollAreas() actions
+- **questions.json** → Renamed to payroll_area_questions.json
+
+### Documentation
+- **ARCHITECTURE_DIAGRAMS.md** → NEW comprehensive architecture visualization
+- **CHANGES_DEC2024.md** → NEW detailed change log
+
 ---
 
 ## Directory Structure Overview
 
 ```
 payroll-area-config/
-├── backend/                    # Python backend (LangGraph + FastAPI)
+├── backend/                          # Python backend (LangGraph + FastAPI)
 │   ├── requirements.txt
-│   ├── questions.py
-│   ├── graph.py
+│   ├── questions.py                  # [UPDATED] Shared question loader
+│   ├── graph.py                      # [NEW] Master orchestrator
+│   ├── payroll_area_graph.py         # [RENAMED] Payroll-specific logic
+│   ├── payment_method_graph.py       # [NEW] Payment method skeleton
 │   └── main.py
 │
-├── src/                        # React frontend
+├── src/                              # React frontend
 │   ├── api/
-│   │   └── langgraph.ts       # API calls to backend
+│   │   └── langgraph.ts             # API calls to backend
 │   │
 │   ├── components/
-│   │   ├── chat/              # New chat UI components
+│   │   ├── chat/                    # Chat UI components
 │   │   │   ├── index.ts
-│   │   │   ├── chat.css
-│   │   │   ├── ChatInterface.tsx
+│   │   │   ├── chat.css             # [UPDATED] Breadcrumb styles
+│   │   │   ├── ChatInterface.tsx    # [UPDATED] Breadcrumbing added
 │   │   │   └── MessageBubble.tsx
 │   │   │
-│   │   ├── ConfigurationPanel.tsx  # Original checkbox UI
-│   │   ├── PayrollAreasPanel.tsx   # Results table (shared)
-│   │   └── PayFrequencyEditor.tsx  # Frequency editor
+│   │   ├── ConfigurationPanel.tsx   # Original checkbox UI
+│   │   ├── PayrollAreasPanel.tsx    # [UPDATED] Editable table
+│   │   └── PayFrequencyEditor.tsx   # Frequency editor
 │   │
 │   ├── data/
-│   │   └── questions.json     # Question definitions
+│   │   └── payroll_area_questions.json  # [RENAMED] Static questions
 │   │
 │   ├── pages/
-│   │   ├── ChatPage.tsx       # New chat-based page
-│   │   └── ConfigPage.tsx     # Original config page
+│   │   ├── ChatPage.tsx             # [UPDATED] Includes new fields
+│   │   └── ConfigPage.tsx           # Original config page
 │   │
 │   ├── types/
-│   │   ├── index.ts           # Original payroll types
-│   │   └── chat.ts            # Chat-related types
+│   │   ├── index.ts                 # [UPDATED] PayrollArea extended
+│   │   └── chat.ts                  # Chat-related types
 │   │
-│   ├── App.tsx                # Root component with page switching
-│   ├── App.css                # Global styles
-│   ├── store.ts               # Zustand state management
-│   ├── payrollLogic.ts        # Payroll area calculation
-│   └── main.tsx               # Entry point
+│   ├── App.tsx                      # Root component
+│   ├── App.css                      # Global styles
+│   ├── store.ts                     # [UPDATED] New actions added
+│   ├── payrollLogic.ts              # Payroll area calculation
+│   └── main.tsx                     # Entry point
 │
-├── ARCHITECTURE_DECISIONS.md   # This session's decisions
-└── FILE_DESCRIPTIONS.md        # This file
+├── ARCHITECTURE_DECISIONS.md         # [UPDATED] Dec 2024 refactor
+├── ARCHITECTURE_DIAGRAMS.md          # [NEW] Visual documentation
+├── CHANGES_DEC2024.md                # [NEW] Detailed change log
+└── FILE_DESCRIPTIONS.md              # [UPDATED] This file
 ```
 
 ---
@@ -66,31 +93,87 @@ pydantic>=2.0.0       # Data validation (optional for MVP)
 
 ---
 
-### `backend/questions.py`
-**Purpose**: Load questions from the shared JSON file
+### `backend/questions.py` ✨ Updated Dec 2024
+**Purpose**: Shared question loader supporting multiple modules
 
 **Main Functions**:
 ```python
-load_questions() -> dict
-    # Reads ../src/data/questions.json
+load_questions(module_name: str = "payroll_area") -> dict
+    # Reads ../src/data/{module_name}_questions.json
     # Returns dict indexed by question ID
-    # Called once at module import
+    # Supports multiple modules via module_name parameter
 
-get_question(question_id: str) -> dict | None
-    # Returns a specific question by ID
-    # Used by main.py to get question details
+get_question(question_id: str, module_name: str = "payroll_area") -> dict | None
+    # Returns a specific question by ID from a module
+    # module_name defaults to "payroll_area" for backward compatibility
 
-get_first_question() -> dict
-    # Returns "q1_frequencies" question
-    # Used when starting a new session
+get_first_question(module_name: str = "payroll_area") -> dict
+    # Returns first question for a module
+    # Defaults to "q1_frequencies" for payroll_area
 ```
 
-**Called By**: `main.py`
+**Usage Examples**:
+```python
+# Load payroll questions
+payroll_qs = load_questions("payroll_area")
+
+# Load payment method questions (future)
+payment_qs = load_questions("payment_method")
+```
+
+**Called By**: `graph.py`, `main.py`
 
 ---
 
-### `backend/graph.py`
-**Purpose**: LangGraph logic - determines question flow and generates payroll areas
+### `backend/graph.py` ✨ New Dec 2024
+**Purpose**: Master orchestrator - routes between configuration modules
+
+**Main Functions**:
+```python
+get_next_module(state: MasterState) -> Optional[str]
+    # Determines which module should run next
+    # MVP: Sequential (payroll_area → payment_method)
+    # Future: DAG-based dependency checking
+
+master_router(state: MasterState) -> MasterState
+    # Main routing logic
+    # 1. Checks completed_modules list
+    # 2. Gets next module to run
+    # 3. Executes module router
+    # 4. Marks module complete if done
+    # 5. Returns updated state
+
+create_master_graph() -> StateGraph
+    # Builds and compiles the master graph
+    # Simple: START → master_router → END
+
+master_graph
+    # Singleton compiled graph instance
+    # Used by main.py
+```
+
+**Module Sequence (MVP)**:
+```python
+MODULE_SEQUENCE = [
+    "payroll_area",      # Always first
+    "payment_method",    # Second (skeleton)
+    # Future: "time_management", "benefits", etc.
+]
+```
+
+**Backward Compatibility**:
+```python
+# main.py can still import as before:
+from graph import payroll_graph, PayrollState
+# These now point to master_graph and MasterState
+```
+
+**Called By**: `main.py` (via `payroll_graph.invoke()`)
+
+---
+
+### `backend/payroll_area_graph.py` ✨ Renamed Dec 2024
+**Purpose**: Payroll-specific configuration logic (formerly graph.py)
 
 **Main Functions**:
 ```python
@@ -130,15 +213,57 @@ payroll_graph
     # Used by main.py
 ```
 
-**Called By**: `main.py` (via `payroll_graph.invoke()`)
+**Called By**: `graph.py` (master router)
 
 **Call Chain**:
 ```
-main.py: payroll_graph.invoke(state)
-    → graph.py: router_node(state)
-        → graph.py: determine_next_question(answers)
-        → graph.py: generate_payroll_areas(answers)  # if complete
+master_router(state)
+    → payroll_router(state)
+        → determine_next_question(answers)
+        → generate_payroll_areas(answers)  # if complete
 ```
+
+**Note**: This file contains the original graph.py logic - no functional changes,
+just renamed for modularity. All ~500 lines of payroll-specific logic remain here.
+
+---
+
+### `backend/payment_method_graph.py` ✨ New Dec 2024
+**Purpose**: Payment method configuration module (skeleton for demo)
+
+**Main Functions**:
+```python
+determine_next_question(answers: dict) -> tuple[Optional[str], Optional[dict]]
+    # TODO: Implement payment method question routing
+    # Future questions:
+    # - Payment methods used (Check, ACH, Wire, etc.)
+    # - Bank accounts per method
+    # - Payment run schedule
+    # - Approval workflows
+
+generate_payment_methods(answers: dict) -> list[dict]
+    # TODO: Implement payment method generation
+    # Future output structure:
+    # { code, description, bank_account, payment_run, approval_levels, ... }
+
+payment_method_router(state: PaymentMethodState) -> PaymentMethodState
+    # Main router (follows payroll pattern)
+    # Currently returns done=True immediately (skeleton)
+
+create_payment_method_graph() -> StateGraph
+    # Creates payment method graph
+    # Pattern: START → router → END
+
+payment_method_graph
+    # Singleton compiled graph instance
+```
+
+**Status**: Skeleton implementation
+- Shows module pattern
+- Ready for question/logic implementation
+- Demonstrates extensibility
+
+**Called By**: `graph.py` (master router) - currently auto-completes
 
 ---
 
@@ -269,8 +394,8 @@ GeneratedPayrollArea {
 
 ---
 
-### `src/data/questions.json`
-**Purpose**: Single source of truth for all questions
+### `src/data/payroll_area_questions.json` ✨ Renamed Dec 2024
+**Purpose**: Static questions for payroll area configuration module
 
 **Structure**:
 ```json
@@ -302,8 +427,8 @@ GeneratedPayrollArea {
 
 ---
 
-### `src/components/chat/ChatInterface.tsx`
-**Purpose**: Main chat component - manages conversation flow
+### `src/components/chat/ChatInterface.tsx` ✨ Updated Dec 2024
+**Purpose**: Main chat component - manages conversation flow with breadcrumbing
 
 **State**:
 ```typescript
@@ -335,6 +460,13 @@ handleSelectOption(questionId: string, answer: string | string[])
 
 getAnswerDisplayText(question, answer) -> string
     // Converts answer IDs to human-readable labels
+
+buildBreadcrumb(question: Question, answers: Record<string, string | string[]>) -> string[]
+    // NEW Dec 2024: Builds breadcrumb trail for current context
+    // Parses question ID and previous answers to show:
+    // - "Weekly › Mon-Sun › Pay Day" for frequency questions
+    // - "Weekly Mon-Sun Fri › Business Units" for business questions
+    // - "Bi-weekly Sun-Sat Thu › Geographic Areas" for geographic questions
 ```
 
 **Props**:
@@ -577,16 +709,41 @@ generateSAPAreas(areas): SAPPayrollAreaRow[]
 
 ---
 
-### `src/PayrollAreasPanel.tsx`
-**Purpose**: Display generated payroll areas (right panel)
+### `src/PayrollAreasPanel.tsx` ✨ Updated Dec 2024
+**Purpose**: Display and edit generated payroll areas (right panel)
 
-**Displays**:
-- Area count header
-- Validation summary (valid/invalid, coverage)
-- Warnings box
-- Table with: Code, Description, Frequency, Calendar, Employees, Reasoning
-- SAP table preview (T549A, T549Q counts)
-- Export JSON button
+**Features**:
+- **View Mode** (default):
+  - Area count header
+  - Validation summary (valid/invalid, coverage)
+  - Warnings box
+  - Read-only table: Code, Description, Frequency, Calendar, Employees, Reasoning
+  - SAP table preview (T549A, T549Q counts)
+  - Export buttons (CSV, JSON)
+  - Edit button to enter edit mode
+
+- **Edit Mode** (NEW Dec 2024):
+  - All cells editable (except Reasoning)
+  - Delete button on each row (trash icon)
+  - Add New Row button at bottom
+  - Save button (saves changes to store)
+  - Cancel button (discards changes)
+
+**State**:
+```typescript
+const [isEditing, setIsEditing] = useState(false)
+const [editedAreas, setEditedAreas] = useState<PayrollArea[]>([])
+```
+
+**Key Functions**:
+```typescript
+handleEdit() // Enter edit mode, copy areas to editedAreas
+handleSave() // Save editedAreas to store via setPayrollAreas()
+handleCancel() // Discard changes, exit edit mode
+handleCellChange(index, field, value) // Update specific cell
+handleAddRow() // Add new template row
+handleDeleteRow(index) // Remove row from editedAreas
+```
 
 **Used By**: Both `ChatPage` and `ConfigPage`
 
