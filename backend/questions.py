@@ -27,9 +27,11 @@ QUESTIONS = load_questions()
 
 def get_question(question_id: str) -> dict | None:
     """Get a question by its ID."""
-    return QUESTIONS.get(question_id)
+    questions = load_questions()
+    return questions.get(question_id)
 
 
 def get_first_question() -> dict:
     """Get the first question in the flow."""
-    return QUESTIONS["q1_frequencies"]
+    questions = load_questions()
+    return questions["q1_frequencies"]
