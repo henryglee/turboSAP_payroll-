@@ -9,6 +9,7 @@ Usage:
 """
 
 import json
+import configuration
 from pathlib import Path
 
 
@@ -23,10 +24,14 @@ def load_questions(module_name: str = "payroll_area") -> dict:
     Returns:
         Dict mapping question IDs to question objects
     """
-    questions_path = Path(__file__).parent.parent / "src" / "data" / f"{module_name}_questions.json"
-
-    with open(questions_path) as f:
-        data = json.load(f)
+    # For payroll_area, use the editable configuration system
+    if module_name == "payroll_area":
+        data = configuration.load_current_questions()
+    else:
+        # For other modules, load from module-specific JSON files
+        questions_path = Path(__file__).parent.parent / "src" / "data" / f"{module_name}_questions.json"
+        with open(questions_path) as f:
+            data = json.load(f)
 
     return {q["id"]: q for q in data["questions"]}
 

@@ -10,10 +10,20 @@ Run with: uvicorn main:app --reload --port 8000
 
 import uuid
 from fastapi import FastAPI, HTTPException
+from fastapi import Body
 from fastapi.middleware.cors import CORSMiddleware
 
 from questions import get_question, get_first_question
 from graph import payroll_graph, PayrollState
+
+from configuration import (
+    load_current_questions,
+    load_original_questions,
+    save_current_questions,
+    init_from_upload,
+    restore_original,
+)
+
 
 # ============================================
 # FastAPI App Setup
@@ -242,6 +252,34 @@ def get_session(session_id: str):
         "progress": calculate_progress(state),
     }
 
+@app.get("/api/config/questions/current")
+def get_current_config():
+    return load_current_questions()
+
+@app.get("/api/config/questions/original")
+def get_original_config():
+    return load_original_questions()
+
+@app.post("/api/config/questions/upload")
+def upload_questions_config(payload: dict = Body(...)):
+    try:
+        init_from_upload(payload)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"status": "ok"}
+
+@app.put("/api/config/questions/current")
+def update_current_config(payload: dict = Body(...)):
+    try:
+        save_current_questions(payload)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"status": "ok"}
+
+@app.post("/api/config/questions/restore")
+def restore_questions_config():
+    restore_original()
+    return {"status": "ok"}
 
 # ============================================
 # Run the server
