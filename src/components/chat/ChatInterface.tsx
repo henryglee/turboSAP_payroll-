@@ -168,6 +168,159 @@ export function ChatInterface({ onComplete }: ChatInterfaceProps) {
     return labels.join(', ');
   };
 
+  /**
+   * Build breadcrumb trail showing the complete configuration context
+   * Uses all answers collected so far to show the full path
+   */
+  const buildBreadcrumb = (question: Question | null, answers: Record<string, string | string[]>): string[] => {
+    if (!question) return [];
+
+    const breadcrumbs: string[] = [];
+
+    // Helper function to parse calendar key and build readable label
+    const parseCalendarKey = (key: string): string => {
+      // Key format examples: weekly_monsun_friday, biweekly_sunsat_thursday
+      // Need to parse: frequency_pattern_payday
+
+      const freqLabels: Record<string, string> = {
+        weekly: 'Weekly',
+        biweekly: 'Bi-weekly',
+        semimonthly: 'Semi-monthly',
+        monthly: 'Monthly'
+      };
+
+      const patternLabels: Record<string, string> = {
+        monsun: 'Mon-Sun',
+        sunsat: 'Sun-Sat',
+        '1end': '1st-End',
+        '11516end': '1st-15th/16th-End'
+      };
+
+      const paydayLabels: Record<string, string> = {
+        friday: 'Fri',
+        thursday: 'Thu',
+        wednesday: 'Wed',
+        last: 'Last',
+        '15': '15th',
+        '1': '1st',
+        '15last': '15th & Last',
+        '1530': '15th & 30th'
+      };
+
+      // Try to match frequency
+      let freq = '';
+      let pattern = '';
+      let payday = '';
+
+      for (const f of Object.keys(freqLabels)) {
+        if (key.startsWith(f + '_')) {
+          freq = freqLabels[f];
+          const rest = key.slice(f.length + 1);
+
+          // Try to match pattern and payday from the rest
+          for (const p of Object.keys(patternLabels)) {
+            if (rest.startsWith(p + '_')) {
+              pattern = patternLabels[p];
+              payday = rest.slice(p.length + 1);
+              payday = paydayLabels[payday] || payday.charAt(0).toUpperCase() + payday.slice(1);
+              break;
+            }
+          }
+
+          // If no pattern match (like monthly), payday is the rest
+          if (!pattern) {
+            payday = paydayLabels[rest] || rest.charAt(0).toUpperCase() + rest.slice(1);
+          }
+
+          break;
+        }
+      }
+
+      if (pattern) {
+        return `${freq} ${pattern} ${payday}`;
+      } else {
+        return `${freq} ${payday}`;
+      }
+    };
+
+    // Detect which frequency we're currently configuring
+    const currentFrequencyMatch = question.id.match(/^q1_(weekly|biweekly|semimonthly|monthly)_(pattern|payday)$/);
+
+    if (currentFrequencyMatch) {
+      const [, frequency] = currentFrequencyMatch;
+
+      // Add the specific frequency being configured
+      const frequencyLabels: Record<string, string> = {
+        weekly: 'Weekly',
+        biweekly: 'Bi-weekly',
+        semimonthly: 'Semi-monthly',
+        monthly: 'Monthly'
+      };
+      breadcrumbs.push(frequencyLabels[frequency]);
+
+      // If pattern already answered, include it
+      const patternAnswer = answers[`q1_${frequency}_pattern`];
+      if (patternAnswer && typeof patternAnswer === 'string') {
+        const patternLabels: Record<string, string> = {
+          'mon-sun': 'Mon-Sun',
+          'sun-sat': 'Sun-Sat',
+          '1-15_16-end': '1st-15th/16th-End'
+        };
+        breadcrumbs.push(patternLabels[patternAnswer] || patternAnswer);
+      }
+
+      // If payday already answered, include it
+      const paydayAnswer = answers[`q1_${frequency}_payday`];
+      if (paydayAnswer && typeof paydayAnswer === 'string') {
+        const paydayLabels: Record<string, string> = {
+          'friday': 'Fri',
+          'thursday': 'Thu',
+          'wednesday': 'Wed',
+          'last': 'Last day',
+          '15': '15th',
+          '1': '1st',
+          '15-last': '15th & Last',
+          '15-30': '15th & 30th'
+        };
+        breadcrumbs.push(paydayLabels[paydayAnswer] || paydayAnswer);
+      }
+
+      // Add current step label
+      if (question.id.includes('_pattern')) {
+        breadcrumbs.push('› Pay Period');
+      } else if (question.id.includes('_payday')) {
+        breadcrumbs.push('› Pay Day');
+      }
+    }
+    // Handle dynamic business unit questions: business_{key} or business_names_{key}
+    else if (question.id.startsWith('business_')) {
+      // Extract calendar key from question ID
+      const key = question.id.replace(/^business_names_/, '').replace(/^business_/, '');
+      const calendarLabel = parseCalendarKey(key);
+
+      breadcrumbs.push(calendarLabel);
+      breadcrumbs.push('Business Units');
+    }
+    // Handle dynamic geographic questions: geographic_{key} or regions_{key}
+    else if (question.id.startsWith('geographic_') || question.id.startsWith('regions_')) {
+      // Extract calendar key from question ID
+      const key = question.id.replace(/^regions_/, '').replace(/^geographic_/, '');
+      const calendarLabel = parseCalendarKey(key);
+
+      breadcrumbs.push(calendarLabel);
+
+      // Check if business units were configured for this calendar
+      const businessKey = `business_${key}`;
+      if (answers[businessKey] === 'yes') {
+        breadcrumbs.push('Business Units');
+      }
+
+      breadcrumbs.push('Geographic Areas');
+    }
+
+    return breadcrumbs;
+  };
+
   // Not started yet - show start button
   if (!state.sessionId && !state.isLoading) {
     return (
@@ -193,6 +346,17 @@ export function ChatInterface({ onComplete }: ChatInterfaceProps) {
         <div className="progress-bar">
           <div className="progress-fill" style={{ width: `${state.progress}%` }} />
         </div>
+        {/* Breadcrumb navigation */}
+        {!state.isComplete && state.currentQuestion && buildBreadcrumb(state.currentQuestion, state.answers).length > 0 && (
+          <div className="breadcrumb-container">
+            {buildBreadcrumb(state.currentQuestion, state.answers).map((crumb, index, arr) => (
+              <React.Fragment key={index}>
+                <span className="breadcrumb-item">{crumb}</span>
+                {index < arr.length - 1 && <span className="breadcrumb-separator">›</span>}
+              </React.Fragment>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Messages */}

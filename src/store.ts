@@ -45,6 +45,10 @@ interface ConfigurationStore {
   // Recalculate payroll areas based on current profile
   recalculate: () => void;
 
+  // Direct payroll area management
+  updatePayrollArea: (index: number, area: Partial<PayrollArea>) => void;
+  setPayrollAreas: (areas: PayrollArea[]) => void;
+
   // Reset to initial state
   reset: () => void;
 
@@ -242,6 +246,20 @@ export const useConfigStore = create<ConfigurationStore>((set, get) => ({
       const newAreas = calculateMinimalAreas(state.profile);
       const newValidation = validateConfiguration(state.profile, newAreas);
       return { payrollAreas: newAreas, validation: newValidation };
+    }),
+
+  updatePayrollArea: (index, area) =>
+    set((state) => {
+      const newAreas = [...state.payrollAreas];
+      newAreas[index] = { ...newAreas[index], ...area };
+      const newValidation = validateConfiguration(state.profile, newAreas);
+      return { payrollAreas: newAreas, validation: newValidation };
+    }),
+
+  setPayrollAreas: (areas) =>
+    set((state) => {
+      const newValidation = validateConfiguration(state.profile, areas);
+      return { payrollAreas: areas, validation: newValidation };
     }),
 
   reset: () => {

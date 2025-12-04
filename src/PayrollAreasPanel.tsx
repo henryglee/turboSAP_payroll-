@@ -1,8 +1,12 @@
+import { useState } from 'react';
 import { useConfigStore } from './store';
-import { Download, CheckCircle, AlertTriangle, XCircle } from 'lucide-react';
+import { Download, CheckCircle, AlertTriangle, XCircle, Edit, Save, X, Plus, Trash2 } from 'lucide-react';
+import type { PayrollArea } from './types';
 
 export function PayrollAreasPanel() {
-  const { payrollAreas, validation, exportJSON } = useConfigStore();
+  const { payrollAreas, validation, exportJSON, setPayrollAreas } = useConfigStore();
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedAreas, setEditedAreas] = useState<PayrollArea[]>([]);
 
   const handleExport = () => {
     const jsonData = exportJSON();
@@ -14,6 +18,50 @@ export function PayrollAreasPanel() {
     a.click();
     URL.revokeObjectURL(url);
   };
+
+  const handleEdit = () => {
+    setEditedAreas(JSON.parse(JSON.stringify(payrollAreas))); // Deep copy
+    setIsEditing(true);
+  };
+
+  const handleSave = () => {
+    setPayrollAreas(editedAreas);
+    setIsEditing(false);
+  };
+
+  const handleCancel = () => {
+    setEditedAreas([]);
+    setIsEditing(false);
+  };
+
+  const handleCellChange = (index: number, field: keyof PayrollArea, value: any) => {
+    const newAreas = [...editedAreas];
+    newAreas[index] = { ...newAreas[index], [field]: value };
+    setEditedAreas(newAreas);
+  };
+
+  const handleAddRow = () => {
+    const newRow: PayrollArea = {
+      code: `Z${editedAreas.length + 1}`,
+      description: 'New Area',
+      frequency: 'weekly',
+      calendarId: '80',
+      businessUnit: '',
+      employeeCount: 0,
+      generatedBy: 'consultant',
+      reasoning: ['Manually added by user'],
+      periodPattern: 'mon-sun',
+      payDay: 'friday',
+    };
+    setEditedAreas([...editedAreas, newRow]);
+  };
+
+  const handleDeleteRow = (index: number) => {
+    const newAreas = editedAreas.filter((_, i) => i !== index);
+    setEditedAreas(newAreas);
+  };
+
+  const displayAreas = isEditing ? editedAreas : payrollAreas;
 
   const handleExportCSV = () => {
     // CSV headers
@@ -81,14 +129,33 @@ export function PayrollAreasPanel() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button className="button button-small" onClick={handleExportCSV}>
-            <Download size={14} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
-            Export CSV
-          </button>
-          <button className="button button-small" onClick={handleExport}>
-            <Download size={14} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
-            Export JSON
-          </button>
+          {isEditing ? (
+            <>
+              <button className="button button-small" onClick={handleSave} style={{ background: '#48bb78', color: 'white' }}>
+                <Save size={14} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
+                Save
+              </button>
+              <button className="button button-small" onClick={handleCancel} style={{ background: '#e53e3e', color: 'white' }}>
+                <X size={14} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
+                Cancel
+              </button>
+            </>
+          ) : (
+            <>
+              <button className="button button-small" onClick={handleEdit}>
+                <Edit size={14} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
+                Edit
+              </button>
+              <button className="button button-small" onClick={handleExportCSV}>
+                <Download size={14} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
+                Export CSV
+              </button>
+              <button className="button button-small" onClick={handleExport}>
+                <Download size={14} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
+                Export JSON
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -146,7 +213,7 @@ export function PayrollAreasPanel() {
       )}
 
       <div className="table-container" style={{ marginTop: '1rem' }}>
-        {payrollAreas.length > 0 ? (
+        {displayAreas.length > 0 ? (
           <table className="payroll-table">
             <thead>
               <tr>
@@ -156,18 +223,76 @@ export function PayrollAreasPanel() {
                 <th>Calendar</th>
                 <th>Employees</th>
                 <th>Reasoning</th>
+                {isEditing && <th style={{ width: '60px' }}>Actions</th>}
               </tr>
             </thead>
             <tbody>
-              {payrollAreas.map((area, idx) => (
+              {displayAreas.map((area, idx) => (
                 <tr key={idx}>
                   <td>
-                    <span className="code-badge">{area.code}</span>
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={area.code}
+                        onChange={(e) => handleCellChange(idx, 'code', e.target.value)}
+                        style={{ width: '100%', padding: '0.25rem', border: '1px solid #cbd5e0', borderRadius: '4px' }}
+                      />
+                    ) : (
+                      <span className="code-badge">{area.code}</span>
+                    )}
                   </td>
-                  <td>{area.description}</td>
-                  <td style={{ textTransform: 'capitalize' }}>{area.frequency}</td>
-                  <td>{area.calendarId}</td>
-                  <td>{area.employeeCount}</td>
+                  <td>
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={area.description}
+                        onChange={(e) => handleCellChange(idx, 'description', e.target.value)}
+                        style={{ width: '100%', padding: '0.25rem', border: '1px solid #cbd5e0', borderRadius: '4px' }}
+                      />
+                    ) : (
+                      area.description
+                    )}
+                  </td>
+                  <td style={{ textTransform: 'capitalize' }}>
+                    {isEditing ? (
+                      <select
+                        value={area.frequency}
+                        onChange={(e) => handleCellChange(idx, 'frequency', e.target.value)}
+                        style={{ width: '100%', padding: '0.25rem', border: '1px solid #cbd5e0', borderRadius: '4px' }}
+                      >
+                        <option value="weekly">Weekly</option>
+                        <option value="biweekly">Biweekly</option>
+                        <option value="semimonthly">Semimonthly</option>
+                        <option value="monthly">Monthly</option>
+                      </select>
+                    ) : (
+                      area.frequency
+                    )}
+                  </td>
+                  <td>
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={area.calendarId}
+                        onChange={(e) => handleCellChange(idx, 'calendarId', e.target.value)}
+                        style={{ width: '100%', padding: '0.25rem', border: '1px solid #cbd5e0', borderRadius: '4px' }}
+                      />
+                    ) : (
+                      area.calendarId
+                    )}
+                  </td>
+                  <td>
+                    {isEditing ? (
+                      <input
+                        type="number"
+                        value={area.employeeCount}
+                        onChange={(e) => handleCellChange(idx, 'employeeCount', parseInt(e.target.value) || 0)}
+                        style={{ width: '100%', padding: '0.25rem', border: '1px solid #cbd5e0', borderRadius: '4px' }}
+                      />
+                    ) : (
+                      area.employeeCount
+                    )}
+                  </td>
                   <td>
                     <ul className="reasoning-list">
                       {area.reasoning.map((reason, rIdx) => (
@@ -175,6 +300,18 @@ export function PayrollAreasPanel() {
                       ))}
                     </ul>
                   </td>
+                  {isEditing && (
+                    <td style={{ textAlign: 'center' }}>
+                      <button
+                        onClick={() => handleDeleteRow(idx)}
+                        className="button button-small"
+                        style={{ background: '#e53e3e', color: 'white', padding: '0.25rem 0.5rem' }}
+                        title="Delete row"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -188,6 +325,20 @@ export function PayrollAreasPanel() {
             </p>
           </div>
         )}
+
+        {/* Add Row Button (only visible in edit mode) */}
+        {isEditing && displayAreas.length > 0 && (
+          <div style={{ marginTop: '1rem' }}>
+            <button
+              onClick={handleAddRow}
+              className="button"
+              style={{ background: '#3182ce', color: 'white', width: '100%' }}
+            >
+              <Plus size={16} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
+              Add New Row
+            </button>
+          </div>
+        )}
       </div>
 
       <div style={{ marginTop: '1.5rem', padding: '1rem', background: '#f7fafc', borderRadius: '4px' }}>
@@ -196,11 +347,11 @@ export function PayrollAreasPanel() {
         </h3>
         <div style={{ fontSize: '0.8125rem', color: '#4a5568' }}>
           <div style={{ marginBottom: '0.5rem' }}>
-            <strong>T549A (Payroll Areas):</strong> {payrollAreas.length} entries
+            <strong>T549A (Payroll Areas):</strong> {displayAreas.length} entries
           </div>
           <div style={{ marginBottom: '0.5rem' }}>
             <strong>T549Q (Calendars):</strong>{' '}
-            {new Set(payrollAreas.map((a) => a.calendarId)).size} unique calendars
+            {new Set(displayAreas.map((a) => a.calendarId)).size} unique calendars
           </div>
           <div style={{ fontSize: '0.75rem', color: '#718096', marginTop: '0.5rem' }}>
             Export JSON to see full SAP table mappings

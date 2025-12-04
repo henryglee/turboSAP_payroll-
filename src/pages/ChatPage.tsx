@@ -24,12 +24,16 @@ export function ChatPage() {
       description: area.description,
       frequency: area.frequency as PayFrequencyType,
       calendarId: area.calendarId,
-      businessUnit: area.businessUnit || 'all',
+      businessUnit: area.businessUnit,
       timeZone: undefined,
       union: undefined,
       employeeCount: area.employeeCount,
       generatedBy: 'system' as const,
       reasoning: area.reasoning,
+      // Include backend-specific fields
+      periodPattern: area.periodPattern,
+      payDay: area.payDay,
+      region: area.region,
     }));
 
     // Update the store with generated areas
