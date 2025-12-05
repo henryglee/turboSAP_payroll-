@@ -81,7 +81,7 @@ def get_next_module(state: MasterState) -> Optional[str]:
     Returns:
         Module name to run next, or None if all complete
     """
-    completed = state.get("completed_modules", [])
+    completed = state.get("completed_modules") or []
 
     for module_name in MODULE_SEQUENCE:
         if module_name not in completed:
