@@ -64,7 +64,7 @@ class MasterState(TypedDict, total=False):
 # Future: Replace with dependency DAG
 MODULE_SEQUENCE = [
     "payroll_area",
-    "payment_method",
+    # "payment_method",
     # Future modules:
     # "time_management",
     # "benefits",
@@ -105,7 +105,7 @@ def master_router(state: MasterState) -> MasterState:
     4. Mark as complete if done
     5. Repeat or finish
     """
-    completed_modules = state.get("completed_modules", [])
+    completed_modules = state.get("completed_modules") or []
 
     # Determine next module
     next_module = get_next_module(state)
@@ -129,11 +129,25 @@ def master_router(state: MasterState) -> MasterState:
             # Mark payroll as complete, move to next module
             new_completed = completed_modules + ["payroll_area"]
 
-            # Reset done flag so master can continue
+            # Determine if there are any modules left; if none, stay done
+            next_after_payroll = get_next_module({
+                **result,
+                "completed_modules": new_completed,
+            })
+
+            if next_after_payroll is None:
+                return {
+                    **result,
+                    "completed_modules": new_completed,
+                    "current_module": None,
+                    "done": True,
+                }
+
+            # Reset done flag so master can continue to remaining modules
             return {
                 **result,
                 "completed_modules": new_completed,
-                "current_module": next_module,
+                "current_module": next_after_payroll,
                 "done": False,  # Master not done yet
             }
         else:

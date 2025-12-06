@@ -40,12 +40,12 @@ app = FastAPI(
     version="1.0.0",
 )
 
+
 # ====== frontend static files ======
 frontend_dir = Path(__file__).parent / "static"
 
 # Serve all static assets (JS, CSS, images)
-if ENV == "production":
-    app.mount("/static", StaticFiles(directory=frontend_dir, html=False), name="static")
+app.mount("/assets", StaticFiles(directory=frontend_dir / "assets"), name="assets")
 
 # CORS - Allow React dev server to call this API
 app.add_middleware(
@@ -59,6 +59,7 @@ app.add_middleware(
         "http://127.0.0.1:5174",
         "http://127.0.0.1:5175",
         "http://127.0.0.1:3000",
+        "http://turbosap-py312-env.eba-5hg7r3id.us-east-2.elasticbeanstalk.com"
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -215,7 +216,7 @@ def submit_answer(request: dict):
     progress = calculate_progress(result)
 
     # Build response
-    if result.get("done"):
+    if result.get("done") or not result.get("current_question_id"):
         return {
             "sessionId": session_id,
             "done": True,
