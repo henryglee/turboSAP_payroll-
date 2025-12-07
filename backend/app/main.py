@@ -45,7 +45,8 @@ app = FastAPI(
 frontend_dir = Path(__file__).parent / "static"
 
 # Serve all static assets (JS, CSS, images)
-app.mount("/assets", StaticFiles(directory=frontend_dir / "assets"), name="assets")
+if ENV == "production":
+    app.mount("/assets", StaticFiles(directory=frontend_dir / "assets"), name="assets")
 
 # CORS - Allow React dev server to call this API
 app.add_middleware(
