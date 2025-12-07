@@ -18,7 +18,7 @@ from typing import TypedDict, Optional
 from langgraph.graph import StateGraph, START, END
 
 # Import module graphs
-from payroll_area_graph import (
+from .payroll.payroll_area_graph import (
     payroll_graph as payroll_module,
     PayrollState,
     router_node as payroll_router

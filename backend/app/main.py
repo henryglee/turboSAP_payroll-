@@ -13,10 +13,10 @@ from fastapi import FastAPI, HTTPException
 from fastapi import Body
 from fastapi.middleware.cors import CORSMiddleware
 
-from questions import get_question, get_first_question
-from graph import payroll_graph, PayrollState
+from .services.questions import get_question, get_first_question
+from .agents.graph import payroll_graph, PayrollState
 
-from configuration import (
+from .config.configuration import (
     load_current_questions,
     load_original_questions,
     save_current_questions,
