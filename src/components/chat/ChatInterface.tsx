@@ -8,7 +8,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MessageBubble } from './MessageBubble';
 import { startSession, submitAnswer } from '../../api/langgraph';
-import type { ChatMessage, Question, GeneratedPayrollArea, ChatState, createInitialChatState } from '../../types/chat';
+import type { ChatMessage, Question, GeneratedPayrollArea, ChatState } from '../../types/chat';
 import './chat.css';
 
 interface ChatInterfaceProps {
