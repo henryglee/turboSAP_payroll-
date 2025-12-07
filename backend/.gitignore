@@ -26,3 +26,6 @@ frontend/dist/
 
 #data
 questions_current.json
+
+#Deploy
+deploy/*.zip
