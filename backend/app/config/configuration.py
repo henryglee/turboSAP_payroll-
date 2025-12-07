@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Any, Dict
 
 BASE_DIR = Path(__file__).parent
-FRONTEND_QUESTIONS_PATH = BASE_DIR.parent / "src" / "data" / "questions.json"
+FRONTEND_QUESTIONS_PATH = BASE_DIR.parent / "data" / "questions_current.json"
 
 ORIGINAL_PATH = BASE_DIR / "questions_original.json"
 CURRENT_PATH = BASE_DIR / "questions_current.json"

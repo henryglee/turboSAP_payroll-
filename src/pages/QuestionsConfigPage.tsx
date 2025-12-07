@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { apiFetch } from '../api/utils';
 
 type Question = {
   id: string;
@@ -12,8 +13,6 @@ type QuestionsConfig = {
   questions: Question[];
 };
 
-const API_BASE = 'http://localhost:8000'; // adjust if needed
-
 export function QuestionsConfigPage() {
   const [config, setConfig] = useState<QuestionsConfig | null>(null);
   const [loading, setLoading] = useState(false);
@@ -25,11 +24,7 @@ export function QuestionsConfigPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/api/config/questions/current`);
-      if (!res.ok) {
-        throw new Error(`Failed to load: ${res.status}`);
-      }
-      const data = await res.json();
+      const data = await apiFetch<QuestionsConfig>('/api/config/questions/current');
       setConfig(data);
     } catch (e: any) {
       setError(e.message ?? 'Failed to load questions');
@@ -54,15 +49,11 @@ export function QuestionsConfigPage() {
         setError(null);
         setMessage(null);
 
-        const res = await fetch(`${API_BASE}/api/config/questions/upload`, {
+        await apiFetch('/api/config/questions/upload', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(json),
         });
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          throw new Error(body.detail ?? `Upload failed: ${res.status}`);
-        }
 
         setMessage('Uploaded new questions configuration.');
         await loadCurrent();
@@ -216,15 +207,11 @@ export function QuestionsConfigPage() {
     setError(null);
     setMessage(null);
     try {
-      const res = await fetch(`${API_BASE}/api/config/questions/current`, {
+      await apiFetch('/api/config/questions/current', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(config),
       });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.detail ?? `Save failed: ${res.status}`);
-      }
       setMessage('Saved current questions configuration.');
     } catch (e: any) {
       setError(e.message ?? 'Failed to save config');
@@ -237,13 +224,9 @@ export function QuestionsConfigPage() {
     setError(null);
     setMessage(null);
     try {
-      const res = await fetch(`${API_BASE}/api/config/questions/restore`, {
+      await apiFetch('/api/config/questions/restore', {
         method: 'POST',
       });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.detail ?? `Restore failed: ${res.status}`);
-      }
       setMessage('Restored from original questions.');
       await loadCurrent();
     } catch (e: any) {

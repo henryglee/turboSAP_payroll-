@@ -5,42 +5,13 @@
  * The backend runs at http://localhost:8000 by default.
  */
 
+import { apiFetch } from './utils';
 import type {
   StartSessionRequest,
   StartSessionResponse,
   SubmitAnswerRequest,
   SubmitAnswerResponse,
 } from '../types/chat';
-
-// API base URL - change this for production
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-
-/**
- * Generic fetch wrapper with error handling
- */
-async function apiFetch<T>(
-  endpoint: string,
-  options: RequestInit = {}
-): Promise<T> {
-  const url = `${API_BASE_URL}${endpoint}`;
-
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(
-      errorData.detail || `API error: ${response.status} ${response.statusText}`
-    );
-  }
-
-  return response.json();
-}
 
 /**
  * Start a new configuration session.

@@ -23,3 +23,9 @@ frontend/dist/
 
 # OS
 .DS_Store
+
+#data
+questions_current.json
+
+#Deploy
+deploy/*.zip
