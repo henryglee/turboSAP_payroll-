@@ -10,6 +10,9 @@ import type {
   StartSessionResponse,
   SubmitAnswerRequest,
   SubmitAnswerResponse,
+  StartPaymentSessionResponse,
+  SubmitPaymentAnswerRequest,
+  SubmitPaymentAnswerResponse,
 } from '../types/chat';
 
 // API base URL - change this for production
@@ -99,4 +102,35 @@ export async function getSession(sessionId: string): Promise<{
   progress: number;
 }> {
   return apiFetch(`/api/session/${sessionId}`);
+}
+
+/**
+ * Start a new payment-method configuration session.
+ *
+ * Calls FastAPI: POST /api/payment/start
+ */
+export async function startPaymentSession(): Promise<StartPaymentSessionResponse> {
+  return apiFetch<StartPaymentSessionResponse>('/api/payment/start', {
+    method: 'POST',
+    body: JSON.stringify({}), // no payload for now
+  });
+}
+
+/**
+ * Submit an answer for the payment-method flow and get the next question
+ * or final payment method configurations.
+ *
+ * Calls FastAPI: POST /api/payment/answer
+ */
+export async function submitPaymentAnswer(
+  request: SubmitPaymentAnswerRequest
+): Promise<SubmitPaymentAnswerResponse> {
+  return apiFetch<SubmitPaymentAnswerResponse>('/api/payment/answer', {
+    method: 'POST',
+    body: JSON.stringify({
+      sessionId: request.sessionId,
+      questionId: request.questionId,
+      answer: request.answer,
+    }),
+  });
 }

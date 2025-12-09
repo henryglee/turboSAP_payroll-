@@ -316,6 +316,10 @@ def create_payment_method_graph():
 # Singleton compiled graph
 payment_method_graph = create_payment_method_graph()
 
+# Convenience exports for FastAPI / master graph
+router_node = payment_method_router
+
+
 # ============================================
 # Pretty-print utility (no quotes in output)
 # ============================================
