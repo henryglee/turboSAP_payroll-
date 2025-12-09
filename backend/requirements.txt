@@ -3,3 +3,6 @@ uvicorn==0.32.0
 langgraph==0.2.0
 pydantic>=2.0.0
 gunicorn
+bcrypt==4.1.2
+PyJWT==2.8.0
+python-jose[cryptography]==3.3.0
