@@ -1,18 +1,44 @@
 // Generic fetch wrapper with base URL and JSON error handling
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
+/**
+ * Get authentication token from store.
+ * This is a function to avoid circular dependencies.
+ */
+function getAuthToken(): string | null {
+  try {
+    const authData = localStorage.getItem('turbosap-auth');
+    if (authData) {
+      const parsed = JSON.parse(authData);
+      return parsed.state?.token || null;
+    }
+  } catch {
+    // Ignore errors
+  }
+  return null;
+}
+
 export async function apiFetch<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
 
+  // Get token from localStorage if available
+  const token = getAuthToken();
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    ...options.headers,
+  };
+
+  // Add Authorization header if token exists
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
   const response = await fetch(url, {
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
+    headers,
   });
 
   if (!response.ok) {
