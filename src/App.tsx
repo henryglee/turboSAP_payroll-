@@ -43,8 +43,8 @@ function App() {
           </div>
           <div className="header-right">
             <div className="user-info-container">
-              <span className="user-name">{user.username}</span>
-              <span className="user-role">{user.role}</span>
+              <span className="user-name">{user!.username}</span>
+              <span className="user-role">{user!.role}</span>
             </div>
             <button onClick={clearAuth} className="logout-button">
               Logout

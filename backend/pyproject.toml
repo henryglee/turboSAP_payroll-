@@ -3,9 +3,12 @@ name = "backend"
 version = "0.1.0"
 requires-python = ">=3.10"
 dependencies = [
+    "bcrypt==4.1.2",
     "fastapi==0.115.0",
     "gunicorn>=23.0.0",
     "langgraph==0.2.0",
     "pydantic>=2.0.0",
+    "pyjwt==2.8.0",
+    "python-jose[cryptography]==3.3.0",
     "uvicorn==0.32.0",
 ]
