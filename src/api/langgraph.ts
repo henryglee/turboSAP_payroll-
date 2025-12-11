@@ -13,9 +13,6 @@ import type {
   StartPaymentSessionResponse,
   SubmitPaymentAnswerRequest,
   SubmitPaymentAnswerResponse,
-  StartPaymentSessionResponse,
-  SubmitPaymentAnswerRequest,
-  SubmitPaymentAnswerResponse,
 } from '../types/chat';
 import { API_BASE_URL } from '../config/api';
 

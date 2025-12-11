@@ -415,8 +415,8 @@ export function PaymentMethodPage() {
 
   const handleExportAll = () => {
     handleExportPaymentMethods();
-    setTimeout(() => handleExportCheckRanges(), 100);
-    setTimeout(() => handleExportPreNotification(), 200);
+    handleExportCheckRanges();
+    handleExportPreNotification();
   };
 
   // Add/remove check range rows
