@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useConfigStore } from './store';
 import { Download, CheckCircle, AlertTriangle, XCircle, Edit, Save, X, Plus, Trash2 } from 'lucide-react';
 import type { PayrollArea } from './types';
@@ -7,6 +7,14 @@ export function PayrollAreasPanel() {
   const { payrollAreas, validation, exportJSON, setPayrollAreas } = useConfigStore();
   const [isEditing, setIsEditing] = useState(false);
   const [editedAreas, setEditedAreas] = useState<PayrollArea[]>([]);
+
+  const [selectedPeriodAreaCode, setSelectedPeriodAreaCode] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!selectedPeriodAreaCode && payrollAreas.length > 0) {
+      setSelectedPeriodAreaCode(payrollAreas[0].code);
+    }
+  }, [payrollAreas, selectedPeriodAreaCode]);
 
   const handleExport = () => {
     const jsonData = exportJSON();
@@ -120,6 +128,14 @@ export function PayrollAreasPanel() {
   };
 
   const handleExportCalendarCSV = () => {
+    if (!payrollAreas.length) {
+      alert('No payroll areas available.');
+      return;
+    }
+
+    const area =
+      payrollAreas.find(a => a.code === selectedPeriodAreaCode) ?? payrollAreas[0];
+
     const headers = [
       'period_parameters',
       'period_parameter_name',
@@ -137,13 +153,15 @@ export function PayrollAreasPanel() {
       return str;
     };
 
-    const rows = payrollAreas.map(area => [
-      escapeCSV('80'),                 // period_parameters (fixed for now)
-      escapeCSV(area.description),     // period_parameter_name
-      escapeCSV('03'),                 // time_unit (fixed for now)
-      escapeCSV(area.frequency),       // time_unit_desc
-      escapeCSV('1/1/1990'),           // start_date (fixed for now)
-    ]);
+    const rows = [
+      [
+        escapeCSV(String(area.calendarId || '80')), // period_parameters (link to calendarId)
+        escapeCSV(area.description),                // period_parameter_name (from description)
+        escapeCSV('03'),                            // time_unit (still fixed, SAP code for weeks/months as you prefer)
+        escapeCSV(area.frequency),                  // time_unit_desc (from frequency)
+        escapeCSV('1/1/1990'),                      // start_date (anchor; adjust if needed)
+      ],
+    ];
 
     const csvContent = [
       headers.join(','),
@@ -154,12 +172,20 @@ export function PayrollAreasPanel() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'calendar-id-configuration.csv';
+    a.download = `calendar-id-${area.code}-${area.frequency}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
-    const handleExportPayrollAreaConfigCSV = () => {
+  const handleExportPayrollAreaConfigCSV = () => {
+    if (!payrollAreas.length) {
+      alert('No payroll areas available.');
+      return;
+    }
+
+    const area =
+      payrollAreas.find(a => a.code === selectedPeriodAreaCode) ?? payrollAreas[0];
+
     const headers = [
       'payroll_area',
       'payroll_area_text',
@@ -177,13 +203,17 @@ export function PayrollAreasPanel() {
       return str;
     };
 
-    const rows = payrollAreas.map(area => [
-      escapeCSV(area.region || ''), // payroll_area from Region column
-      escapeCSV('McCarthy'),        // payroll_area_text (fixed for now)
-      escapeCSV('08'),              // period_parameters (fixed for now)
-      escapeCSV('X'),               // run_payroll (fixed for now)
-      escapeCSV('0'),               // date_modifier (fixed for now)
-    ]);
+    const payrollAreaValue = area.region || '';
+
+    const rows = [
+      [
+        escapeCSV(payrollAreaValue),             // payroll_area from Region column
+        escapeCSV('McCarthy'),                  // payroll_area_text (still fixed, adjust if needed)
+        escapeCSV(String(area.calendarId || '08')), // period_parameters (link to calendarId if you want)
+        escapeCSV('X'),                         // run_payroll
+        escapeCSV('0'),                         // date_modifier
+      ],
+    ];
 
     const csvContent = [
       headers.join(','),
@@ -194,12 +224,158 @@ export function PayrollAreasPanel() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'payroll-area-configuration.csv';
+    a.download = `payroll-area-configuration-${area.code}-${area.frequency}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
+  const formatDate = (d: Date) => {
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    return `${mm}/${dd}/${yyyy}`;
+  };
+
+  type PayrollPeriodRow = [
+    string, // period_parameters
+    string, // payroll_year
+    string, // payroll_period
+    string, // period_begin_date
+    string, // period_end_date
+    string, // prior_period_year
+    string, // prior_period_period
+  ];
+
+  const BASE_START_DATE = new Date(2024, 11, 23); // keep your existing anchor
+
+  function generatePayrollPeriodsForArea(
+    area: PayrollArea,
+    numYears: number = 1
+  ): PayrollPeriodRow[] {
+    const rows: PayrollPeriodRow[] = [];
+    let payrollPeriod = 1;
+    let currentPriorYear: number | null = null;
+    let priorPeriodCounter = 0;
+
+    // helper to push a row
+    const pushRow = (begin: Date, end: Date) => {
+      const payrollYear = end.getFullYear();
+      const priorPeriodYear = end.getFullYear();
+
+      if (currentPriorYear === null || currentPriorYear !== priorPeriodYear) {
+        currentPriorYear = priorPeriodYear;
+        priorPeriodCounter = 1;
+      } else {
+        priorPeriodCounter += 1;
+      }
+
+      const payrollPeriodStr = String(payrollPeriod).padStart(2, '0');
+      const priorPeriodCounterStr = String(priorPeriodCounter).padStart(2, '0');
+
+      rows.push([
+        String(area.calendarId || '80'), // period_parameters: tie to calendarId or keep '80'
+        String(payrollYear),
+        payrollPeriodStr,
+        formatDate(begin),
+        formatDate(end),
+        String(priorPeriodYear),
+        priorPeriodCounterStr,
+      ]);
+
+      payrollPeriod += 1;
+    };
+
+    // frequency-specific generation
+    const start = new Date(BASE_START_DATE);
+
+    switch (area.frequency) {
+      case 'weekly': {
+        const numPeriods = 52 * numYears;
+        for (let i = 0; i < numPeriods; i++) {
+          const begin = new Date(start);
+          begin.setDate(start.getDate() + i * 7);
+          const end = new Date(begin);
+          end.setDate(begin.getDate() + 6);
+          pushRow(begin, end);
+        }
+        break;
+      }
+
+      case 'biweekly': {
+        const numPeriods = 26 * numYears;
+        for (let i = 0; i < numPeriods; i++) {
+          const begin = new Date(start);
+          begin.setDate(start.getDate() + i * 14);
+          const end = new Date(begin);
+          end.setDate(begin.getDate() + 13);
+          pushRow(begin, end);
+        }
+        break;
+      }
+
+      case 'semimonthly': {
+        const totalMonths = 12 * numYears;
+        let cursor = new Date(start);
+        for (let m = 0; m < totalMonths; m++) {
+          const year = cursor.getFullYear();
+          const month = cursor.getMonth();
+
+          // 1st-15th
+          const firstBegin = new Date(year, month, 1);
+          const firstEnd = new Date(year, month, 15);
+          pushRow(firstBegin, firstEnd);
+
+          // 16th-end
+          const secondBegin = new Date(year, month, 16);
+          const secondEnd = new Date(year, month + 1, 0); // last day of month
+          pushRow(secondBegin, secondEnd);
+
+          cursor = new Date(year, month + 1, 1);
+        }
+        break;
+      }
+
+      case 'monthly': {
+        const totalMonths = 12 * numYears;
+        let cursor = new Date(start);
+        for (let m = 0; m < totalMonths; m++) {
+          const year = cursor.getFullYear();
+          const month = cursor.getMonth();
+
+          const begin = new Date(year, month, 1);
+          const end = new Date(year, month + 1, 0);
+          pushRow(begin, end);
+
+          cursor = new Date(year, month + 1, 1);
+        }
+        break;
+      }
+
+      default: {
+        // Fallback: weekly
+        const numPeriods = 52 * numYears;
+        for (let i = 0; i < numPeriods; i++) {
+          const begin = new Date(start);
+          begin.setDate(start.getDate() + i * 7);
+          const end = new Date(begin);
+          end.setDate(begin.getDate() + 6);
+          pushRow(begin, end);
+        }
+      }
+    }
+
+    return rows;
+  }
+
   const handleExportPayrollPeriodCSV = () => {
+    if (!payrollAreas.length) {
+      alert('No payroll areas available.');
+      return;
+    }
+
+    const area =
+    payrollAreas.find(a => a.code === selectedPeriodAreaCode) ?? payrollAreas[0];
+
     const headers = [
       'period_parameters',
       'payroll_year',
@@ -219,71 +395,9 @@ export function PayrollAreasPanel() {
       return str;
     };
 
-    const NUM_PERIODS = 52; // one year
-    const startDate = new Date(2024, 11, 23); // 12/23/2024 (month is 0-based)
-
-    const rows: string[][] = [];
-    let payrollPeriod = 1; // global counter
-
-    let currentPriorYear: number | null = null;
-    let priorPeriodCounter = 0;
-
-    const formatDate = (d: Date) => {
-      const mm = String(d.getMonth() + 1).padStart(2, '0');
-      const dd = String(d.getDate()).padStart(2, '0');
-      const yyyy = d.getFullYear();
-      return `${mm}/${dd}/${yyyy}`;
-    };
-
-    // set first row
-     // convert payrollPeriod and priorPeriodCounter to strings
-    const payrollPeriodStr = String(payrollPeriod).padStart(2, '0');
-    const priorPeriodCounterStr = String(NUM_PERIODS).padStart(2, '0');
-
-    rows.push([
-      escapeCSV('80'),                    // period_parameters
-      escapeCSV(startDate.getFullYear()), // payroll_year
-      escapeCSV(payrollPeriodStr),          // payroll_period
-      escapeCSV(formatDate(startDate)),   // period_begin_date
-      escapeCSV(formatDate(startDate)),   // period_end_date
-      escapeCSV(startDate.getFullYear()), // prior_period_year
-      escapeCSV(priorPeriodCounterStr),          // prior_period_period
-    ]);
-    payrollPeriod += 1;
-    
-    for (let i = 1; i < NUM_PERIODS; i++) {
-      const periodBegin = new Date(startDate);
-      periodBegin.setDate(startDate.getDate() + i * 7);
-
-      const periodEnd = new Date(periodBegin);
-      periodEnd.setDate(periodBegin.getDate() + 6);
-
-      const payrollYear = periodEnd.getFullYear();
-      const priorPeriodYear = periodEnd.getFullYear();
-
-      if (currentPriorYear === null || currentPriorYear !== priorPeriodYear) {
-        currentPriorYear = priorPeriodYear;
-        priorPeriodCounter = 1;
-      } else {
-        priorPeriodCounter += 1;
-      }
-
-      // convert payrollPeriod and priorPeriodCounter to strings
-      const payrollPeriodStr = String(payrollPeriod).padStart(2, '0');
-      const priorPeriodCounterStr = String(priorPeriodCounter).padStart(2, '0');
-
-      rows.push([
-        escapeCSV('80'),                    // period_parameters
-        escapeCSV(payrollYear),            // payroll_year
-        escapeCSV(payrollPeriodStr),          // payroll_period
-        escapeCSV(formatDate(periodBegin)),// period_begin_date
-        escapeCSV(formatDate(periodEnd)),  // period_end_date
-        escapeCSV(priorPeriodYear),        // prior_period_year
-        escapeCSV(priorPeriodCounterStr),     // prior_period_period
-      ]);
-
-      payrollPeriod += 1;
-    }
+    const rows = generatePayrollPeriodsForArea(area).map(r =>
+    r.map(escapeCSV)
+    );
 
     const csvContent = [
       headers.join(','),
@@ -294,12 +408,144 @@ export function PayrollAreasPanel() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'payroll-period-configuration.csv';
+    const labelFrequency = area.frequency;
+    a.download = `payroll-period-${area.code}-${labelFrequency}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
+  const PAYDAY_TO_WEEKDAY: Record<string, number> = {
+    sunday: 0,
+    monday: 1,
+    tuesday: 2,
+    wednesday: 3,
+    thursday: 4,
+    friday: 5,
+    saturday : 6,
+  };
+
+  function findClosestPayDate(base: Date, payDay: string): Date {
+    const target = PAYDAY_TO_WEEKDAY[payDay.toLowerCase()];
+    if (target === undefined) return new Date(base); // fallback
+
+    const baseDow = base.getDay();
+
+    // distance going forward to next target weekday
+    const forward = (target - baseDow + 7) % 7;
+    // distance going backward to previous target weekday
+    const backward = (baseDow - target + 7) % 7;
+
+    let offset = 0;
+    if (forward <= backward) {
+      offset = forward;      // same day or nearest in the future
+    } else {
+      offset = -backward;    // nearest in the past
+    }
+
+    const result = new Date(base);
+    result.setDate(result.getDate() + offset);
+    return result;
+  }
+
+  function getLastDayOfMonth(year: number, month: number): number {
+    return new Date(year, month + 1, 0).getDate();
+  }
+
+  function getFirstSemiMonthlyPayDate(anchor: Date, pattern: string): Date {
+    const date = new Date(anchor);
+    while (true) {
+      const year = date.getFullYear();
+      const month = date.getMonth();
+      const day = date.getDate();
+      const lastDay = getLastDayOfMonth(year, month);
+
+      let isPayday = false;
+      if (pattern === '15-last') {
+        isPayday = day === 15 || day === lastDay;
+      } else if (pattern === '15-30') {
+        isPayday = day === 15 || day === 30;
+      }
+
+      if (isPayday) return date;
+
+      date.setDate(day + 1);
+    }
+  }
+
+  function getNextSemiMonthlyPayDate(current: Date, pattern: string): Date {
+    const date = new Date(current);
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const day = date.getDate();
+    const lastDay = getLastDayOfMonth(year, month);
+
+    if (pattern === '15-last') {
+      if (day === 15) {
+        return new Date(year, month, lastDay);
+      }
+      return new Date(year, month + 1, 15);
+    }
+
+    // '15-30'
+    if (day === 15) {
+      return new Date(year, month, 30);
+    }
+    return new Date(year, month + 1, 15);
+  }
+
+  function getFirstMonthlyPayDate(anchor: Date, pattern: string): Date {
+    const date = new Date(anchor);
+    while (true) {
+      const year = date.getFullYear();
+      const month = date.getMonth();
+      const day = date.getDate();
+      const lastDay = getLastDayOfMonth(year, month);
+
+      let targetDay = 1;
+      if (pattern === 'last') targetDay = lastDay;
+      else if (pattern === '15') targetDay = 15;
+      else if (pattern === '1') targetDay = 1;
+
+      if (day <= targetDay) {
+        return new Date(year, month, targetDay);
+      }
+
+      // move to next month and recompute
+      const nextMonth = new Date(year, month + 1, 1);
+      const nextYear = nextMonth.getFullYear();
+      const nextMonthIndex = nextMonth.getMonth();
+      const nextLastDay = getLastDayOfMonth(nextYear, nextMonthIndex);
+      let nextTarget = 1;
+      if (pattern === 'last') nextTarget = nextLastDay;
+      else if (pattern === '15') nextTarget = 15;
+      else if (pattern === '1') nextTarget = 1;
+
+      return new Date(nextYear, nextMonthIndex, nextTarget);
+    }
+  }
+
+  function getNextMonthlyPayDate(current: Date, pattern: string): Date {
+    const year = current.getFullYear();
+    const month = current.getMonth() + 1; // next month
+    const lastDay = getLastDayOfMonth(year, month);
+
+    let targetDay = 1;
+    if (pattern === 'last') targetDay = lastDay;
+    else if (pattern === '15') targetDay = 15;
+    else if (pattern === '1') targetDay = 1;
+
+    return new Date(year, month, targetDay);
+  }
+
   const handleExportPayDateConfigCSV = () => {
+      if (!payrollAreas.length) {
+      alert('No payroll areas available.');
+      return;
+    }
+
+    const area =
+      payrollAreas.find(a => a.code === selectedPeriodAreaCode) ?? payrollAreas[0];
+
     const headers = [
       'molga',
       'date_modifier',
@@ -319,31 +565,53 @@ export function PayrollAreasPanel() {
       return str;
     };
 
-    const NUM_ROWS = 52; // adjust if needed
+    // Base anchor: 1/3/2025
+    const anchor = new Date(2025, 0, 3);
 
-    // First date: 1/3/2025
-    // JS Date: month is 0-based, so January = 0
-    const startDate = new Date(2025, 0, 3);
+    let firstPayDate: Date;
+    let numRows: number;
+    let useSimpleStep = false;
+    let stepDays = 7;
+
+    if (area.frequency === 'weekly' || area.frequency === 'biweekly') {
+      const weekdayPayday = area.payDay || 'friday';
+      firstPayDate = findClosestPayDate(anchor, weekdayPayday);
+
+      useSimpleStep = true;
+      if (area.frequency === 'weekly') {
+        stepDays = 7;
+        numRows = 52;
+      } else {
+        stepDays = 14;
+        numRows = 26;
+      }
+    } else if (area.frequency === 'semimonthly') {
+        const pattern = area.payDay || '15-last';
+        firstPayDate = getFirstSemiMonthlyPayDate(anchor, pattern);
+        numRows = 24; // 2 per month * 12 months
+    } else if (area.frequency === 'monthly') {
+        const pattern = area.payDay || 'last';
+        firstPayDate = getFirstMonthlyPayDate(anchor, pattern);
+        numRows = 12; // 1 per month
+    } else {
+        // fallback: treat like weekly
+        firstPayDate = findClosestPayDate(anchor, area.payDay || 'friday');
+        useSimpleStep = true;
+        stepDays = 7;
+        numRows = 52;
+    }
 
     const rows: string[][] = [];
-
     let currentYear: number | null = null;
     let payrollPeriodCounter = 0;
 
-    const formatDate = (d: Date) => {
-      const mm = String(d.getMonth() + 1).padStart(2, '0');
-      const dd = String(d.getDate()).padStart(2, '0');
-      const yyyy = d.getFullYear();
-      return `${mm}/${dd}/${yyyy}`;
-    };
+    let currentDate = new Date(firstPayDate);
 
-    for (let i = 0; i < NUM_ROWS; i++) {
-      const date = new Date(startDate);
-      date.setDate(startDate.getDate() + i * 7);
+    for (let i = 0; i < numRows; i++) {
+      const date = new Date(currentDate);
 
       const year = date.getFullYear();
 
-      // Reset payroll_period when the year changes
       if (currentYear === null || currentYear !== year) {
         currentYear = year;
         payrollPeriodCounter = 1;
@@ -352,14 +620,22 @@ export function PayrollAreasPanel() {
       }
 
       rows.push([
-        escapeCSV('10'),                 // molga
-        escapeCSV('0'),                  // date_modifier
-        escapeCSV('80'),                 // period_parameters
-        escapeCSV(year),                 // payroll_year (from date)
-        escapeCSV(payrollPeriodCounter), // payroll_period (per year)
-        escapeCSV('01'),                 // date_type
-        escapeCSV(formatDate(date)),     // date
+        escapeCSV('10'),
+        escapeCSV('0'),
+        escapeCSV(String(area.calendarId || '80')),
+        escapeCSV(year),
+        escapeCSV(payrollPeriodCounter),
+        escapeCSV('01'),
+        escapeCSV(formatDate(date)),
       ]);
+
+      if (useSimpleStep) {
+        currentDate.setDate(currentDate.getDate() + stepDays);
+      } else if (area.frequency === 'semimonthly') {
+        currentDate = getNextSemiMonthlyPayDate(currentDate, area.payDay || '15-last');
+      } else if (area.frequency === 'monthly') {
+        currentDate = getNextMonthlyPayDate(currentDate, area.payDay || 'last');
+      }
     }
 
     const csvContent = [
@@ -371,7 +647,7 @@ export function PayrollAreasPanel() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'pay-date-configuration.csv';
+    a.download = `pay-date-configuration-${area.code}-${area.frequency}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -385,29 +661,71 @@ export function PayrollAreasPanel() {
             Minimal areas calculated based on SAP best practices
           </p>
         </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'flex-end' }}>
+      {isEditing ? (
         <div style={{ display: 'flex', gap: '0.5rem' }}>
-          {isEditing ? (
-            <>
-              <button className="button button-small" onClick={handleSave} style={{ background: '#48bb78', color: 'white' }}>
-                <Save size={14} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
-                Save
-              </button>
-              <button className="button button-small" onClick={handleCancel} style={{ background: '#e53e3e', color: 'white' }}>
-                <X size={14} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
-                Cancel
-              </button>
-            </>
-          ) : (
-            <>
-              <button className="button button-small" onClick={handleEdit}>
-                <Edit size={14} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
-                Edit
-              </button>
-              <button className="button button-small" onClick={handleExportCSV}>
-                <Download size={14} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
-                Export CSV
-              </button>
-               <button className="button button-small" onClick={handleExportCalendarCSV}>
+          <button
+            className="button button-small"
+            onClick={handleSave}
+            style={{ background: '#48bb78', color: 'white' }}
+          >
+            <Save size={14} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
+            Save
+          </button>
+          <button
+            className="button button-small"
+            onClick={handleCancel}
+            style={{ background: '#e53e3e', color: 'white' }}
+          >
+            <X size={14} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
+            Cancel
+          </button>
+        </div>
+      ) : (
+        <>
+          {/* Top row: Edit, Export CSV, dropdown, Export JSON */}
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <button className="button button-small" onClick={handleEdit}>
+              <Edit size={14} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
+              Edit
+            </button>
+            <button className="button button-small" onClick={handleExportCSV}>
+              <Download size={14} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
+              Export CSV
+            </button>
+            <button className="button button-small" onClick={handleExport}>
+              <Download size={14} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
+              Export JSON
+            </button>
+            <select
+              value={selectedPeriodAreaCode ?? ''}
+              onChange={(e) => setSelectedPeriodAreaCode(e.target.value || null)}
+              className="button button-small"
+              style={{ padding: '0.25rem 0.5rem' }}
+            >
+              {payrollAreas.map(area => (
+                <option key={area.code} value={area.code}>
+                  {area.code} – {area.frequency}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Second row: Export Files group */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', alignItems: 'flex-end' }}>
+            <div
+              style={{
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                color: '#4a5568',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+              }}
+            >
+              Export Files
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+              <button className="button button-small" onClick={handleExportCalendarCSV}>
                 <Download size={14} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
                 Export Calendar CSV
               </button>
@@ -423,13 +741,11 @@ export function PayrollAreasPanel() {
                 <Download size={14} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
                 Export Pay Date Config CSV
               </button>
-              <button className="button button-small" onClick={handleExport}>
-                <Download size={14} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
-                Export JSON
-              </button>
-            </>
-          )}
-        </div>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
       </div>
 
       <div className="validation-summary">
