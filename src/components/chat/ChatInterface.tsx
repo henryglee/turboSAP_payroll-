@@ -341,8 +341,12 @@ export function ChatInterface({ onComplete }: ChatInterfaceProps) {
     <div className="chat-container">
       {/* Header with progress */}
       <div className="chat-header">
-        <h2>TurboSAP Configuration</h2>
-        <p>{state.isComplete ? 'Complete!' : 'Answer the questions below'}</p>
+        <div style={{ marginBottom: '1rem' }}>
+          <h2 className="section-title">Chat Configuration</h2>
+          <p style={{ marginTop: '0.5rem', color: '#718096', fontSize: '0.9375rem', lineHeight: '1.6' }}>
+            {state.isComplete ? 'Configuration complete! Review the generated payroll areas.' : 'Answer questions to generate your optimal payroll area setup.'}
+          </p>
+        </div>
         <div className="progress-bar">
           <div className="progress-fill" style={{ width: `${state.progress}%` }} />
         </div>

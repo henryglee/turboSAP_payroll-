@@ -33,7 +33,7 @@ from .database import (
     delete_session as db_delete_session,
 )
 from .auth import hash_password, verify_password, create_token
-from .middleware import get_current_user, get_optional_user
+from .middleware import get_current_user, get_optional_user, require_admin
 
 from .config.configuration import (
     load_current_questions,
@@ -160,7 +160,7 @@ def register(request: dict = Body(...)):
     username = request.get("username")
     password = request.get("password")
     company_name = request.get("companyName")
-    role = request.get("role", "client")
+    requested_role = request.get("role", "client")
 
     # Validate input
     if not username:
@@ -170,18 +170,25 @@ def register(request: dict = Body(...)):
     if len(password) < 6:
         raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
 
+    # Security: Only allow registering as "client". Admin accounts must be created by existing admins or manually.
+    if requested_role and requested_role != "client":
+        raise HTTPException(
+            status_code=403,
+            detail="Only 'client' role can be registered. Admin accounts must be created by administrators."
+        )
+
     # Check if username already exists
     existing_user = get_user_by_username(username)
     if existing_user:
         raise HTTPException(status_code=400, detail="Username already exists")
 
-    # Create user
+    # Create user - always as "client"
     try:
         password_hash = hash_password(password)
         user_id = create_user(
             username=username,
             password_hash=password_hash,
-            role=role,
+            role="client",  # Always create as client
             company_name=company_name,
         )
     except ValueError as e:
@@ -193,7 +200,7 @@ def register(request: dict = Body(...)):
     return {
         "userId": user_id,
         "username": username,
-        "role": role,
+        "role": "client",  # Always return "client" for new registrations
         "companyName": company_name,
         "token": token,
     }
@@ -638,14 +645,20 @@ async def delete_session(
 
 @app.get("/api/config/questions/current")
 def get_current_config():
+    """Get current questions configuration. Available to all authenticated users."""
     return load_current_questions()
 
 @app.get("/api/config/questions/original")
-def get_original_config():
+async def get_original_config(current_user: dict = Depends(get_current_user)):
+    """Get original questions configuration. Available to all authenticated users."""
     return load_original_questions()
 
 @app.post("/api/config/questions/upload")
-def upload_questions_config(payload: dict = Body(...)):
+async def upload_questions_config(
+    payload: dict = Body(...),
+    current_user: dict = Depends(require_admin),
+):
+    """Upload questions configuration. Admin only."""
     try:
         init_from_upload(payload)
     except ValueError as e:
@@ -653,7 +666,11 @@ def upload_questions_config(payload: dict = Body(...)):
     return {"status": "ok"}
 
 @app.put("/api/config/questions/current")
-def update_current_config(payload: dict = Body(...)):
+async def update_current_config(
+    payload: dict = Body(...),
+    current_user: dict = Depends(require_admin),
+):
+    """Update current questions configuration. Admin only."""
     try:
         save_current_questions(payload)
     except ValueError as e:
@@ -661,9 +678,177 @@ def update_current_config(payload: dict = Body(...)):
     return {"status": "ok"}
 
 @app.post("/api/config/questions/restore")
-def restore_questions_config():
+async def restore_questions_config(current_user: dict = Depends(require_admin)):
+    """Restore original questions configuration. Admin only."""
     restore_original()
     return {"status": "ok"}
+
+
+# ============================================
+# Admin Management Endpoints
+# ============================================
+
+@app.post("/api/admin/users")
+async def create_user_by_admin(
+    request: dict = Body(...),
+    current_user: dict = Depends(require_admin),
+):
+    """
+    Create a new user (admin only).
+    
+    Request body:
+        {
+            "username": "newuser",
+            "password": "securepassword",
+            "role": "client" | "admin",
+            "companyName": "ABC Corp" (optional)
+        }
+    
+    Returns:
+        {
+            "userId": 1,
+            "username": "newuser",
+            "role": "client",
+            "companyName": "ABC Corp"
+        }
+    """
+    username = request.get("username")
+    password = request.get("password")
+    role = request.get("role", "client")
+    company_name = request.get("companyName")
+    
+    # Validate input
+    if not username:
+        raise HTTPException(status_code=400, detail="Username is required")
+    if not password:
+        raise HTTPException(status_code=400, detail="Password is required")
+    if len(password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    if role not in ["client", "admin"]:
+        raise HTTPException(status_code=400, detail="Role must be 'client' or 'admin'")
+    
+    # Check if username already exists
+    existing_user = get_user_by_username(username)
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Username already exists")
+    
+    # Create user
+    try:
+        password_hash = hash_password(password)
+        user_id = create_user(
+            username=username,
+            password_hash=password_hash,
+            role=role,
+            company_name=company_name,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
+    # Get created user
+    user = get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=500, detail="Failed to retrieve created user")
+    
+    return {
+        "userId": user["id"],
+        "username": user["username"],
+        "role": user["role"],
+        "companyName": user.get("company_name"),
+        "createdAt": user.get("created_at"),
+    }
+
+
+@app.get("/api/admin/users")
+async def list_all_users(current_user: dict = Depends(require_admin)):
+    """
+    List all users. Admin only.
+
+    Returns:
+        List of all users (without password hashes)
+    """
+    from .database import get_db_connection
+    
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT id, username, role, logo_path, company_name, created_at, last_login
+            FROM users
+            ORDER BY created_at DESC
+        """)
+        rows = cursor.fetchall()
+        users = []
+        for row in rows:
+            user_dict = dict(row)
+            # Convert snake_case to camelCase for frontend
+            users.append({
+                "id": user_dict.get("id"),
+                "username": user_dict.get("username"),
+                "role": user_dict.get("role"),
+                "logoPath": user_dict.get("logo_path"),
+                "companyName": user_dict.get("company_name"),
+                "createdAt": user_dict.get("created_at"),
+                "lastLogin": user_dict.get("last_login"),
+            })
+        return {"users": users}
+
+
+@app.get("/api/admin/users/{user_id}")
+async def get_user_details(
+    user_id: int,
+    current_user: dict = Depends(require_admin),
+):
+    """
+    Get user details by ID. Admin only.
+    """
+    user = get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Remove password hash from response
+    user.pop("password_hash", None)
+    return user
+
+
+@app.put("/api/admin/users/{user_id}")
+async def update_user_role(
+    user_id: int,
+    request: dict = Body(...),
+    current_user: dict = Depends(require_admin),
+):
+    """
+    Update user role. Admin only.
+
+    Request body:
+        {
+            "role": "client" | "admin"
+        }
+    """
+    new_role = request.get("role")
+    if new_role not in ["client", "admin"]:
+        raise HTTPException(status_code=400, detail="Role must be 'client' or 'admin'")
+    
+    user = get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Prevent admin from removing their own admin role
+    if user_id == current_user["user_id"] and new_role != "admin":
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot remove your own admin role"
+        )
+    
+    from .database import get_db_connection
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE users
+            SET role = ?
+            WHERE id = ?
+        """, (new_role, user_id))
+        conn.commit()
+    
+    return {"status": "ok", "userId": user_id, "role": new_role}
 
 # Catch-all route for SPA (React/Vite)
 @app.get("/{full_path:path}", response_class=HTMLResponse)

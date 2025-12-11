@@ -3,11 +3,12 @@ import './App.css';
 import { ConfigPage } from './pages/ConfigPage';
 import { ChatPage } from './pages/ChatPage';
 import { QuestionsConfigPage } from './pages/QuestionsConfigPage';
+import { AdminPage } from './pages/AdminPage';
 import { AuthPage } from './components/auth';
 import { useAuthStore } from './store/auth';
 import { getCurrentUser } from './api/auth';
 
-type PageType = 'config' | 'chat' | 'questions';
+type PageType = 'config' | 'chat' | 'questions' | 'admin';
 
 function App() {
   const [currentPage, setCurrentPage] = useState<PageType>('chat');
@@ -33,7 +34,7 @@ function App() {
   }
 
   return (
-    <div>
+    <div className="app">
       {/* Header with user info and logout */}
       <header className="app-header">
         <div className="header-content">
@@ -43,8 +44,8 @@ function App() {
           </div>
           <div className="header-right">
             <div className="user-info-container">
-              <span className="user-name">{user.username}</span>
-              <span className="user-role">{user.role}</span>
+              <span className="user-name">{user?.username || ''}</span>
+              <span className="user-role">{user?.role || ''}</span>
             </div>
             <button onClick={clearAuth} className="logout-button">
               Logout
@@ -67,18 +68,29 @@ function App() {
         >
           Manual Configuration
         </button>
-        <button
-          className={`nav-button ${currentPage === 'questions' ? 'active' : ''}`}
-          onClick={() => setCurrentPage('questions')}
-        >
-          Questions Configuration
-        </button>
+        {user?.role === 'admin' && (
+          <>
+            <button
+              className={`nav-button ${currentPage === 'questions' ? 'active' : ''}`}
+              onClick={() => setCurrentPage('questions')}
+            >
+              Questions Configuration
+            </button>
+            <button
+              className={`nav-button ${currentPage === 'admin' ? 'active' : ''}`}
+              onClick={() => setCurrentPage('admin')}
+            >
+              User Management
+            </button>
+          </>
+        )}
       </nav>
 
       {/* Render current page */}
       {currentPage === 'chat' && <ChatPage />}
       {currentPage === 'config' && <ConfigPage />}
-      {currentPage === 'questions' && <QuestionsConfigPage />}
+      {currentPage === 'questions' && user?.role === 'admin' && <QuestionsConfigPage />}
+      {currentPage === 'admin' && user?.role === 'admin' && <AdminPage />}
     </div>
   );
 }

@@ -16,6 +16,12 @@ export function ConfigurationPanel() {
   return (
     <div className="left-panel">
       <div className="section">
+        <div style={{ marginBottom: '2rem' }}>
+          <h2 className="section-title">Manual Configuration</h2>
+          <p style={{ marginTop: '0.5rem', color: '#718096', fontSize: '0.9375rem', lineHeight: '1.6' }}>
+            Manually configure payroll areas by setting company profile and preferences.
+          </p>
+        </div>
         <h2 className="section-title">Company Profile</h2>
         <div className="form-group">
           <label className="form-label">Company Name</label>
