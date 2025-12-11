@@ -107,12 +107,12 @@ export async function getSession(sessionId: string): Promise<{
 /**
  * Start a new payment-method configuration session.
  *
- * Calls FastAPI: POST /api/payment/start
+ * Calls FastAPI: POST /api/session/payment_method/start
  */
 export async function startPaymentSession(): Promise<StartPaymentSessionResponse> {
-  return apiFetch<StartPaymentSessionResponse>('/api/payment/start', {
+  return apiFetch<StartPaymentSessionResponse>('/api/session/payment_method/start', {
     method: 'POST',
-    body: JSON.stringify({}), // no payload for now
+    body: JSON.stringify({}), 
   });
 }
 
@@ -120,12 +120,12 @@ export async function startPaymentSession(): Promise<StartPaymentSessionResponse
  * Submit an answer for the payment-method flow and get the next question
  * or final payment method configurations.
  *
- * Calls FastAPI: POST /api/payment/answer
+ * Calls FastAPI: POST /api/session/payment_method/answer
  */
 export async function submitPaymentAnswer(
   request: SubmitPaymentAnswerRequest
 ): Promise<SubmitPaymentAnswerResponse> {
-  return apiFetch<SubmitPaymentAnswerResponse>('/api/payment/answer', {
+  return apiFetch<SubmitPaymentAnswerResponse>('/api/session/payment_method/answer', {
     method: 'POST',
     body: JSON.stringify({
       sessionId: request.sessionId,

@@ -42,8 +42,8 @@ ENV = os.getenv("APP_ENV", "development")
 # ============================================
 
 app = FastAPI(
-    title="TurboSAP Payroll Configuration API",
-    description="API for configuring SAP payroll areas through a guided Q&A flow",
+    title="TurboSAP Configuration API",
+    description="API for configuring turboSAP through a guided Q&A flow",
     version="1.0.0",
 )
 
@@ -177,17 +177,9 @@ def start_session(request: dict = {}):
         "question": question,
     }
 
-@app.post("/api/payment/start")
+@app.post("/api/session/payment_method/start")
 def start_payment_session(request: dict = {}):
-    """
-    Start a new payment-method configuration session.
 
-    Request body (optional):
-        { "companyName": "ABC Corp" }
-
-    Returns:
-        { "sessionId": "...", "question": {...} }
-    """
     session_id = str(uuid.uuid4())
 
     # Initial state for payment method flow
@@ -314,7 +306,7 @@ def submit_answer(request: dict):
         "question": next_question,
     }
 
-@app.post("/api/payment/answer")
+@app.post("/api/session/payment_method/answer")
 def submit_payment_answer(request: dict):
     """
     Submit an answer for the payment-method flow and get the next question
@@ -405,7 +397,7 @@ def get_session(session_id: str):
         "progress": calculate_progress(state),
     }
 
-@app.get("/api/payment/session/{session_id}")
+@app.get("/api/session/payment_method/{session_id}")
 def get_payment_session(session_id: str):
     """
     Get current state of a payment-method session (for debugging).
