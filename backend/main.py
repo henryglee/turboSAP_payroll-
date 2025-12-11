@@ -36,6 +36,18 @@ from fastapi.responses import HTMLResponse
 import os
 
 ENV = os.getenv("APP_ENV", "development")
+from payment_method_graph import (
+    payment_method_graph,
+    PaymentMethodState,
+    QUESTIONS as PAYMENT_QUESTIONS, 
+)
+
+from pathlib import Path
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse
+import os
+
+ENV = os.getenv("APP_ENV", "development")
 
 # ============================================
 # FastAPI App Setup
@@ -46,6 +58,13 @@ app = FastAPI(
     description="API for configuring turboSAP through a guided Q&A flow",
     version="1.0.0",
 )
+
+# ====== frontend static files ======
+frontend_dir = Path(__file__).parent / "static"
+
+# Serve all static assets (JS, CSS, images)
+if ENV == "production":
+    app.mount("/static", StaticFiles(directory=frontend_dir, html=False), name="static")
 
 # ====== frontend static files ======
 frontend_dir = Path(__file__).parent / "static"
@@ -82,6 +101,9 @@ sessions: dict[str, PayrollState] = {}
 # Separate sessions for payment-method flow
 payment_sessions: dict[str, PaymentMethodState] = {}
 
+# Separate sessions for payment-method flow
+payment_sessions: dict[str, PaymentMethodState] = {}
+
 # ============================================
 # Helper Functions
 # ============================================
@@ -108,6 +130,20 @@ def calculate_progress(state: PayrollState) -> int:
         return 100
 
     return min(int((answered_count / max(estimated_total, 1)) * 100), 95)
+
+def calculate_payment_progress(state: PaymentMethodState) -> int:
+    """Very rough 0–100% progress for payment method flow."""
+    answers = state.get("answers", {})
+    answered_count = len(answers)
+
+    # You currently have 5 top-level questions in payment_method_question.json
+    ESTIMATED_TOTAL = 5
+
+    if state.get("done"):
+        return 100
+
+    return min(int((answered_count / max(ESTIMATED_TOTAL, 1)) * 100), 95)
+
 
 def calculate_payment_progress(state: PaymentMethodState) -> int:
     """Very rough 0–100% progress for payment method flow."""
@@ -444,6 +480,27 @@ def update_current_config(payload: dict = Body(...)):
 def restore_questions_config():
     restore_original()
     return {"status": "ok"}
+
+# Catch-all route for SPA (React/Vite)
+@app.get("/{full_path:path}", response_class=HTMLResponse)
+def serve_spa(full_path: str):
+    index_file = frontend_dir / "index.html"
+
+    #Development
+    if ENV == "development":
+        # In dev, the frontend should be served by Vite directly
+        return HTMLResponse(
+            "<h1>Vite Dev ServerRunning</h1><p>FastAPI is acting as an API only.</p>",
+            status_code=200
+        )
+
+    # Production
+    if index_file.exists():
+        return index_file.read_text(encoding="utf-8")
+
+    return HTMLResponse("<h1>Frontend not found</h1>", status_code=404)
+
+
 
 # Catch-all route for SPA (React/Vite)
 @app.get("/{full_path:path}", response_class=HTMLResponse)

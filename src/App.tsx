@@ -1,44 +1,26 @@
-import { useState } from 'react';
 import './App.css';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ConfigPage } from './pages/ConfigPage';
 import { ChatPage } from './pages/ChatPage';
 import { QuestionsConfigPage } from './pages/QuestionsConfigPage';
-
-
-type PageType = 'config' | 'chat' | 'questions';
+import { PaymentMethodPage } from './pages/PaymentMethodPage';
 
 function App() {
-  const [currentPage, setCurrentPage] = useState<PageType>('chat');
-
   return (
-    <div>
-      {/* Page Switcher */}
-      <nav className="page-nav">
-        <button
-          className={`nav-button ${currentPage === 'chat' ? 'active' : ''}`}
-          onClick={() => setCurrentPage('chat')}
-        >
-          Chat Configuration
-        </button>
-        <button
-          className={`nav-button ${currentPage === 'config' ? 'active' : ''}`}
-          onClick={() => setCurrentPage('config')}
-        >
-          Manual Configuration
-        </button>
-        <button
-          className={`nav-button ${currentPage === 'questions' ? 'active' : ''}`}
-          onClick={() => setCurrentPage('questions')}
-        >
-          Questions Configuration
-        </button>
-      </nav>
+    <BrowserRouter>
+      <Routes>
+        {/* Redirect root to chat (current default) */}
+        <Route path="/" element={<Navigate to="/chat" replace />} />
 
-      {/* Render current page */}
-      {currentPage === 'chat' && <ChatPage />}
-      {currentPage === 'config' && <ConfigPage />}
-      {currentPage === 'questions' && <QuestionsConfigPage />}
-    </div>
+        {/* Existing pages - work exactly as before */}
+        <Route path="/chat" element={<ChatPage />} />
+        <Route path="/config" element={<ConfigPage />} />
+        <Route path="/questions" element={<QuestionsConfigPage />} />
+
+        {/* New payment method page */}
+        <Route path="/payment-methods" element={<PaymentMethodPage />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 
