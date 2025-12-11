@@ -10,10 +10,11 @@ import type {
   StartSessionResponse,
   SubmitAnswerRequest,
   SubmitAnswerResponse,
+  StartPaymentSessionResponse,
+  SubmitPaymentAnswerRequest,
+  SubmitPaymentAnswerResponse,
 } from '../types/chat';
-
-// API base URL - change this for production
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+import { API_BASE_URL } from '../config/api';
 
 /**
  * Generic fetch wrapper with error handling
@@ -99,4 +100,39 @@ export async function getSession(sessionId: string): Promise<{
   progress: number;
 }> {
   return apiFetch(`/api/session/${sessionId}`);
+}
+
+// ============================================
+// Payment Method API Functions
+// ============================================
+
+/**
+ * Start a new payment method configuration session.
+ *
+ * @returns Session ID and first question
+ */
+export async function startPaymentSession(): Promise<StartPaymentSessionResponse> {
+  return apiFetch<StartPaymentSessionResponse>('/api/payment/start', {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+}
+
+/**
+ * Submit an answer for the payment method flow.
+ *
+ * @param request - Session ID, question ID, and answer
+ * @returns Next question or final payment method configurations
+ */
+export async function submitPaymentAnswer(
+  request: SubmitPaymentAnswerRequest
+): Promise<SubmitPaymentAnswerResponse> {
+  return apiFetch<SubmitPaymentAnswerResponse>('/api/payment/answer', {
+    method: 'POST',
+    body: JSON.stringify({
+      sessionId: request.sessionId,
+      questionId: request.questionId,
+      answer: request.answer,
+    }),
+  });
 }

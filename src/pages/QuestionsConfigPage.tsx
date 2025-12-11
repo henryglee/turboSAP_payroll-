@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { API_BASE_URL } from '../config/api';
 
 type Question = {
   id: string;
@@ -12,8 +13,6 @@ type QuestionsConfig = {
   questions: Question[];
 };
 
-const API_BASE = 'http://localhost:8000'; // adjust if needed
-
 export function QuestionsConfigPage() {
   const [config, setConfig] = useState<QuestionsConfig | null>(null);
   const [loading, setLoading] = useState(false);
@@ -25,7 +24,7 @@ export function QuestionsConfigPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/api/config/questions/current`);
+      const res = await fetch(`${API_BASE_URL}/api/config/questions/current`);
       if (!res.ok) {
         throw new Error(`Failed to load: ${res.status}`);
       }
@@ -54,7 +53,7 @@ export function QuestionsConfigPage() {
         setError(null);
         setMessage(null);
 
-        const res = await fetch(`${API_BASE}/api/config/questions/upload`, {
+        const res = await fetch(`${API_BASE_URL}/api/config/questions/upload`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(json),
@@ -216,7 +215,7 @@ export function QuestionsConfigPage() {
     setError(null);
     setMessage(null);
     try {
-      const res = await fetch(`${API_BASE}/api/config/questions/current`, {
+      const res = await fetch(`${API_BASE_URL}/api/config/questions/current`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(config),
@@ -237,7 +236,7 @@ export function QuestionsConfigPage() {
     setError(null);
     setMessage(null);
     try {
-      const res = await fetch(`${API_BASE}/api/config/questions/restore`, {
+      const res = await fetch(`${API_BASE_URL}/api/config/questions/restore`, {
         method: 'POST',
       });
       if (!res.ok) {

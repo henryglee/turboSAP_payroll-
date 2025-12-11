@@ -95,6 +95,43 @@ export interface GeneratedPayrollArea {
 }
 
 // ============================================
+// Payment Method Types
+// ============================================
+
+export interface PaymentMethodConfig {
+  code: string;
+  description: string;
+  used?: boolean;
+  house_banks?: string;
+  ach_file_spec?: string;
+  check_volume?: string;
+  check_number_range?: string;
+  agree_no_pre_note?: boolean;
+  raw_answer?: string;
+  reasoning?: string[];
+}
+
+export interface StartPaymentSessionResponse {
+  sessionId: string;
+  question: Question;
+}
+
+export interface SubmitPaymentAnswerRequest {
+  sessionId: string;
+  questionId: string;
+  answer: string | string[];
+}
+
+export interface SubmitPaymentAnswerResponse {
+  sessionId: string;
+  done: boolean;
+  progress: number;
+  question?: Question;
+  paymentMethods?: PaymentMethodConfig[];
+  message?: string;
+}
+
+// ============================================
 // Chat State (for UI state management)
 // ============================================
 

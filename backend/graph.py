@@ -17,11 +17,18 @@ The master router determines which module should run next based on:
 from typing import TypedDict, Optional
 from langgraph.graph import StateGraph, START, END
 
-# Import module graphs
+# Import module graphs - payroll area graph
 from payroll_area_graph import (
     payroll_graph as payroll_module,
     PayrollState,
     router_node as payroll_router
+)
+
+# Import module graphs - payment method graph
+from payment_method_graph import (
+    payment_method_graph as payment_method_module,
+    router_node as payment_method_router,
+    PaymentMethodState
 )
 
 
@@ -81,7 +88,7 @@ def get_next_module(state: MasterState) -> Optional[str]:
     Returns:
         Module name to run next, or None if all complete
     """
-    completed = state.get("completed_modules", [])
+    completed = state.get("completed_modules") or []
 
     for module_name in MODULE_SEQUENCE:
         if module_name not in completed:
@@ -145,19 +152,25 @@ def master_router(state: MasterState) -> MasterState:
             }
 
     elif next_module == "payment_method":
-        # Payment method module (skeleton for demo)
-        # For now, just mark as complete immediately
-        # Future: Execute payment_method_router(state)
+    # Execute payment method module
 
+      result = payment_method_router(state)
+
+      if result.get("done"):
         new_completed = completed_modules + ["payment_method"]
-
         return {
-            **state,
+            **result,
             "completed_modules": new_completed,
             "current_module": next_module,
-            "done": False,  # Check for more modules
-            "message": "Payment Method module complete (skeleton)",
+            "done": False,  # Continue to next module
         }
+      else:
+        return {
+            **result,
+            "completed_modules": completed_modules,
+            "current_module": next_module,
+        }
+
 
     # Fallback: unknown module
     return {
