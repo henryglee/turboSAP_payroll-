@@ -10,7 +10,8 @@ function getAuthToken(): string | null {
     const authData = localStorage.getItem('turbosap-auth');
     if (authData) {
       const parsed = JSON.parse(authData);
-      return parsed.state?.token || null;
+      // Check both formats: direct {token, user} and Zustand {state: {token, user}}
+      return parsed.token || parsed.state?.token || null;
     }
   } catch {
     // Ignore errors
@@ -26,12 +27,15 @@ export async function apiFetch<T>(
 
   // Get token from localStorage if available
   const token = getAuthToken();
-
   const headers: Record<string, string> = {
-  "Content-Type": "application/json",
-  ...(options?.headers as Record<string, string>),
-  ...(token ? { Authorization: `Bearer ${token}` } : {}),
-};
+    'Content-Type': 'application/json',
+    ...(options.headers as Record<string, string> || {}),
+  };
+
+  // Add Authorization header if token exists
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
 
   const response = await fetch(url, {
     ...options,

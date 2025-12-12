@@ -1,9 +1,16 @@
 """
 SQLite database module for TurboSAP Payroll Configuration.
 
+Architecture: Single-Instance, Single-Customer
+- Each deployment has its own independent database (turbosap.db)
+- No multi-tenancy: one customer = one instance = one database
+- All data is isolated within the instance
+
 Database schema:
-- users: User accounts with authentication
-- sessions: User configuration sessions
+- users: User accounts with authentication (instance-specific)
+- sessions: User configuration sessions (instance-specific)
+
+Note: company_name field is for display purposes only, not for tenant isolation.
 """
 
 import sqlite3
@@ -38,6 +45,16 @@ def init_database():
         cursor = conn.cursor()
 
         # Create users table
+        # Note: username UNIQUE constraint applies only within this instance.
+        # Different deployment instances can have the same usernames.
+        # company_name is for display only, not for tenant isolation.
+        #
+        # Future MFA support: Will add columns:
+        #   mfa_enabled BOOLEAN DEFAULT 0
+        #   mfa_method TEXT (e.g., 'email', 'sms', 'totp')
+        #   mfa_secret TEXT (for TOTP)
+        #   email TEXT (for email OTP)
+        #   phone_number TEXT (for SMS OTP)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,

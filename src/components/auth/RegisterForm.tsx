@@ -43,6 +43,7 @@ export function RegisterForm({ onSwitchToLogin, onRegisterSuccess }: RegisterFor
         username,
         password,
         companyName: companyName || undefined,
+        // Role is always "client" for new registrations
       });
       setAuth(response.token, {
         userId: response.userId,

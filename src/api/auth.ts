@@ -10,7 +10,8 @@ export interface RegisterRequest {
   username: string;
   password: string;
   companyName?: string;
-  role?: 'client' | 'admin';
+  // Note: role is always "client" for new registrations
+  // Admin accounts must be created by existing admins
 }
 
 export interface LoginRequest {
