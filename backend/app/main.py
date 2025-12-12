@@ -1,8 +1,14 @@
 """
 FastAPI backend for TurboSAP Payroll Area Configuration.
 
+Architecture: Single-Instance, Single-Customer Deployment
+- Each deployment is completely isolated (one customer = one instance)
+- Each instance has its own database, users, sessions, and configuration
+- No multi-tenancy: no tenant_id, no cross-instance data sharing
+- No super admin: admin role is scoped to instance only, no cross-instance management
+
 Endpoints:
-- POST /api/auth/register  - Register a new user
+- POST /api/auth/register  - Register a new user (disabled - admin only)
 - POST /api/auth/login      - Login and get JWT token
 - GET  /api/auth/me         - Get current user info
 - POST /api/start           - Start a new configuration session
@@ -11,7 +17,7 @@ Endpoints:
 - POST /api/sessions/save   - Save current session
 - GET  /api/sessions/{id}   - Load a saved session
 
-Run with: uvicorn main:app --reload --port 8000
+Run with: uvicorn app.main:app --reload --port 8000
 """
 
 import uuid
@@ -34,6 +40,7 @@ from .database import (
 )
 from .auth import hash_password, verify_password, create_token
 from .middleware import get_current_user, get_optional_user, require_admin
+from .roles import is_valid_role, ADMIN_ROLE, CLIENT_ROLE, is_admin
 
 from .config.configuration import (
     load_current_questions,
@@ -139,71 +146,13 @@ def root():
 @app.post("/api/auth/register")
 def register(request: dict = Body(...)):
     """
-    Register a new user.
-
-    Request body:
-        {
-            "username": "user123",
-            "password": "securepassword",
-            "companyName": "ABC Corp",
-            "role": "client" (optional, defaults to "client")
-        }
-
-    Returns:
-        {
-            "userId": 1,
-            "username": "user123",
-            "role": "client",
-            "token": "jwt_token_here"
-        }
+    Public registration is disabled.
+    Users must be created by administrators through the admin panel.
     """
-    username = request.get("username")
-    password = request.get("password")
-    company_name = request.get("companyName")
-    requested_role = request.get("role", "client")
-
-    # Validate input
-    if not username:
-        raise HTTPException(status_code=400, detail="Username is required")
-    if not password:
-        raise HTTPException(status_code=400, detail="Password is required")
-    if len(password) < 6:
-        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
-
-    # Security: Only allow registering as "client". Admin accounts must be created by existing admins or manually.
-    if requested_role and requested_role != "client":
-        raise HTTPException(
-            status_code=403,
-            detail="Only 'client' role can be registered. Admin accounts must be created by administrators."
-        )
-
-    # Check if username already exists
-    existing_user = get_user_by_username(username)
-    if existing_user:
-        raise HTTPException(status_code=400, detail="Username already exists")
-
-    # Create user - always as "client"
-    try:
-        password_hash = hash_password(password)
-        user_id = create_user(
-            username=username,
-            password_hash=password_hash,
-            role="client",  # Always create as client
-            company_name=company_name,
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-    # Generate token
-    token = create_token(user_id, username, role)
-
-    return {
-        "userId": user_id,
-        "username": username,
-        "role": "client",  # Always return "client" for new registrations
-        "companyName": company_name,
-        "token": token,
-    }
+    raise HTTPException(
+        status_code=403,
+        detail="Public registration is disabled. Please contact an administrator to create an account."
+    )
 
 
 @app.post("/api/auth/login")
@@ -211,13 +160,17 @@ def login(request: dict = Body(...)):
     """
     Login and get JWT token.
 
+    Current: Single-factor authentication (username + password).
+    Future: Will support MFA (Multi-Factor Authentication) via email OTP, SMS OTP, or TOTP.
+            If MFA is enabled, this will return a temporary token and require a second step.
+
     Request body:
         {
             "username": "user123",
             "password": "securepassword"
         }
 
-    Returns:
+    Returns (current):
         {
             "userId": 1,
             "username": "user123",
@@ -225,6 +178,13 @@ def login(request: dict = Body(...)):
             "companyName": "ABC Corp",
             "logoPath": "/uploads/logos/3.png",
             "token": "jwt_token_here"
+        }
+
+    Returns (future - if MFA enabled):
+        {
+            "requiresMFA": true,
+            "tempToken": "temporary_token",
+            "mfaMethod": "email" | "sms" | "totp"
         }
     """
     username = request.get("username")
@@ -724,8 +684,12 @@ async def create_user_by_admin(
         raise HTTPException(status_code=400, detail="Password is required")
     if len(password) < 6:
         raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
-    if role not in ["client", "admin"]:
-        raise HTTPException(status_code=400, detail="Role must be 'client' or 'admin'")
+    # Use role validation utility (allows future extension to module roles)
+    if not is_valid_role(role):
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Invalid role. Must be '{CLIENT_ROLE}' or '{ADMIN_ROLE}'"
+        )
     
     # Check if username already exists
     existing_user = get_user_by_username(username)
@@ -820,19 +784,23 @@ async def update_user_role(
 
     Request body:
         {
-            "role": "client" | "admin"
+            "role": "client" | "admin" (future: "ROLE_PAYROLL", "ROLE_FINANCE", etc.)
         }
     """
     new_role = request.get("role")
-    if new_role not in ["client", "admin"]:
-        raise HTTPException(status_code=400, detail="Role must be 'client' or 'admin'")
+    # Use role validation utility (allows future extension to module roles)
+    if not is_valid_role(new_role):
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Invalid role. Must be '{CLIENT_ROLE}' or '{ADMIN_ROLE}'"
+        )
     
     user = get_user_by_id(user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
     # Prevent admin from removing their own admin role
-    if user_id == current_user["user_id"] and new_role != "admin":
+    if user_id == current_user["user_id"] and not is_admin(new_role):
         raise HTTPException(
             status_code=400,
             detail="Cannot remove your own admin role"

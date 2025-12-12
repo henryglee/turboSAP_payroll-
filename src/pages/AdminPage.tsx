@@ -2,6 +2,12 @@
  * Admin management page.
  * Only accessible to admin users.
  * Allows viewing and managing users.
+ * 
+ * Note: UI focus is on client users, not admin. Admins can also:
+ * - Edit JSON/configuration files directly
+ * - Use API endpoints (POST /api/admin/users, etc.)
+ * - Use scripts (create_admin.py)
+ * This UI is functional but admin-friendly polish is lower priority.
  */
 
 import { useEffect, useState } from 'react';
