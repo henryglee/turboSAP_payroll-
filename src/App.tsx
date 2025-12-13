@@ -1,17 +1,25 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import './App.css';
+import { DashboardPage } from './pages/DashboardPage';
 import { ConfigPage } from './pages/ConfigPage';
 import { ChatPage } from './pages/ChatPage';
+import { PaymentMethodPage } from './pages/PaymentMethodPage';
 import { QuestionsConfigPage } from './pages/QuestionsConfigPage';
 import { AdminPage } from './pages/AdminPage';
-import { AuthPage } from './components/auth';
+import { AuthPage, ProtectedRoute } from './components/auth';
 import { useAuthStore } from './store/auth';
 import { getCurrentUser } from './api/auth';
 
-type PageType = 'config' | 'chat' | 'questions' | 'admin';
-
 function App() {
-  const [currentPage, setCurrentPage] = useState<PageType>('chat');
+  return (
+    <BrowserRouter>
+      <AppContent />
+    </BrowserRouter>
+  );
+}
+
+function AppContent() {
   const { token, user, isAuthenticated, setAuth, clearAuth } = useAuthStore();
 
   // Verify token on mount and load user info
@@ -28,10 +36,42 @@ function App() {
     }
   }, [token, user, setAuth, clearAuth]);
 
-  // Show auth page if not authenticated
-  if (!isAuthenticated || !token) {
-    return <AuthPage />;
-  }
+  return (
+    <Routes>
+      {/* Public route - Login page */}
+      <Route
+        path="/login"
+        element={
+          isAuthenticated ? <Navigate to="/dashboard" replace /> : <AuthPage />
+        }
+      />
+
+      {/* Dashboard route - uses its own DashboardLayout */}
+      <Route
+        path="/dashboard"
+        element={
+          <ProtectedRoute>
+            <DashboardPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Other protected routes - use old MainLayout for now */}
+      <Route
+        path="/*"
+        element={
+          <ProtectedRoute>
+            <MainLayout />
+          </ProtectedRoute>
+        }
+      />
+    </Routes>
+  );
+}
+
+function MainLayout() {
+  const { user, clearAuth } = useAuthStore();
+  const location = useLocation();
 
   return (
     <div className="app">
@@ -54,80 +94,76 @@ function App() {
         </div>
       </header>
 
-      {/* Page Switcher */}
+      {/* Navigation with Links */}
       <nav className="page-nav">
-        <button
-          className={`nav-button ${currentPage === 'chat' ? 'active' : ''}`}
-          onClick={() => setCurrentPage('chat')}
+        <Link
+          to="/dashboard"
+          className={`nav-button ${location.pathname === '/dashboard' ? 'active' : ''}`}
         >
-          Chat Configuration
-        </button>
-        <button
-          className={`nav-button ${currentPage === 'config' ? 'active' : ''}`}
-          onClick={() => setCurrentPage('config')}
+          Dashboard
+        </Link>
+        <Link
+          to="/chat"
+          className={`nav-button ${location.pathname === '/chat' ? 'active' : ''}`}
+        >
+          Payroll Areas
+        </Link>
+        <Link
+          to="/config"
+          className={`nav-button ${location.pathname === '/config' ? 'active' : ''}`}
         >
           Manual Configuration
-        </button>
+        </Link>
         {user?.role === 'admin' && (
           <>
-            <button
-              className={`nav-button ${currentPage === 'questions' ? 'active' : ''}`}
-              onClick={() => setCurrentPage('questions')}
+            <Link
+              to="/questions"
+              className={`nav-button ${location.pathname === '/questions' ? 'active' : ''}`}
             >
               Questions Configuration
-            </button>
-            <button
-              className={`nav-button ${currentPage === 'admin' ? 'active' : ''}`}
-              onClick={() => setCurrentPage('admin')}
+            </Link>
+            <Link
+              to="/admin"
+              className={`nav-button ${location.pathname === '/admin' ? 'active' : ''}`}
             >
               User Management
-            </button>
+            </Link>
           </>
         )}
       </nav>
 
-      {/* Render current page */}
-      {currentPage === 'chat' && <ChatPage />}
-      {currentPage === 'config' && <ConfigPage />}
-      {currentPage === 'questions' && user?.role === 'admin' && <QuestionsConfigPage />}
-      {currentPage === 'admin' && user?.role === 'admin' && <AdminPage />}
+      {/* Nested Routes */}
+      <Routes>
+        <Route path="/chat" element={<ChatPage />} />
+        <Route path="/config" element={<ConfigPage />} />
+        <Route path="/payment-methods" element={<PaymentMethodPage />} />
+
+        {/* Admin-only routes with additional protection */}
+        <Route
+          path="/questions"
+          element={
+            <ProtectedRoute requireAdmin>
+              <QuestionsConfigPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute requireAdmin>
+              <AdminPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Default redirect */}
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+
+        {/* 404 catch-all */}
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      </Routes>
     </div>
   );
 }
 
 export default App;
-
-
-/* ===========================================
- * ORIGINAL APP CODE (preserved as fallback)
- * Uncomment below and comment out above to restore
- * ===========================================
-
-import './App.css';
-import { ConfigurationPanel } from './ConfigurationPanel';
-import { PayrollAreasPanel } from './PayrollAreasPanel';
-import { useConfigStore } from './store';
-
-function App() {
-  const { profile } = useConfigStore();
-
-  return (
-    <div className="app">
-      <header className="header">
-        <h1>SAP Payroll Area Configuration</h1>
-        <p>
-          {profile.companyName} • Migration Configuration Tool
-        </p>
-      </header>
-
-      <main className="main-container">
-        <ConfigurationPanel />
-        <PayrollAreasPanel />
-      </main>
-    </div>
-  );
-}
-
-export default App;
-
- * =========================================== */
