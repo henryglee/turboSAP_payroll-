@@ -8,11 +8,10 @@ import { useAuthStore } from '../../store/auth';
 import './auth.css';
 
 interface LoginFormProps {
-  onSwitchToRegister: () => void;
   onLoginSuccess?: () => void;
 }
 
-export function LoginForm({ onSwitchToRegister, onLoginSuccess }: LoginFormProps) {
+export function LoginForm({ onLoginSuccess }: LoginFormProps) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -75,15 +74,6 @@ export function LoginForm({ onSwitchToRegister, onLoginSuccess }: LoginFormProps
           {loading ? 'Logging in...' : 'Login'}
         </button>
       </form>
-
-      <div className="auth-switch">
-        <p>
-          Don't have an account?{' '}
-          <button type="button" onClick={onSwitchToRegister} className="link-button">
-            Register
-          </button>
-        </p>
-      </div>
     </div>
   );
 }

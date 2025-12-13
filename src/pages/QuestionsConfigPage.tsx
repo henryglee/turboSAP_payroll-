@@ -14,6 +14,14 @@ type QuestionsConfig = {
   questions: Question[];
 };
 
+/**
+ * Questions configuration page for admins.
+ * 
+ * Note: UI focus is on client users, not admin. Admins can also:
+ * - Edit JSON files directly: backend/app/config/questions_current.json
+ * - Use API endpoints: PUT /api/config/questions/current
+ * This UI is functional but admin can accept direct file editing.
+ */
 export function QuestionsConfigPage() {
   const { user } = useAuthStore();
   const [config, setConfig] = useState<QuestionsConfig | null>(null);
