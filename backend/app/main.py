@@ -27,7 +27,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional
 
 from .services.questions import get_question, get_first_question
-from .agents.graph import payroll_graph, PayrollState
+from .agents.graph import master_graph, payroll_graph, PayrollState
 from .database import (
     create_user,
     get_user_by_username,
@@ -244,35 +244,48 @@ def get_current_user_info(current_user: dict = Depends(get_current_user)):
 
 @app.post("/api/start")
 async def start_session(
-    request: dict = {},
+    request: dict = Body({}),
     authorization: Optional[str] = Header(None),
 ):
     """
-    Start a new configuration session.
+    Start a new configuration session for any module.
 
     Request body (optional):
-        { "companyName": "ABC Corp" }
+        {
+            "module": "payroll_area" | "payment_method",  // Defaults to "payroll_area"
+            "companyName": "ABC Corp"
+        }
 
     Headers (optional):
         Authorization: Bearer <token> - If provided, session will be saved to database
 
     Returns:
-        { "sessionId": "...", "question": {...} }
+        { "sessionId": "...", "question": {...}, "module": "..." }
     """
     session_id = str(uuid.uuid4())
+    module = request.get("module", "payroll_area")  # Get module from request
 
-    # Initialize state
-    initial_state: PayrollState = {
+    # Map module name to database format
+    module_db_name = {
+        "payroll_area": "payroll area",
+        "payment_method": "payment method",
+    }.get(module, module)
+
+    # Initialize master graph state
+    initial_state = {
         "session_id": session_id,
         "answers": {},
         "current_question_id": None,
         "current_question": None,
+        "completed_modules": [],
+        "current_module": module,  # Tell master graph which module to start
         "payroll_areas": [],
+        "payment_methods": [],
         "done": False,
     }
 
-    # Run graph to get first question
-    result = payroll_graph.invoke(initial_state)
+    # Run master graph to get first question
+    result = master_graph.invoke(initial_state)
 
     # Try to get current user (optional authentication)
     current_user = None
@@ -287,7 +300,7 @@ async def start_session(
             session_id=session_id,
             user_id=current_user["user_id"],
             config_state=result,
-            module="payroll area",
+            module=module_db_name,  # Save module name
         )
     else:
         sessions[session_id] = result
@@ -298,12 +311,16 @@ async def start_session(
     # Check if question is dynamic (from graph) or in JSON
     question = result.get("current_question")
     if not question:
-        # Question is in JSON file
-        question = get_question(question_id) if question_id else get_first_question()
+        # Question is in JSON file - need to determine which module's questions
+        if module == "payment_method":
+            question = get_question(question_id, "payment_method") if question_id else get_first_question("payment_method")
+        else:
+            question = get_question(question_id) if question_id else get_first_question()
 
     return {
         "sessionId": session_id,
         "question": question,
+        "module": module,  # Return module so frontend knows which one started
     }
 
 

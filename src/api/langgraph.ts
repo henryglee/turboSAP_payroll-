@@ -14,17 +14,22 @@ import type {
 } from '../types/chat';
 
 /**
- * Start a new configuration session.
+ * Start a new configuration session for any module.
  *
- * @param request - Optional company name
+ * @param module - Which module to configure ('payroll_area' | 'payment_method'). Defaults to 'payroll_area'.
+ * @param request - Optional company name and other data
  * @returns Session ID and first question
  */
 export async function startSession(
-  request: StartSessionRequest = {}
+  module: 'payroll_area' | 'payment_method' = 'payroll_area',
+  request: Omit<StartSessionRequest, 'module'> = {}
 ): Promise<StartSessionResponse> {
   return apiFetch<StartSessionResponse>('/api/start', {
     method: 'POST',
-    body: JSON.stringify(request),
+    body: JSON.stringify({
+      ...request,
+      module,
+    }),
   });
 }
 
@@ -70,4 +75,26 @@ export async function getSession(sessionId: string): Promise<{
   progress: number;
 }> {
   return apiFetch(`/api/session/${sessionId}`);
+}
+
+// ============================================
+// Deprecated Payment Method Functions
+// ============================================
+
+/**
+ * @deprecated Use startSession('payment_method') instead.
+ * Start a payment method configuration session.
+ */
+export async function startPaymentSession(): Promise<StartSessionResponse> {
+  return startSession('payment_method');
+}
+
+/**
+ * @deprecated Use submitAnswer() instead.
+ * Submit an answer for payment method configuration.
+ */
+export async function submitPaymentAnswer(
+  request: SubmitAnswerRequest
+): Promise<SubmitAnswerResponse> {
+  return submitAnswer(request);
 }

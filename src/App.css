@@ -515,6 +515,8 @@ body > #root > div:first-child {
   border-bottom: 3px solid transparent;
   position: relative;
   letter-spacing: 0.01em;
+  text-decoration: none; /* Remove link underline */
+  display: inline-block; /* Make Link behave like button */
 }
 
 .nav-button:hover {
