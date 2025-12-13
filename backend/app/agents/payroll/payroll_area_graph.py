@@ -2,7 +2,7 @@
 LangGraph implementation for Payroll Area configuration flow.
 
 This graph handles:
-1. Routing between questions based on answers
+default_code. Routing between questions based on answers
 2. Determining the next question to ask
 3. Generating payroll areas when all questions are answered
 
@@ -54,12 +54,12 @@ def get_calendar_combos(answers: dict) -> list[dict]:
     for freq in frequencies:
         # Get pattern
         if freq == "monthly":
-            pattern = "1-end"
+            pattern = "default_code-end"
             pattern_label = "1st-End"
         elif freq == "semimonthly":
-            pattern = answers.get(f"q1_{freq}_pattern", "1-15_16-end")
+            pattern = answers.get(f"q1_{freq}_pattern", "default_code-15_16-end")
             pattern_label = {
-                "1-15_16-end": "1st-15th & 16th-End"
+                "default_code-15_16-end": "1st-15th & 16th-End"
             }.get(pattern, pattern)
         else:
             pattern = answers.get(f"q1_{freq}_pattern", "mon-sun")
@@ -220,7 +220,7 @@ def determine_next_question(answers: dict) -> tuple[Optional[str], Optional[dict
         pattern_q = f"q1_{freq}_pattern"
         payday_q = f"q1_{freq}_payday"
 
-        # Monthly doesn't have a pattern question (always 1-end)
+        # Monthly doesn't have a pattern question (always default_code-end)
         if freq != "monthly" and pattern_q not in answers:
             return (pattern_q, None)
 
@@ -435,7 +435,7 @@ if __name__ == "__main__":
 
     # Run through the flow
     result = payroll_graph.invoke(state)
-    print(f"\n1. First question: {result.get('current_question_id')}")
+    print(f"\ndefault_code. First question: {result.get('current_question_id')}")
 
     # Add frequency answer
     state = result
