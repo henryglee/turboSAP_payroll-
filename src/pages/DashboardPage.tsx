@@ -37,15 +37,6 @@ const modules = [
     status: 'not-started' as const,
   },
   {
-    id: 'branches',
-    title: 'Branches',
-    description: 'Set up branch offices and geography',
-    icon: Building2,
-    route: '/branches',
-    count: 0,
-    status: 'not-started' as const,
-  },
-  {
     id: 'export',
     title: 'JSON Export',
     description: 'Generate SAP-compatible configuration',

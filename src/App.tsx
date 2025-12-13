@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Link, useLocation, Outlet } from 'react-router-dom';
 import './App.css';
 import { DashboardPage } from './pages/DashboardPage';
 import { ConfigPage } from './pages/ConfigPage';
@@ -42,11 +42,15 @@ function AppContent() {
       <Route
         path="/login"
         element={
-          isAuthenticated ? <Navigate to="/dashboard" replace /> : <AuthPage />
+          isAuthenticated ? (
+            <Navigate to={user?.role === 'admin' ? '/admin' : '/dashboard'} replace />
+          ) : (
+            <AuthPage />
+          )
         }
       />
 
-      {/* Dashboard route - uses its own DashboardLayout */}
+      {/* Dashboard - uses its own DashboardLayout, no purple header */}
       <Route
         path="/dashboard"
         element={
@@ -56,20 +60,53 @@ function AppContent() {
         }
       />
 
-      {/* Other protected routes - use old MainLayout for now */}
+      {/* All other protected routes use AppLayout (with purple header/nav) */}
       <Route
-        path="/*"
         element={
           <ProtectedRoute>
-            <MainLayout />
+            <AppLayout />
           </ProtectedRoute>
         }
-      />
+      >
+        {/* User routes */}
+        <Route path="/chat" element={<ChatPage />} />
+        <Route path="/config" element={<ConfigPage />} />
+        <Route path="/payment-methods" element={<PaymentMethodPage />} />
+
+        {/* Admin-only routes */}
+        <Route
+          path="/questions"
+          element={
+            <ProtectedRoute requireAdmin>
+              <QuestionsConfigPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute requireAdmin>
+              <AdminPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Default redirect */}
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        
+        {/* 404 catch-all */}
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      </Route>
     </Routes>
   );
 }
 
-function MainLayout() {
+/**
+ * Shared layout for pages that need the purple header + nav
+ * (everything except DashboardPage)
+ * Uses <Outlet /> to render child routes
+ */
+function AppLayout() {
   const { user, clearAuth } = useAuthStore();
   const location = useLocation();
 
@@ -132,36 +169,8 @@ function MainLayout() {
         )}
       </nav>
 
-      {/* Nested Routes */}
-      <Routes>
-        <Route path="/chat" element={<ChatPage />} />
-        <Route path="/config" element={<ConfigPage />} />
-        <Route path="/payment-methods" element={<PaymentMethodPage />} />
-
-        {/* Admin-only routes with additional protection */}
-        <Route
-          path="/questions"
-          element={
-            <ProtectedRoute requireAdmin>
-              <QuestionsConfigPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin"
-          element={
-            <ProtectedRoute requireAdmin>
-              <AdminPage />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* Default redirect */}
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-
-        {/* 404 catch-all */}
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
-      </Routes>
+      {/* Render the current route's component */}
+      <Outlet />
     </div>
   );
 }
