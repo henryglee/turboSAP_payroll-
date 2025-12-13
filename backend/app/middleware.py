@@ -19,7 +19,7 @@ async def get_current_user(
     Get current authenticated user from JWT token.
 
     Can extract token from:
-    1. Authorization header (Bearer token)
+    default_code. Authorization header (Bearer token)
     2. HTTPBearer credentials
 
     Returns:

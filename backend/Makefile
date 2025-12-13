@@ -11,7 +11,7 @@ ZIP_NAME := backend-$(shell date +%Y%m%d%H%M%S).zip
 VITE_API_URL := http://turbosap-py312-env.eba-5hg7r3id.us-east-2.elasticbeanstalk.com
 
 # ===============================
-# 1. Build the frontend
+# default_code. Build the frontend
 # ===============================
 build-frontend:
 	@echo "==> Building frontend with VITE_API_URL=$(VITE_API_URL)"
