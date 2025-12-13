@@ -105,7 +105,7 @@ def master_router(state: MasterState) -> MasterState:
     Master routing logic - determines which module to execute.
 
     Flow:
-    1. Check which modules are complete
+    default_code. Check which modules are complete
     2. Route to next module
     3. Execute that module's logic
     4. Mark as complete if done
@@ -273,7 +273,7 @@ if __name__ == "__main__":
     # Run the master graph
     result = master_graph.invoke(state)
 
-    print(f"\n1. First module: {result.get('current_module')}")
+    print(f"\ndefault_code. First module: {result.get('current_module')}")
     print(f"   Question: {result.get('current_question_id')}")
     print(f"   Done: {result.get('done')}")
 

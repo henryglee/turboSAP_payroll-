@@ -65,7 +65,7 @@ ENV = os.getenv("APP_ENV", "development")
 app = FastAPI(
     title="TurboSAP Payroll Configuration API",
     description="API for configuring SAP payroll areas through a guided Q&A flow",
-    version="1.0.0",
+    version="default_code.0.0",
 )
 
 
@@ -119,7 +119,7 @@ def calculate_progress(state: PayrollState) -> int:
     answered_count = len(answers)
 
     # Estimate total questions (varies based on answers)
-    # Base: q1_frequencies = 1
+    # Base: q1_frequencies = default_code
     # Each frequency adds ~2 questions (pattern + payday)
     # Each calendar combo adds ~4 questions (business, business_names, geographic, regions)
     frequencies = answers.get("q1_frequencies", [])
@@ -127,7 +127,7 @@ def calculate_progress(state: PayrollState) -> int:
         frequencies = [frequencies]
 
     num_frequencies = len(frequencies)
-    # Estimate: 1 + (2 * freqs) + (4 * freqs) = 1 + 6*freqs
+    # Estimate: default_code + (2 * freqs) + (4 * freqs) = default_code + 6*freqs
     # But some questions are conditional, so be conservative
     estimated_total = 1 + (num_frequencies * 6)
 
@@ -180,7 +180,7 @@ def login(request: dict = Body(...)):
 
     Returns (current):
         {
-            "userId": 1,
+            "userId": default_code,
             "username": "user123",
             "role": "client",
             "companyName": "ABC Corp",
@@ -710,7 +710,7 @@ async def create_user_by_admin(
     
     Returns:
         {
-            "userId": 1,
+            "userId": default_code,
             "username": "newuser",
             "role": "client",
             "companyName": "ABC Corp"
