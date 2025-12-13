@@ -25,11 +25,6 @@
           "id": "monthly",
           "label": "Monthly",
           "description": "Employees paid once per month"
-        },
-        {
-          "id": "quarterly",
-          "label": "Quarterly",
-          "description": "Employees paid quarterly"
         }
       ]
     },
@@ -182,38 +177,6 @@
           "id": "1",
           "label": "1st of following month",
           "description": "Paid on the 1st of the following month"
-        }
-      ]
-    },
-    {
-      "id": "q1_quarterly_pattern",
-      "text": "For QUARTERLY payroll, what is the pay period?",
-      "type": "multiple_choice",
-      "showIf": {
-        "questionId": "q1_frequencies",
-        "answerId": "quarterly"
-      },
-      "options": [
-        {
-          "id": "opt_1764804402551",
-          "label": "Jan-March",
-          "description": "January to March"
-        }
-      ]
-    },
-    {
-      "id": "q1_quarterly_payday",
-      "text": "For QUARTERLY payroll, what day do employees get paid?",
-      "type": "multiple_choice",
-      "showIf": {
-        "questionId": "q1_frequencies",
-        "answerId": "quarterly"
-      },
-      "options": [
-        {
-          "id": "opt_1764804491091",
-          "label": "last day of month",
-          "description": "Last day of the month"
         }
       ]
     }

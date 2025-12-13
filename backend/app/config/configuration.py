@@ -1,9 +1,18 @@
+"""
+Configuration management for questions.
+
+Note: Admins can directly edit these JSON files:
+- CURRENT_PATH: backend/app/config/questions_current.json (current active config)
+- ORIGINAL_PATH: backend/app/config/questions_original.json (backup/reference)
+
+UI focus is on client users. Admins can edit JSON files directly or use API endpoints.
+"""
 import json
 from pathlib import Path
 from typing import Any, Dict
 
 BASE_DIR = Path(__file__).parent
-FRONTEND_QUESTIONS_PATH = BASE_DIR.parent / "src" / "data" / "questions.json"
+FRONTEND_QUESTIONS_PATH = BASE_DIR.parent / "data" / "questions_current.json"
 
 ORIGINAL_PATH = BASE_DIR / "questions_original.json"
 CURRENT_PATH = BASE_DIR / "questions_current.json"

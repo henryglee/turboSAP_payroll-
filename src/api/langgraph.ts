@@ -5,6 +5,7 @@
  * The backend runs at http://localhost:8000 by default.
  */
 
+import { apiFetch } from './utils';
 import type {
   StartSessionRequest,
   StartSessionResponse,
@@ -17,44 +18,22 @@ import type {
 import { API_BASE_URL } from '../config/api';
 
 /**
- * Generic fetch wrapper with error handling
- */
-async function apiFetch<T>(
-  endpoint: string,
-  options: RequestInit = {}
-): Promise<T> {
-  const url = `${API_BASE_URL}${endpoint}`;
-
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(
-      errorData.detail || `API error: ${response.status} ${response.statusText}`
-    );
-  }
-
-  return response.json();
-}
-
-/**
- * Start a new configuration session.
+ * Start a new configuration session for any module.
  *
- * @param request - Optional company name
+ * @param module - Which module to configure ('payroll_area' | 'payment_method'). Defaults to 'payroll_area'.
+ * @param request - Optional company name and other data
  * @returns Session ID and first question
  */
 export async function startSession(
-  request: StartSessionRequest = {}
+  module: 'payroll_area' | 'payment_method' = 'payroll_area',
+  request: Omit<StartSessionRequest, 'module'> = {}
 ): Promise<StartSessionResponse> {
   return apiFetch<StartSessionResponse>('/api/start', {
     method: 'POST',
-    body: JSON.stringify(request),
+    body: JSON.stringify({
+      ...request,
+      module,
+    }),
   });
 }
 

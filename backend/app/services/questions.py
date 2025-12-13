@@ -9,8 +9,9 @@ Usage:
 """
 
 import json
-import configuration
 from pathlib import Path
+
+from ..config import configuration
 
 
 def load_questions(module_name: str = "payroll_area") -> dict:
@@ -29,7 +30,7 @@ def load_questions(module_name: str = "payroll_area") -> dict:
         data = configuration.load_current_questions()
     else:
         # For other modules, load from module-specific JSON files
-        questions_path = Path(__file__).parent.parent / "src" / "data" / f"{module_name}_questions.json"
+        questions_path = Path(__file__).parent.parent / "data" / f"{module_name}_questions.json"
         with open(questions_path) as f:
             data = json.load(f)
 

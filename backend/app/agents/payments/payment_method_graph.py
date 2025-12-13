@@ -25,17 +25,17 @@ from langgraph.graph import StateGraph, START, END  # type: ignore
 
 BASE_DIR = Path(__file__).resolve().parent
 
-# File lives in: project_root / src / data / payment_method_question.json
+# File lives in: backend/app/data/payment_method_questions.json
 QUESTIONS_PATH = (
-    BASE_DIR.parent / "src" / "data" / "payment_method_question.json"
+    BASE_DIR.parent.parent / "data" / "payment_method_questions.json"
 )
 
 # Debug print (optional)
-print("Looking for file at:", QUESTIONS_PATH)
+print("Looking for payment questions at:", QUESTIONS_PATH)
 
 # Fallback: same directory as this file
 if not QUESTIONS_PATH.exists():
-    QUESTIONS_PATH = BASE_DIR / "payment_method_question.json"
+    QUESTIONS_PATH = BASE_DIR / "payment_method_questions.json"
     print("Fallback path used:", QUESTIONS_PATH)
 
 # Load JSON file

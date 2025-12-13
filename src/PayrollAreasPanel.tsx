@@ -119,16 +119,273 @@ export function PayrollAreasPanel() {
     URL.revokeObjectURL(url);
   };
 
+  const handleExportCalendarCSV = () => {
+    const headers = [
+      'period_parameters',
+      'period_parameter_name',
+      'time_unit',
+      'time_unit_desc',
+      'start_date',
+    ];
+
+    const escapeCSV = (value: any): string => {
+      if (value === null || value === undefined) return '';
+      const str = String(value);
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    const rows = payrollAreas.map(area => [
+      escapeCSV('80'),                 // period_parameters (fixed for now)
+      escapeCSV(area.description),     // period_parameter_name
+      escapeCSV('03'),                 // time_unit (fixed for now)
+      escapeCSV(area.frequency),       // time_unit_desc
+      escapeCSV('1/1/1990'),           // start_date (fixed for now)
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.join(',')),
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'calendar-id-configuration.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+    const handleExportPayrollAreaConfigCSV = () => {
+    const headers = [
+      'payroll_area',
+      'payroll_area_text',
+      'period_parameters',
+      'run_payroll',
+      'date_modifier',
+    ];
+
+    const escapeCSV = (value: any): string => {
+      if (value === null || value === undefined) return '';
+      const str = String(value);
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    const rows = payrollAreas.map(area => [
+      escapeCSV(area.region || ''), // payroll_area from Region column
+      escapeCSV('McCarthy'),        // payroll_area_text (fixed for now)
+      escapeCSV('08'),              // period_parameters (fixed for now)
+      escapeCSV('X'),               // run_payroll (fixed for now)
+      escapeCSV('0'),               // date_modifier (fixed for now)
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.join(',')),
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'payroll-area-configuration.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportPayrollPeriodCSV = () => {
+    const headers = [
+      'period_parameters',
+      'payroll_year',
+      'payroll_period',
+      'period_begin_date',
+      'period_end_date',
+      'prior_period_year',
+      'prior_period_period',
+    ];
+
+    const escapeCSV = (value: any): string => {
+      if (value === null || value === undefined) return '';
+      const str = String(value);
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    const NUM_PERIODS = 52; // one year
+    const startDate = new Date(2024, 11, 23); // 12/23/2024 (month is 0-based)
+
+    const rows: string[][] = [];
+    let payrollPeriod = 1; // global counter
+
+    let currentPriorYear: number | null = null;
+    let priorPeriodCounter = 0;
+
+    const formatDate = (d: Date) => {
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      const yyyy = d.getFullYear();
+      return `${mm}/${dd}/${yyyy}`;
+    };
+
+    // set first row
+     // convert payrollPeriod and priorPeriodCounter to strings
+    const payrollPeriodStr = String(payrollPeriod).padStart(2, '0');
+    const priorPeriodCounterStr = String(NUM_PERIODS).padStart(2, '0');
+
+    rows.push([
+      escapeCSV('80'),                    // period_parameters
+      escapeCSV(startDate.getFullYear()), // payroll_year
+      escapeCSV(payrollPeriodStr),          // payroll_period
+      escapeCSV(formatDate(startDate)),   // period_begin_date
+      escapeCSV(formatDate(startDate)),   // period_end_date
+      escapeCSV(startDate.getFullYear()), // prior_period_year
+      escapeCSV(priorPeriodCounterStr),          // prior_period_period
+    ]);
+    payrollPeriod += 1;
+    
+    for (let i = 1; i < NUM_PERIODS; i++) {
+      const periodBegin = new Date(startDate);
+      periodBegin.setDate(startDate.getDate() + i * 7);
+
+      const periodEnd = new Date(periodBegin);
+      periodEnd.setDate(periodBegin.getDate() + 6);
+
+      const payrollYear = periodEnd.getFullYear();
+      const priorPeriodYear = periodEnd.getFullYear();
+
+      if (currentPriorYear === null || currentPriorYear !== priorPeriodYear) {
+        currentPriorYear = priorPeriodYear;
+        priorPeriodCounter = 1;
+      } else {
+        priorPeriodCounter += 1;
+      }
+
+      // convert payrollPeriod and priorPeriodCounter to strings
+      const payrollPeriodStr = String(payrollPeriod).padStart(2, '0');
+      const priorPeriodCounterStr = String(priorPeriodCounter).padStart(2, '0');
+
+      rows.push([
+        escapeCSV('80'),                    // period_parameters
+        escapeCSV(payrollYear),            // payroll_year
+        escapeCSV(payrollPeriodStr),          // payroll_period
+        escapeCSV(formatDate(periodBegin)),// period_begin_date
+        escapeCSV(formatDate(periodEnd)),  // period_end_date
+        escapeCSV(priorPeriodYear),        // prior_period_year
+        escapeCSV(priorPeriodCounterStr),     // prior_period_period
+      ]);
+
+      payrollPeriod += 1;
+    }
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.join(',')),
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'payroll-period-configuration.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportPayDateConfigCSV = () => {
+    const headers = [
+      'molga',
+      'date_modifier',
+      'period_parameters',
+      'payroll_year',
+      'payroll_period',
+      'date_type',
+      'date',
+    ];
+
+    const escapeCSV = (value: any): string => {
+      if (value === null || value === undefined) return '';
+      const str = String(value);
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    const NUM_ROWS = 52; // adjust if needed
+
+    // First date: 1/3/2025
+    // JS Date: month is 0-based, so January = 0
+    const startDate = new Date(2025, 0, 3);
+
+    const rows: string[][] = [];
+
+    let currentYear: number | null = null;
+    let payrollPeriodCounter = 0;
+
+    const formatDate = (d: Date) => {
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      const yyyy = d.getFullYear();
+      return `${mm}/${dd}/${yyyy}`;
+    };
+
+    for (let i = 0; i < NUM_ROWS; i++) {
+      const date = new Date(startDate);
+      date.setDate(startDate.getDate() + i * 7);
+
+      const year = date.getFullYear();
+
+      // Reset payroll_period when the year changes
+      if (currentYear === null || currentYear !== year) {
+        currentYear = year;
+        payrollPeriodCounter = 1;
+      } else {
+        payrollPeriodCounter += 1;
+      }
+
+      rows.push([
+        escapeCSV('10'),                 // molga
+        escapeCSV('0'),                  // date_modifier
+        escapeCSV('80'),                 // period_parameters
+        escapeCSV(year),                 // payroll_year (from date)
+        escapeCSV(payrollPeriodCounter), // payroll_period (per year)
+        escapeCSV('01'),                 // date_type
+        escapeCSV(formatDate(date)),     // date
+      ]);
+    }
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.join(',')),
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'pay-date-configuration.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="right-panel">
-      <div className="payroll-areas-header">
-        <div>
-          <h2>Payroll Areas ({payrollAreas.length})</h2>
-          <p style={{ fontSize: '0.75rem', color: '#718096', marginTop: '0.25rem' }}>
-            Minimal areas calculated based on SAP best practices
+      <div className="section" style={{ marginBottom: 0 }}>
+        <div style={{ marginBottom: '1.5rem' }}>
+          <h2 className="section-title" style={{ marginTop: 0 }}>Payroll Areas ({payrollAreas.length})</h2>
+          <p style={{ marginTop: '0.5rem', color: '#718096', fontSize: '0.9375rem', lineHeight: '1.6' }}>
+            Generated payroll areas based on your configuration
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
           {isEditing ? (
             <>
               <button className="button button-small" onClick={handleSave} style={{ background: '#48bb78', color: 'white' }}>
@@ -149,6 +406,22 @@ export function PayrollAreasPanel() {
               <button className="button button-small" onClick={handleExportCSV}>
                 <Download size={14} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
                 Export CSV
+              </button>
+               <button className="button button-small" onClick={handleExportCalendarCSV}>
+                <Download size={14} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
+                Export Calendar CSV
+              </button>
+              <button className="button button-small" onClick={handleExportPayrollAreaConfigCSV}>
+                <Download size={14} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
+                Export Payroll Area Config CSV
+              </button>
+              <button className="button button-small" onClick={handleExportPayrollPeriodCSV}>
+                <Download size={14} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
+                Export Payroll Period CSV
+              </button>
+              <button className="button button-small" onClick={handleExportPayDateConfigCSV}>
+                <Download size={14} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
+                Export Pay Date Config CSV
               </button>
               <button className="button button-small" onClick={handleExport}>
                 <Download size={14} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />

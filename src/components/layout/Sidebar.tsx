@@ -4,7 +4,8 @@
  */
 
 import { Link, useLocation } from 'react-router-dom';
-import { cn } from '../../lib/utils';
+import { cn } from '../../lib/utils.ts';
+import { useAuthStore } from '../../store/auth';
 import {
   LayoutDashboard,
   Calendar,
@@ -34,6 +35,7 @@ interface SidebarProps {
 export function Sidebar({ currentPath, statusIndicators = {} }: SidebarProps) {
   const location = useLocation();
   const pathname = currentPath || location.pathname;
+  const { user, clearAuth } = useAuthStore();
 
   const getStatusIcon = (key: string) => {
     if (key === 'dashboard' || key === 'export') return null;
@@ -101,14 +103,15 @@ export function Sidebar({ currentPath, statusIndicators = {} }: SidebarProps) {
         <div className="border-t border-sidebar-border p-4">
           <div className="mb-3 flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-sidebar-accent text-sm font-medium text-sidebar-accent-foreground">
-              DS
+              {user?.username?.substring(0, 2).toUpperCase() || 'U'}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="truncate text-sm font-medium text-sidebar-foreground">Demo User</p>
-              <p className="truncate text-xs text-sidebar-foreground/60">Client</p>
+              <p className="truncate text-sm font-medium text-sidebar-foreground">{user?.username || 'User'}</p>
+              <p className="truncate text-xs text-sidebar-foreground/60 capitalize">{user?.role || 'Client'}</p>
             </div>
           </div>
           <button
+            onClick={clearAuth}
             className="w-full flex items-center justify-start gap-2 px-3 py-2 text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 rounded-lg transition-colors"
           >
             <LogOut className="h-4 w-4" />
