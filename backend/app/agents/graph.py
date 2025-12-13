@@ -25,10 +25,10 @@ from .payroll.payroll_area_graph import (
 )
 
 # Import module graphs - payment method graph
-from payment_method_graph import (
-    payment_method_graph as payment_method_module,
-    router_node as payment_method_router,
-    PaymentMethodState
+from .payments.payment_method_graph import (
+    payment_method_graph,
+    PaymentMethodState,
+    router_node,
 )
 
 
