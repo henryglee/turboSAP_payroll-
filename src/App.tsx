@@ -12,13 +12,14 @@ import { AdminPage } from './pages/AdminPage';
 import { AuthPage, ProtectedRoute } from './components/auth';
 import { useAuthStore } from './store/auth';
 import { getCurrentUser } from './api/auth';
+import {DataTerminalPage} from "./pages/DataTerminalPage.tsx";
 
 function App() {
-  return (
-    <BrowserRouter>
-      <AppContent />
-    </BrowserRouter>
-  );
+    return (
+        <BrowserRouter>
+            <AppContent/>
+        </BrowserRouter>
+    );
 }
 
 function AppContent() {
@@ -32,89 +33,103 @@ function AppContent() {
     }
   }, [token, user, setAuth, clearAuth]);
 
-  return (
-    <Routes>
-      {/* Public route */}
-      <Route
-        path="/login"
-        element={
-          isAuthenticated ? (
-            <Navigate to={user?.role === 'admin' ? '/admin' : '/dashboard'} replace />
-          ) : (
-            <AuthPage />
-          )
-        }
-      />
+    return (
+        <Routes>
+            {/* Public route - Login page */}
+            <Route
+                path="/login"
+                element={
+                    isAuthenticated ? (
+                        <Navigate to={user?.role === 'admin' ? '/admin' : '/dashboard'} replace/>
+                    ) : (
+                        <AuthPage/>
+                    )
+                }
+            />
 
-      {/* Dashboard (no shared layout) */}
-      <Route
-        path="/dashboard"
-        element={
-          <ProtectedRoute>
-            <DashboardPage />
-          </ProtectedRoute>
-        }
-      />
+            {/* Dashboard - uses its own DashboardLayout, no purple header */}
+            <Route
+                path="/dashboard"
+                element={
+                    <ProtectedRoute>
+                        <DashboardPage/>
+                    </ProtectedRoute>
+                }
+            />
 
-      {/* Everything else uses shared layout */}
-      <Route
-        element={
-          <ProtectedRoute>
-            <AppLayout />
-          </ProtectedRoute>
-        }
-      >
-        <Route path="/chat" element={<ChatPage />} />
-        <Route path="/config" element={<ConfigPage />} />
-        <Route path="/payment-methods" element={<PaymentMethodPage />} />
+            {/* All other protected routes use AppLayout (with purple header/nav) */}
+            <Route
+                element={
+                    <ProtectedRoute>
+                        <AppLayout/>
+                    </ProtectedRoute>
+                }
+            >
+                {/* User routes */}
+                <Route path="/chat" element={<ChatPage/>}/>
+                <Route path="/config" element={<ConfigPage/>}/>
+                <Route path="/payment-methods" element={<PaymentMethodPage/>}/>
 
-        <Route
-          path="/questions"
-          element={
-            <ProtectedRoute requireAdmin>
-              <QuestionsConfigPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin"
-          element={
-            <ProtectedRoute requireAdmin>
-              <AdminPage />
-            </ProtectedRoute>
-          }
-        />
+                {/* Admin-only routes */}
+                <Route
+                    path="/questions"
+                    element={
+                        <ProtectedRoute requireAdmin>
+                            <QuestionsConfigPage/>
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path="/admin"
+                    element={
+                        <ProtectedRoute requireAdmin>
+                            <AdminPage/>
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path={"/console"}
+                    element={
+                        <ProtectedRoute requireAdmin>
+                            <DataTerminalPage/>
+                        </ProtectedRoute>
+                    }
+                />
 
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
-      </Route>
-    </Routes>
-  );
+                {/* Default redirect */}
+                <Route path="/" element={<Navigate to="/dashboard" replace/>}/>
+
+                {/* 404 catch-all */}
+                <Route path="*" element={<Navigate to="/dashboard" replace/>}/>
+            </Route>
+        </Routes>
+    );
 }
 
 function AppLayout() {
   const { user, clearAuth } = useAuthStore();
   const location = useLocation();
 
-  return (
-    <div className="app">
-      <header className="app-header">
-        <div className="header-content">
-          <div className="header-left">
-            <h1>TurboSAP Payroll Configuration</h1>
-            {user?.companyName && <p>{user.companyName}</p>}
-          </div>
-          <div className="header-right">
-            <div className="user-info-container">
-              <span className="user-name">{user?.username || ''}</span>
-              <span className="user-role">{user?.role || ''}</span>
-            </div>
-            <button onClick={clearAuth} className="logout-button">
-              Logout
-            </button>
-          </div>
-        </div>
-      </header>
+    return (
+        <div className="app">
+            {/* Header with user info and logout */}
+            <header className="app-header">
+                <div className="header-content">
+                    <div className="header-left">
+                        <h1>TurboSAP Payroll Configuration</h1>
+                        {user?.companyName && <p>{user.companyName}</p>}
+                    </div>
+                    <div className="header-right">
+                        <div className="user-info-container">
+                            <span className="user-name">{user?.username || ''}</span>
+                            <span className="user-role">{user?.role || ''}</span>
+                        </div>
+                        <button onClick={clearAuth} className="logout-button">
+                            Logout
+                        </button>
+                    </div>
+                </div>
+            </header>
 
       <nav className="page-nav">
         <Link to="/dashboard" className={`nav-button ${location.pathname === '/dashboard' ? 'active' : ''}`}>
@@ -145,9 +160,10 @@ function AppLayout() {
         )}
       </nav>
 
-      <Outlet />
-    </div>
-  );
+            {/* Render the current route's component */}
+            <Outlet/>
+        </div>
+    );
 }
 
 export default App;
