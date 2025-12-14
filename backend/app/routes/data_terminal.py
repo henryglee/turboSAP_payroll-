@@ -293,8 +293,43 @@ async def _handle_command(state: TerminalState, command: str, ws: WebSocket) -> 
 
     if cmd == "cat":
         if not args:
-            await _send_line(ws, "usage: cat <file>")
+            await _send_line(ws, "usage: cat <file> | cat <text> > <file>")
             return
+
+        if ">" in args:
+            redirect_index = args.index(">")
+            if redirect_index == 0 or redirect_index == len(args) - 1:
+                await _send_line(ws, "cat: usage cat <text> > <file>")
+                return
+            if not is_admin(state.user.get("role", "")):
+                await _send_line(ws, "cat: write access requires admin permissions")
+                return
+
+            content_tokens = args[:redirect_index]
+            target_tokens = args[redirect_index + 1 :]
+            if len(target_tokens) != 1:
+                await _send_line(ws, "cat: usage cat <text> > <file>")
+                return
+            content = " ".join(content_tokens)
+            encoded = content.encode("utf-8")
+            if len(encoded) > MAX_TEXT_BYTES:
+                await _send_line(ws, "cat: content exceeds maximum size")
+                return
+            try:
+                target_path = _resolve_path(target_tokens[0], state.root, state.cwd)
+            except HTTPException as exc:
+                await _send_line(ws, f"cat: {exc.detail}")
+                return
+            if target_path.is_dir():
+                await _send_line(ws, "cat: cannot overwrite a directory")
+                return
+            if not target_path.parent.exists():
+                await _send_line(ws, "cat: parent directory must exist")
+                return
+            target_path.write_bytes(encoded)
+            await _send_line(ws, f"cat: wrote {len(encoded)} bytes to {target_path.name}")
+            return
+
         try:
             file_path = _resolve_path(args[0], state.root, state.cwd)
         except HTTPException as exc:
