@@ -54,6 +54,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 import os
 
+from .routes import data_terminal
+
 ENV = os.getenv("APP_ENV", "development")
 
 # ============================================
@@ -73,6 +75,9 @@ frontend_dir = Path(__file__).parent / "static"
 # Serve all static assets (JS, CSS, images)
 if ENV == "production":
     app.mount("/assets", StaticFiles(directory=frontend_dir / "assets"), name="assets")
+
+# Mount API routers that live in app.routes
+app.include_router(data_terminal.router)
 
 # CORS - Allow React dev server to call this API
 app.add_middleware(
