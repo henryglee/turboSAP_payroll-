@@ -35,3 +35,7 @@ __pycache__/
 
 # Local DB
 *.db
+
+__pycache__/
+*.pyc
+*.db
