@@ -16,7 +16,6 @@ from fastapi import (
     WebSocketDisconnect,
 )
 from pydantic import BaseModel, Field
-
 from ..auth import verify_token
 from ..middleware import get_current_user
 from ..roles import is_admin
@@ -40,9 +39,10 @@ class PathPayload(BaseModel):
     customer: Optional[str] = None
 
 
-def _ensure_root_exists() -> None:
-    REACHNETT_ROOT.mkdir(parents=True, exist_ok=True)
-
+def _check_root_exists() -> bool:
+    if not REACHNETT_ROOT.exists():
+        raise FileNotFoundError(f"ReachNett root does not exist: {REACHNETT_ROOT}")
+    return REACHNETT_ROOT.exists()
 
 def _sanitize_customer_name(raw: Optional[str]) -> str:
     candidate = (raw or DEFAULT_CUSTOMER).strip()
@@ -54,7 +54,7 @@ def _sanitize_customer_name(raw: Optional[str]) -> str:
 
 
 def _get_customer_root(user: dict, customer: Optional[str]) -> tuple[Path, str]:
-    _ensure_root_exists()
+    _check_root_exists()
     role = user.get("role", "")
     if is_admin(role):
         requested = _sanitize_customer_name(customer)
@@ -85,7 +85,7 @@ def _resolve_path(relative_path: Optional[str], customer_root: Path, cwd: Option
 @router.get("/customers")
 def list_customers(user: dict = Depends(get_current_user)) -> dict:
     """Return visible customer folders."""
-    _ensure_root_exists()
+    _check_root_exists()
     if is_admin(user.get("role", "")):
         (REACHNETT_ROOT / DEFAULT_CUSTOMER).mkdir(parents=True, exist_ok=True)
         customers = sorted(p.name for p in REACHNETT_ROOT.iterdir() if p.is_dir())
