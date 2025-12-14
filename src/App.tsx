@@ -15,6 +15,7 @@ import { AdminSettingsPage } from './pages/AdminSettingsPage';
 import { AuthPage, ProtectedRoute } from './components/auth';
 import { useAuthStore } from './store/auth';
 import { getCurrentUser } from './api/auth';
+import {DataTerminalPage} from "./pages/DataTerminalPage.tsx";
 
 function App() {
   return (
@@ -158,7 +159,7 @@ function AppContent() {
 
         {/* Default redirect */}
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        
+
         {/* 404 catch-all */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>

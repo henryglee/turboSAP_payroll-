@@ -12,6 +12,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 export function DataTerminalPage() {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
+  const intentionalCloseRef = useRef(false);
   const termRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
 
@@ -35,6 +36,7 @@ export function DataTerminalPage() {
   }, [token, selectedCustomer]);
 
   const teardownSocket = useCallback(() => {
+    intentionalCloseRef.current = true;
     socketRef.current?.close();
     socketRef.current = null;
   }, []);
@@ -78,66 +80,79 @@ export function DataTerminalPage() {
     };
   }, []);
 
-  const connectSocket = useCallback(() => {
-    // if (!token || !termRef.current) return;
-    if (!termRef.current) return;
+ const connectSocket = useCallback(() => {
+  if (!token || !termRef.current || !isAdmin) return;
 
-    setStatus('connecting');
-    setErrorMessage(null);
+  // Close existing socket
+  intentionalCloseRef.current = true;
+  socketRef.current?.close();
 
-    const socket = new WebSocket(wsUrl);
-    socketRef.current = socket;
+  intentionalCloseRef.current = false;
+  setStatus('connecting');
+  setErrorMessage(null);
 
-    const term = termRef.current;
-    if (!term) {
+  const socket = new WebSocket(wsUrl);
+  socketRef.current = socket;
+
+  const term = termRef.current;
+
+  const disposeDataListener = term.onData((data) => {
+    if (socket.readyState === WebSocket.OPEN) {
+      socket.send(data);
+    }
+  });
+
+  socket.addEventListener('open', () => {
+    setStatus('connected');
+    term.focus();
+  });
+
+  // Ignore transient errors
+  socket.addEventListener('error', () => {
+    console.warn('WebSocket transient error');
+  });
+
+  socket.addEventListener('close', (event) => {
+    disposeDataListener.dispose();
+
+    if (intentionalCloseRef.current) {
+      setStatus('idle');
       return;
     }
 
-    const disposeDataListener = term.onData((data) => {
-      if (socket.readyState === WebSocket.OPEN) {
-        socket.send(data);
-      }
-    });
-
-    socket.addEventListener('open', () => {
-      setStatus('connected');
-      termRef.current?.focus();
-    });
-
-    socket.addEventListener('error', () => {
+    if (!event.wasClean) {
       setStatus('error');
-      setErrorMessage('WebSocket connection error');
-    });
+      // setErrorMessage('Connection lost');
+      term.write('\r\n[connection lost]\r\n');
+    } else {
+      setStatus('idle');
+      term.write('\r\n[connection closed]\r\n');
+    }
+  });
 
-    socket.addEventListener('close', () => {
-      setStatus((prev) => (prev === 'error' ? prev : 'idle'));
-      termRef.current?.write('\r\n[connection closed]\r\n');
-      disposeDataListener.dispose();
-    });
+  socket.addEventListener('message', (event) => {
+    term.write(event.data ?? '');
+  });
+}, [token, wsUrl, isAdmin]);
 
-    socket.addEventListener('message', (event) => {
-      termRef.current?.write(event.data ?? '');
-    });
-  }, [token, wsUrl]);
 
   useEffect(() => {
-    if (!token) return () => undefined;
+    if (!token || !isAdmin) return () => undefined;
 
     const cleanupResize = initializeTerminal();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     connectSocket();
 
     return () => {
       cleanupResize?.();
       disconnectTerminal();
     };
-  }, [token, initializeTerminal, connectSocket, disconnectTerminal, wsUrl]);
+  }, [token, isAdmin, initializeTerminal, connectSocket, disconnectTerminal, wsUrl]);
 
   useEffect(() => {
     let active = true;
 
     if (!isAdmin) {
-      setCustomers(['default']);
-      setSelectedCustomer('default');
       return () => {
         active = false;
       };
@@ -165,6 +180,22 @@ export function DataTerminalPage() {
     const value = event.target.value;
     setSelectedCustomer(value);
   };
+
+  if (!token) {
+    return (
+      <div className="data-terminal-page">
+        <div className="terminal-error">Sign in to access the Reachnett data terminal.</div>
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="data-terminal-page">
+        <div className="terminal-error">Only administrators can access the Reachnett data terminal.</div>
+      </div>
+    );
+  }
 
   return (
     <div className="data-terminal-page">
