@@ -11,11 +11,7 @@ import type {
   StartSessionResponse,
   SubmitAnswerRequest,
   SubmitAnswerResponse,
-  StartPaymentSessionResponse,
-  SubmitPaymentAnswerRequest,
-  SubmitPaymentAnswerResponse,
 } from '../types/chat';
-import { API_BASE_URL } from '../config/api';
 
 /**
  * Start a new configuration session for any module.
@@ -61,7 +57,7 @@ export async function submitAnswer(
  */
 export async function checkHealth(): Promise<boolean> {
   try {
-    await apiFetch<{ status: string }>('/');
+    await apiFetch<{ status: string }>('/api/health');
     return true;
   } catch {
     return false;
@@ -81,28 +77,17 @@ export async function getSession(sessionId: string): Promise<{
   return apiFetch(`/api/session/${sessionId}`);
 }
 
-/**
- * Start a new payment-method configuration session.
- *
- * Calls FastAPI: POST /api/session/payment_method/start
- */
-export async function startPaymentSession(): Promise<StartPaymentSessionResponse> {
-  return apiFetch<StartPaymentSessionResponse>('/api/session/payment_method/start', {
+export async function startPaymentSession(): Promise<StartSessionResponse> {
+  return apiFetch<StartSessionResponse>('/api/session/payment_method/start', {
     method: 'POST',
     body: JSON.stringify({}), 
   });
 }
 
-/**
- * Submit an answer for the payment-method flow and get the next question
- * or final payment method configurations.
- *
- * Calls FastAPI: POST /api/session/payment_method/answer
- */
 export async function submitPaymentAnswer(
-  request: SubmitPaymentAnswerRequest
-): Promise<SubmitPaymentAnswerResponse> {
-  return apiFetch<SubmitPaymentAnswerResponse>('/api/session/payment_method/answer', {
+  request: SubmitAnswerRequest
+): Promise<SubmitAnswerResponse> {
+  return apiFetch<SubmitAnswerResponse>('/api/session/payment_method/answer', {
     method: 'POST',
     body: JSON.stringify({
       sessionId: request.sessionId,

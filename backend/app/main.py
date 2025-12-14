@@ -21,6 +21,7 @@ Run with: uvicorn app.main:app --reload --port 8000
 """
 
 import uuid
+from app.agents.payments.payment_method_graph import payment_method_graph
 from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi import Body
 from fastapi.middleware.cors import CORSMiddleware
@@ -394,6 +395,7 @@ async def submit_answer(
 
     # Run graph to determine next step
     result = payroll_graph.invoke(state)
+
 
     # Update session - use database if authenticated, otherwise in-memory
     if current_user:
@@ -853,6 +855,119 @@ def serve_spa(full_path: str):
         return index_file.read_text(encoding="utf-8")
 
     return HTMLResponse("<h1>Frontend not found</h1>", status_code=404)
+
+@app.post("/api/session/payment_method/start")
+async def start_payment_method_session(
+    request: dict = Body({}),
+    authorization: Optional[str] = Header(None),
+):
+    session_id = str(uuid.uuid4())
+
+    # initialize state specifically for payment method module
+    initial_state = {
+        "session_id": session_id,
+        "answers": {},
+        "current_question_id": None,
+        "current_question": None,
+        "payment_methods": [],
+        "done": False,
+        "message": None,
+        # optional: keep this for debugging / DB module label
+        "current_module": "payment_method",
+    }
+
+    result = payment_method_graph.invoke(initial_state)
+
+    # optional auth + DB saving (same pattern as your /api/start)
+    current_user = None
+    try:
+        current_user = await get_optional_user(authorization)
+    except:
+        pass
+
+    if current_user:
+        db_create_session(
+            session_id=session_id,
+            user_id=current_user["user_id"],
+            config_state=result,
+            module="payment method",
+        )
+    else:
+        sessions[session_id] = result
+
+    return {
+        "sessionId": session_id,
+        "question": result.get("current_question"),
+        "module": "payment_method",
+    }
+
+
+@app.post("/api/session/payment_method/answer")
+async def submit_payment_method_answer(
+    request: dict = Body(...),
+    authorization: Optional[str] = Header(None),
+):
+    session_id = request.get("sessionId")
+    question_id = request.get("questionId")
+    answer = request.get("answer")
+
+    if not session_id:
+        raise HTTPException(status_code=400, detail="sessionId is required")
+    if not question_id:
+        raise HTTPException(status_code=400, detail="questionId is required")
+    if answer is None:
+        raise HTTPException(status_code=400, detail="answer is required")
+
+    current_user = await get_optional_user(authorization)
+
+    # load session
+    state = None
+    if current_user:
+        db_session = db_get_session(session_id)
+        if db_session and db_session["user_id"] == current_user["user_id"]:
+            state = db_session["config_state"]
+
+    if not state:
+        state = sessions.get(session_id)
+
+    if not state:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    # store answer
+    state.setdefault("answers", {})
+    state["answers"][question_id] = answer
+
+    # run the correct graph
+    result = payment_method_graph.invoke(state)
+
+    # save updated session
+    if current_user:
+        db_create_session(
+            session_id=session_id,
+            user_id=current_user["user_id"],
+            config_state=result,
+            module="payment method",
+        )
+    else:
+        sessions[session_id] = result
+
+    # done response (IMPORTANT: return paymentMethods in camelCase for your UI)
+    if result.get("done") or not result.get("current_question_id"):
+        return {
+            "sessionId": session_id,
+            "done": True,
+            "progress": 100,
+            "paymentMethods": result.get("payment_methods", []),
+            "message": result.get("message", "Configuration complete."),
+        }
+
+    return {
+        "sessionId": session_id,
+        "done": False,
+        "progress": 0,  # optional: implement progress for payment method
+        "question": result.get("current_question"),
+    }
+
 
 
 
