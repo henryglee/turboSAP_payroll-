@@ -12,7 +12,7 @@ Future expansion (18+ months):
 - Design: role field accepts any string to allow future extension
 
 Design principles:
-1. Role is stored as a string (flexible)
+default_code. Role is stored as a string (flexible)
 2. Admin check is explicit (role == "admin")
 3. No hardcoded role lists in validation (extensible)
 4. Future: can extend to prefix-based checks (e.g., role.startswith("ROLE_"))
