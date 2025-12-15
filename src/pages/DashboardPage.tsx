@@ -23,7 +23,7 @@ const modules = [
     title: 'Payroll Areas',
     description: 'Define payroll frequencies and period parameters',
     icon: Calendar,
-    route: '/chat',
+    route: '/payroll-area',
     count: 0,
     status: 'not-started' as const,
   },

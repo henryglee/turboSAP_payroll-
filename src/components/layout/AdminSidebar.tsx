@@ -1,6 +1,7 @@
 /**
- * Sidebar Component - From Lovable design
- * Navigation sidebar for TurboSAP with status indicators
+ * AdminSidebar Component
+ * Navigation sidebar for TurboSAP Admin interface
+ * Uses same base colors as client sidebar with gold/amber accent for differentiation
  */
 
 import { Link, useLocation } from 'react-router-dom';
@@ -8,71 +9,45 @@ import { cn } from '../../lib/utils.ts';
 import { useAuthStore } from '../../store/auth';
 import {
   LayoutDashboard,
-  Calendar,
-  CreditCard,
-  FileJson,
+  Users,
+  HelpCircle,
+  Settings,
   LogOut,
-  User,
-  CheckCircle2,
-  Circle,
+  FileJson,
   ChevronRight,
 } from 'lucide-react';
 
-const navItems = [
-  { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard', key: 'dashboard' },
-  { icon: Calendar, label: 'Payroll Areas', href: '/payroll-area', key: 'payrollAreas' },
-  { icon: CreditCard, label: 'Payment Methods', href: '/payment-methods', key: 'paymentMethods' },
-  { icon: FileJson, label: 'Export', href: '/export', key: 'export' },
+const adminNavItems = [
+  { icon: LayoutDashboard, label: 'Dashboard', href: '/admin/dashboard', key: 'dashboard' },
+  { icon: Users, label: 'Users', href: '/admin/users', key: 'users' },
+  { icon: HelpCircle, label: 'Questions', href: '/admin/questions', key: 'questions' },
+  { icon: Settings, label: 'Settings', href: '/admin/settings', key: 'settings' },
 ];
 
-interface SidebarProps {
-  currentPath?: string;
-  statusIndicators?: {
-    payrollAreas?: 'complete' | 'in-progress' | 'not-started';
-    paymentMethods?: 'complete' | 'in-progress' | 'not-started';
-  };
-}
-
-export function Sidebar({ currentPath, statusIndicators = {} }: SidebarProps) {
+export function AdminSidebar() {
   const location = useLocation();
-  const pathname = currentPath || location.pathname;
+  const pathname = location.pathname;
   const { user, clearAuth } = useAuthStore();
-
-  const getStatusIcon = (key: string) => {
-    if (key === 'dashboard' || key === 'export') return null;
-
-    const statusKey = key as keyof typeof statusIndicators;
-    const status = statusIndicators[statusKey];
-
-    if (status === 'complete') {
-      return <CheckCircle2 className="h-3.5 w-3.5 text-success" />;
-    }
-    if (status === 'in-progress') {
-      return <Circle className="h-3.5 w-3.5 text-warning fill-warning" />;
-    }
-    return <Circle className="h-3.5 w-3.5 text-muted-foreground/40" />;
-  };
 
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen w-64 gradient-sidebar border-r border-sidebar-border">
       <div className="flex h-full flex-col">
         {/* Logo */}
         <div className="flex h-16 items-center gap-2 border-b border-sidebar-border px-6">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg gradient-accent">
-            <FileJson className="h-5 w-5 text-accent-foreground" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-600">
+            <FileJson className="h-5 w-5 text-white" />
           </div>
           <div>
             <h1 className="font-semibold text-sidebar-foreground">TurboSAP</h1>
-            <p className="text-xs text-sidebar-foreground/60">Payroll Config</p>
+            <p className="text-xs text-amber-400">Admin Console</p>
           </div>
         </div>
 
         {/* Navigation */}
         <nav className="flex-1 space-y-1 px-3 py-4">
-          {navItems.map((item) => {
-            const isActive = pathname === item.href;
+          {adminNavItems.map((item) => {
+            const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
             const Icon = item.icon;
-            const statusIcon = getStatusIcon(item.key);
 
             return (
               <Link
@@ -81,17 +56,19 @@ export function Sidebar({ currentPath, statusIndicators = {} }: SidebarProps) {
                 className={cn(
                   'group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200',
                   isActive
-                    ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                    ? 'bg-amber-600/20 text-amber-400'
                     : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
                 )}
               >
-                <Icon className="h-5 w-5" />
+                <Icon className={cn(
+                  'h-5 w-5',
+                  isActive ? 'text-amber-400' : 'text-sidebar-foreground/50 group-hover:text-sidebar-foreground/80'
+                )} />
                 <span className="flex-1">{item.label}</span>
-                {statusIcon}
                 <ChevronRight
                   className={cn(
                     'h-4 w-4 opacity-0 transition-all duration-200',
-                    isActive && 'opacity-100',
+                    isActive && 'opacity-100 text-amber-400',
                     'group-hover:opacity-100'
                   )}
                 />
@@ -103,26 +80,26 @@ export function Sidebar({ currentPath, statusIndicators = {} }: SidebarProps) {
         {/* User Section */}
         <div className="border-t border-sidebar-border p-4">
           <div className="mb-3 flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-sidebar-accent text-sm font-medium text-sidebar-accent-foreground">
-              {user?.username?.substring(0, 2).toUpperCase() || 'U'}
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-600/20 text-sm font-medium text-amber-400">
+              {user?.username?.substring(0, 2).toUpperCase() || 'A'}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="truncate text-sm font-medium text-sidebar-foreground">{user?.username || 'User'}</p>
-              <p className="truncate text-xs text-sidebar-foreground/60 capitalize">{user?.role || 'Client'}</p>
+              <p className="truncate text-sm font-medium text-sidebar-foreground">{user?.username || 'Admin'}</p>
+              <p className="truncate text-xs text-amber-400 capitalize">{user?.role || 'Admin'}</p>
             </div>
           </div>
           <div className="space-y-1">
             <Link
-              to="/account"
+              to="/admin/settings"
               className={cn(
                 "w-full flex items-center justify-start gap-2 px-3 py-2 text-sm rounded-lg transition-colors",
-                pathname === '/account'
-                  ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                pathname === '/admin/settings'
+                  ? 'bg-amber-600/20 text-amber-400'
                   : 'text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50'
               )}
             >
-              <User className="h-4 w-4" />
-              Account
+              <Settings className="h-4 w-4" />
+              Settings
             </Link>
             <button
               onClick={clearAuth}

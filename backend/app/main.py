@@ -21,7 +21,8 @@ Run with: uvicorn app.main:app --reload --port 8000
 """
 
 import uuid
-from fastapi import FastAPI, HTTPException, Depends, Header
+import shutil
+from fastapi import FastAPI, HTTPException, Depends, Header, UploadFile, File
 from fastapi import Body
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional
@@ -33,6 +34,7 @@ from .database import (
     get_user_by_username,
     get_user_by_id,
     update_user_last_login,
+    update_user_profile,
     create_session as db_create_session,
     get_session as db_get_session,
     get_user_sessions,
@@ -73,6 +75,12 @@ frontend_dir = Path(__file__).parent / "static"
 # Serve all static assets (JS, CSS, images)
 if ENV == "production":
     app.mount("/assets", StaticFiles(directory=frontend_dir / "assets"), name="assets")
+
+# Serve uploaded logos (in both dev and production)
+uploads_dir = Path(__file__).parent.parent / "uploads"
+if not uploads_dir.exists():
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
 
 # CORS - Allow React dev server to call this API
 app.add_middleware(
@@ -411,13 +419,28 @@ async def submit_answer(
 
     # Build response
     if result.get("done") or not result.get("current_question_id"):
-        return {
+        # Build response with both payroll_areas and payment_methods
+        response = {
             "sessionId": session_id,
             "done": True,
             "progress": 100,
-            "payrollAreas": result.get("payroll_areas", []),
             "message": result.get("message", "Configuration complete."),
         }
+
+        # Add payroll areas if they exist
+        if result.get("payroll_areas"):
+            response["payrollAreas"] = result.get("payroll_areas", [])
+
+        # Add payment methods if they exist
+        if result.get("payment_methods"):
+            response["paymentMethods"] = result.get("payment_methods", [])
+
+        # Debug logging
+        print(f"[DEBUG] Final response - done: {result.get('done')}, current_module: {result.get('current_module')}")
+        print(f"[DEBUG] payment_methods in result: {result.get('payment_methods')}")
+        print(f"[DEBUG] Response being sent: {response}")
+
+        return response
 
     # Get next question
     next_question_id = result.get("current_question_id")
@@ -425,8 +448,12 @@ async def submit_answer(
     # Check if question is dynamic (from graph) or in JSON
     next_question = result.get("current_question")
     if not next_question:
-        # Question is in JSON file
-        next_question = get_question(next_question_id)
+        # Question is in JSON file - determine which module's questions to use
+        current_module = result.get("current_module", "payroll_area")
+        if current_module == "payment_method":
+            next_question = get_question(next_question_id, "payment_method")
+        else:
+            next_question = get_question(next_question_id)
 
     if not next_question:
         raise HTTPException(
@@ -834,6 +861,71 @@ async def update_user_role(
         conn.commit()
     
     return {"status": "ok", "userId": user_id, "role": new_role}
+
+
+# ============================================
+# Logo Upload Endpoint
+# ============================================
+
+@app.post("/api/upload/logo")
+async def upload_logo(
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Upload company logo for current user.
+
+    Accepts image files (PNG, JPG, JPEG, GIF, SVG).
+    Saves to: backend/uploads/logos/{user_id}.{ext}
+
+    Returns:
+        {
+            "logoPath": "/uploads/logos/123.png",
+            "message": "Logo uploaded successfully"
+        }
+    """
+    user_id = current_user["user_id"]
+
+    # Validate file type
+    allowed_extensions = {".png", ".jpg", ".jpeg", ".gif", ".svg"}
+    file_ext = Path(file.filename).suffix.lower() if file.filename else ""
+
+    if file_ext not in allowed_extensions:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid file type. Allowed types: {', '.join(allowed_extensions)}"
+        )
+
+    # Create uploads directory if it doesn't exist
+    uploads_dir = Path(__file__).parent.parent / "uploads" / "logos"
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+
+    # Save file with user_id as filename
+    file_path = uploads_dir / f"{user_id}{file_ext}"
+
+    try:
+        # Save uploaded file
+        with file_path.open("wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        # Update database with logo path
+        logo_path = f"/uploads/logos/{user_id}{file_ext}"
+        update_user_profile(user_id, logo_path=logo_path)
+
+        return {
+            "logoPath": logo_path,
+            "message": "Logo uploaded successfully"
+        }
+
+    except Exception as e:
+        # Clean up file if database update fails
+        if file_path.exists():
+            file_path.unlink()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to upload logo: {str(e)}"
+        )
+
 
 # Catch-all route for SPA (React/Vite)
 @app.get("/{full_path:path}", response_class=HTMLResponse)

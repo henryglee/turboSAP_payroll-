@@ -24,6 +24,12 @@ from .payroll.payroll_area_graph import (
     router_node as payroll_router
 )
 
+from .payments.payment_method_graph import (
+    payment_method_graph as payment_module,
+    PaymentMethodState,
+    router_node as payment_router
+)
+
 
 # ============================================
 # Master State
@@ -107,8 +113,14 @@ def master_router(state: MasterState) -> MasterState:
     """
     completed_modules = state.get("completed_modules") or []
 
-    # Determine next module
-    next_module = get_next_module(state)
+    # Check if a specific module was requested (from /api/start)
+    # If current_module is set and not completed, use that
+    current_module = state.get("current_module")
+    if current_module and current_module not in completed_modules:
+        next_module = current_module
+    else:
+        # Otherwise, determine next module from sequence
+        next_module = get_next_module(state)
 
     if next_module is None:
         # All modules complete!
@@ -159,19 +171,42 @@ def master_router(state: MasterState) -> MasterState:
             }
 
     elif next_module == "payment_method":
-        # Payment method module (skeleton for demo)
-        # For now, just mark as complete immediately
-        # Future: Execute payment_method_router(state)
+        # Execute payment method module
+        result = payment_router(state)
 
-        new_completed = completed_modules + ["payment_method"]
+        # Check if payment method module is complete
+        if result.get("done"):
+            # Mark payment_method as complete, move to next module
+            new_completed = completed_modules + ["payment_method"]
 
-        return {
-            **state,
-            "completed_modules": new_completed,
-            "current_module": next_module,
-            "done": False,  # Check for more modules
-            "message": "Payment Method module complete (skeleton)",
-        }
+            # Determine if there are any modules left; if none, stay done
+            next_after_payment = get_next_module({
+                **result,
+                "completed_modules": new_completed,
+            })
+
+            if next_after_payment is None:
+                return {
+                    **result,
+                    "completed_modules": new_completed,
+                    "current_module": None,
+                    "done": True,
+                }
+
+            # Reset done flag so master can continue to remaining modules
+            return {
+                **result,
+                "completed_modules": new_completed,
+                "current_module": next_after_payment,
+                "done": False,  # Master not done yet
+            }
+        else:
+            # Payment method still in progress
+            return {
+                **result,
+                "completed_modules": completed_modules,
+                "current_module": next_module,
+            }
 
     # Fallback: unknown module
     return {

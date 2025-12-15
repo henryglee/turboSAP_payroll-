@@ -30,8 +30,8 @@
     },
     {
       "id": "q1_weekly_pattern",
-      "text": "For WEEKLY payroll, what is the pay period?",
-      "type": "multiple_choice",
+      "text": "For WEEKLY payroll, what pay periods do you use?",
+      "type": "multiple_select",
       "showIf": {
         "questionId": "q1_frequencies",
         "answerId": "weekly"
@@ -51,8 +51,8 @@
     },
     {
       "id": "q1_weekly_payday",
-      "text": "For WEEKLY payroll, what day do employees get paid?",
-      "type": "multiple_choice",
+      "text": "For WEEKLY payroll, what pay days do you use?",
+      "type": "multiple_select",
       "showIf": {
         "questionId": "q1_frequencies",
         "answerId": "weekly"
@@ -77,8 +77,8 @@
     },
     {
       "id": "q1_biweekly_pattern",
-      "text": "For BI-WEEKLY payroll, what is the pay period?",
-      "type": "multiple_choice",
+      "text": "For BI-WEEKLY payroll, what pay periods do you use?",
+      "type": "multiple_select",
       "showIf": {
         "questionId": "q1_frequencies",
         "answerId": "biweekly"
@@ -98,8 +98,8 @@
     },
     {
       "id": "q1_biweekly_payday",
-      "text": "For BI-WEEKLY payroll, what day do employees get paid?",
-      "type": "multiple_choice",
+      "text": "For BI-WEEKLY payroll, what pay days do you use?",
+      "type": "multiple_select",
       "showIf": {
         "questionId": "q1_frequencies",
         "answerId": "biweekly"
@@ -120,7 +120,7 @@
     {
       "id": "q1_semimonthly_pattern",
       "text": "For SEMI-MONTHLY payroll, what are the pay periods?",
-      "type": "multiple_choice",
+      "type": "choice",
       "showIf": {
         "questionId": "q1_frequencies",
         "answerId": "semimonthly"
@@ -135,8 +135,8 @@
     },
     {
       "id": "q1_semimonthly_payday",
-      "text": "For SEMI-MONTHLY payroll, what are the pay days?",
-      "type": "multiple_choice",
+      "text": "For SEMI-MONTHLY payroll, what pay days do you use?",
+      "type": "multiple_select",
       "showIf": {
         "questionId": "q1_frequencies",
         "answerId": "semimonthly"
@@ -156,8 +156,8 @@
     },
     {
       "id": "q1_monthly_payday",
-      "text": "For MONTHLY payroll, what is the pay day?",
-      "type": "multiple_choice",
+      "text": "For MONTHLY payroll, what pay days do you use?",
+      "type": "multiple_select",
       "showIf": {
         "questionId": "q1_frequencies",
         "answerId": "monthly"

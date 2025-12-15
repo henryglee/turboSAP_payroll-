@@ -7,6 +7,11 @@ import { ChatPage } from './pages/ChatPage';
 import { PaymentMethodPage } from './pages/PaymentMethodPage';
 import { QuestionsConfigPage } from './pages/QuestionsConfigPage';
 import { AdminPage } from './pages/AdminPage';
+import { AccountPage } from './pages/AccountPage';
+import { PayrollAreaPage } from './pages/PayrollAreaPage';
+import { AdminDashboardPage } from './pages/AdminDashboardPage';
+import { AdminUsersPage } from './pages/AdminUsersPage';
+import { AdminSettingsPage } from './pages/AdminSettingsPage';
 import { AuthPage, ProtectedRoute } from './components/auth';
 import { useAuthStore } from './store/auth';
 import { getCurrentUser } from './api/auth';
@@ -43,7 +48,7 @@ function AppContent() {
         path="/login"
         element={
           isAuthenticated ? (
-            <Navigate to={user?.role === 'admin' ? '/admin' : '/dashboard'} replace />
+            <Navigate to={user?.role === 'admin' ? '/admin/dashboard' : '/dashboard'} replace />
           ) : (
             <AuthPage />
           )
@@ -56,6 +61,60 @@ function AppContent() {
         element={
           <ProtectedRoute>
             <DashboardPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Account - uses DashboardLayout with sidebar */}
+      <Route
+        path="/account"
+        element={
+          <ProtectedRoute>
+            <AccountPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Payroll Area - New UI with DashboardLayout */}
+      <Route
+        path="/payroll-area"
+        element={
+          <ProtectedRoute>
+            <PayrollAreaPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* New Admin Routes - Uses AdminLayout with gold/amber accent */}
+      <Route
+        path="/admin/dashboard"
+        element={
+          <ProtectedRoute requireAdmin>
+            <AdminDashboardPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/users"
+        element={
+          <ProtectedRoute requireAdmin>
+            <AdminUsersPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/questions"
+        element={
+          <ProtectedRoute requireAdmin>
+            <QuestionsConfigPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/settings"
+        element={
+          <ProtectedRoute requireAdmin>
+            <AdminSettingsPage />
           </ProtectedRoute>
         }
       />
@@ -73,7 +132,7 @@ function AppContent() {
         <Route path="/config" element={<ConfigPage />} />
         <Route path="/payment-methods" element={<PaymentMethodPage />} />
 
-        {/* Admin-only routes */}
+        {/* Admin-only routes (legacy - kept as backup) */}
         <Route
           path="/questions"
           element={
@@ -82,13 +141,19 @@ function AppContent() {
             </ProtectedRoute>
           }
         />
+        {/* Old admin page - DEPRECATED, kept as backup */}
         <Route
-          path="/admin"
+          path="/admin-legacy"
           element={
             <ProtectedRoute requireAdmin>
               <AdminPage />
             </ProtectedRoute>
           }
+        />
+        {/* Redirect old /admin to new admin dashboard */}
+        <Route
+          path="/admin"
+          element={<Navigate to="/admin/dashboard" replace />}
         />
 
         {/* Default redirect */}

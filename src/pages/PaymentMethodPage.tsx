@@ -8,7 +8,7 @@
 
 import { useState, useEffect } from 'react';
 import { DashboardLayout } from '../components/layout/DashboardLayout.tsx';
-import { startPaymentSession, submitPaymentAnswer } from '../api/langgraph.ts';
+import { startSession, submitAnswer } from '../api/langgraph.ts';
 import type { PaymentMethodConfig } from '../types/chat';
 import { CheckCircle2, AlertCircle, ChevronDown, ChevronRight, AlertTriangle, Download, Plus, Trash2 } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -214,11 +214,11 @@ export function PaymentMethodPage() {
     setShowResults(false);
 
     try {
-      // Step 1: Start session
-      const { sessionId } = await startPaymentSession();
+      // Step 1: Start session for payment_method module
+      const { sessionId } = await startSession('payment_method');
 
       // Step 2: Answer Q1 - Payment method P (ACH)?
-      let response = await submitPaymentAnswer({
+      let response = await submitAnswer({
         sessionId,
         questionId: 'q1_payment_method_p',
         answer: selectedMethods.includes('P') ? 'yes' : 'no',
@@ -226,14 +226,14 @@ export function PaymentMethodPage() {
 
       // Step 3: If P selected, answer house banks
       if (selectedMethods.includes('P')) {
-        response = await submitPaymentAnswer({
+        response = await submitAnswer({
           sessionId,
           questionId: 'q1_p_house_banks',
           answer: houseBanks,
         });
 
         // Step 4: Answer ACH spec
-        response = await submitPaymentAnswer({
+        response = await submitAnswer({
           sessionId,
           questionId: 'q1_p_ach_spec',
           answer: achSpec,
@@ -241,7 +241,7 @@ export function PaymentMethodPage() {
       }
 
       // Step 5: Answer Q2 - Payment method Q (Physical Check)?
-      response = await submitPaymentAnswer({
+      response = await submitAnswer({
         sessionId,
         questionId: 'q2_payment_method_q',
         answer: selectedMethods.includes('Q') ? 'yes' : 'no',
@@ -249,7 +249,7 @@ export function PaymentMethodPage() {
 
       // Step 6: If Q selected, answer check volume
       if (selectedMethods.includes('Q')) {
-        response = await submitPaymentAnswer({
+        response = await submitAnswer({
           sessionId,
           questionId: 'q2_q_volume',
           answer: checkVolume,
@@ -267,7 +267,7 @@ export function PaymentMethodPage() {
           } : null,
         };
 
-        response = await submitPaymentAnswer({
+        response = await submitAnswer({
           sessionId,
           questionId: 'q2_q_check_range',
           answer: JSON.stringify(checkRangeData),
@@ -275,21 +275,21 @@ export function PaymentMethodPage() {
       }
 
       // Step 8: Answer Q3 - Payment method K (Pay Card)?
-      response = await submitPaymentAnswer({
+      response = await submitAnswer({
         sessionId,
         questionId: 'q3_payment_method_k',
         answer: selectedMethods.includes('K') ? 'yes' : 'no',
       });
 
       // Step 9: Answer Q4 - Payment method M (Manual Check)?
-      response = await submitPaymentAnswer({
+      response = await submitAnswer({
         sessionId,
         questionId: 'q4_payment_method_m',
         answer: selectedMethods.includes('M') ? 'yes' : 'no',
       });
 
       // Step 10: Answer Q5 - Pre-note confirmation
-      response = await submitPaymentAnswer({
+      response = await submitAnswer({
         sessionId,
         questionId: 'q5_pre_note_confirmation',
         answer: agreeNoPreNote ? 'agree' : 'disagree',
