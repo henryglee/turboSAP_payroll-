@@ -17,6 +17,13 @@ The master router determines which module should run next based on:
 from typing import TypedDict, Optional
 from langgraph.graph import StateGraph, START, END
 
+from typing import TypedDict, Optional
+from langgraph.graph import StateGraph, START, END
+
+from langgraph.checkpoint.memory import MemorySaver
+
+
+
 # Import module graphs
 from .payroll.payroll_area_graph import (
     payroll_graph as payroll_module,
@@ -30,6 +37,8 @@ from .payments.payment_method_graph import (
     router_node as payment_router
 )
 
+# global in-memory checkpointer (process-local)
+memory_checkpointer = MemorySaver()
 
 # ============================================
 # Master State
@@ -70,7 +79,7 @@ class MasterState(TypedDict, total=False):
 # Future: Replace with dependency DAG
 MODULE_SEQUENCE = [
     "payroll_area",
-    # "payment_method",
+    "payment_method",
     # Future modules:
     # "time_management",
     # "benefits",
@@ -220,28 +229,17 @@ def master_router(state: MasterState) -> MasterState:
 # Create and Compile Master Graph
 # ============================================
 
-def create_master_graph() -> StateGraph:
-    """
-    Create the master orchestration graph.
+from langgraph.checkpoint.base import BaseCheckpointSaver
 
-    Simple for MVP: START → master_router → END
-
-    The master_router handles all module routing internally.
-    """
+def create_master_graph(checkpointer: BaseCheckpointSaver | None = None):
     graph = StateGraph(MasterState)
-
-    # Add the master router node
     graph.add_node("master_router", master_router)
-
-    # Edges
     graph.add_edge(START, "master_router")
     graph.add_edge("master_router", END)
+    return graph.compile(checkpointer=checkpointer)
 
-    return graph.compile()
-
-
-# Create the compiled master graph (singleton)
-master_graph = create_master_graph()
+# ✅ compile with memory
+master_graph = create_master_graph(checkpointer=memory_checkpointer)
 
 
 # ============================================

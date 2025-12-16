@@ -27,6 +27,7 @@ from app.agents.payments.payment_method_graph import payment_method_graph
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional
 
+
 from .services.questions import get_question, get_first_question
 from .agents.graph import master_graph, payroll_graph, PayrollState
 from .database import (
@@ -55,6 +56,7 @@ from pathlib import Path
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 import os
+
 
 from .routes import data_terminal
 
@@ -143,6 +145,10 @@ def calculate_progress(state: PayrollState) -> int:
         return 100
 
     return min(int((answered_count / max(estimated_total, 1)) * 100), 95)
+
+def cfg(session_id: str) -> dict:
+    return {"configurable": {"thread_id": session_id}}
+
 
 
 # ============================================
@@ -301,7 +307,8 @@ async def start_session(
     }
 
     # Run master graph to get first question
-    result = master_graph.invoke(initial_state)
+    result = master_graph.invoke(initial_state, config=cfg(session_id))
+
 
     # Try to get current user (optional authentication)
     current_user = None
@@ -340,41 +347,13 @@ async def start_session(
     }
 
 
+
+
 @app.post("/api/answer")
 async def submit_answer(
     request: dict,
     authorization: Optional[str] = Header(None),
 ):
-    """
-    Submit an answer and get the next question (or final results).
-
-    Request body:
-        {
-            "sessionId": "...",
-            "questionId": "q1_frequencies",
-            "answer": "weekly" | ["weekly", "biweekly"]
-        }
-
-    Headers (optional):
-        Authorization: Bearer <token> - If provided, session will be saved to database
-
-    Returns (more questions):
-        {
-            "sessionId": "...",
-            "done": false,
-            "progress": 25,
-            "question": {...}
-        }
-
-    Returns (complete):
-        {
-            "sessionId": "...",
-            "done": true,
-            "progress": 100,
-            "payrollAreas": [...],
-            "message": "Generated X payroll areas..."
-        }
-    """
     session_id = request.get("sessionId")
     question_id = request.get("questionId")
     answer = request.get("answer")
@@ -387,77 +366,93 @@ async def submit_answer(
     if answer is None:
         raise HTTPException(status_code=400, detail="answer is required")
 
-    # Try to get current user (optional authentication)
     current_user = await get_optional_user(authorization)
 
-    # Get session - check database first if authenticated, then in-memory
+    # --------------------------------------------
+    # 1) Load state: MemorySaver -> DB -> legacy dict
+    # --------------------------------------------
     state = None
-    if current_user:
+
+    # (A) MemorySaver state (preferred)
+    snapshot = master_graph.get_state(cfg(session_id))
+    if snapshot and snapshot.values:
+        state = snapshot.values
+
+    # (B) DB fallback if authenticated
+    if state is None and current_user:
         db_session = db_get_session(session_id)
         if db_session and db_session["user_id"] == current_user["user_id"]:
             state = db_session["config_state"]
-    
-    if not state:
+            # Optional: seed memory so next calls hit MemorySaver
+            master_graph.invoke(state, config=cfg(session_id))
+
+    # (C) Legacy in-memory dict fallback (anonymous)
+    if state is None:
         state = sessions.get(session_id)
-    
-    if not state:
+        if state:
+            # Optional: seed memory
+            master_graph.invoke(state, config=cfg(session_id))
+
+    if state is None:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    # Store the answer
-    if "answers" not in state:
-        state["answers"] = {}
+    # --------------------------------------------
+    # 2) Store answer into state
+    # --------------------------------------------
+    state.setdefault("answers", {})
     state["answers"][question_id] = answer
 
-    # Run graph to determine next step
-    result = payroll_graph.invoke(state)
+    # --------------------------------------------
+    # 3) Run graph: IMPORTANT => use master_graph
+    # --------------------------------------------
+    result = master_graph.invoke(state, config=cfg(session_id))
 
-
-    # Update session - use database if authenticated, otherwise in-memory
+    # --------------------------------------------
+    # 4) Persist result (optional)
+    #    - MemorySaver is already updated automatically
+    #    - Keep DB write if you want durability for authed users
+    # --------------------------------------------
     if current_user:
+        module = result.get("current_module", "payroll_area")
+        module_db_name = {
+            "payroll_area": "payroll area",
+            "payment_method": "payment method",
+        }.get(module, module)
+
         db_create_session(
             session_id=session_id,
             user_id=current_user["user_id"],
             config_state=result,
-            module="payroll area",
+            module=module_db_name,
         )
     else:
+        # Keep legacy dict updated if you still support it
         sessions[session_id] = result
 
-    # Calculate progress
+    # --------------------------------------------
+    # 5) Response
+    # --------------------------------------------
     progress = calculate_progress(result)
 
-    # Build response
+    # done or no next question
     if result.get("done") or not result.get("current_question_id"):
-        # Build response with both payroll_areas and payment_methods
         response = {
             "sessionId": session_id,
             "done": True,
             "progress": 100,
             "message": result.get("message", "Configuration complete."),
         }
-
-        # Add payroll areas if they exist
         if result.get("payroll_areas"):
             response["payrollAreas"] = result.get("payroll_areas", [])
-
-        # Add payment methods if they exist
         if result.get("payment_methods"):
             response["paymentMethods"] = result.get("payment_methods", [])
-
-        # Debug logging
-        print(f"[DEBUG] Final response - done: {result.get('done')}, current_module: {result.get('current_module')}")
-        print(f"[DEBUG] payment_methods in result: {result.get('payment_methods')}")
-        print(f"[DEBUG] Response being sent: {response}")
-
         return response
 
-    # Get next question
+    # next question (dynamic or from JSON)
     next_question_id = result.get("current_question_id")
-
-    # Check if question is dynamic (from graph) or in JSON
     next_question = result.get("current_question")
+
     if not next_question:
-        # Question is in JSON file - determine which module's questions to use
         current_module = result.get("current_module", "payroll_area")
         if current_module == "payment_method":
             next_question = get_question(next_question_id, "payment_method")
@@ -465,10 +460,7 @@ async def submit_answer(
             next_question = get_question(next_question_id)
 
     if not next_question:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Question not found: {next_question_id}"
-        )
+        raise HTTPException(status_code=500, detail=f"Question not found: {next_question_id}")
 
     return {
         "sessionId": session_id,
@@ -479,39 +471,47 @@ async def submit_answer(
 
 
 @app.get("/api/session/{session_id}")
-async def get_session(
+async def get_session_state(
     session_id: str,
     authorization: Optional[str] = Header(None),
 ):
-    """
-    Get the current state of a session (for debugging/recovery).
-
-    Headers (optional):
-        Authorization: Bearer <token> - Required for database sessions
-    """
-    # Try to get current user (optional authentication)
     current_user = await get_optional_user(authorization)
 
-    # Get session - check database first if authenticated, then in-memory
     state = None
-    if current_user:
+
+    # A) MemorySaver
+    snapshot = master_graph.get_state(cfg(session_id))
+    if snapshot and snapshot.values:
+        state = snapshot.values
+
+    # B) DB fallback (authed)
+    if state is None and current_user:
         db_session = db_get_session(session_id)
         if db_session and db_session["user_id"] == current_user["user_id"]:
             state = db_session["config_state"]
-    
-    if not state:
+            # seed memory so future calls hit MemorySaver
+            master_graph.invoke(state, config=cfg(session_id))
+
+    # C) legacy dict fallback (anonymous)
+    if state is None:
         state = sessions.get(session_id)
-    
-    if not state:
+        if state:
+            master_graph.invoke(state, config=cfg(session_id))
+
+    if state is None:
         raise HTTPException(status_code=404, detail="Session not found")
 
     return {
         "sessionId": session_id,
+        "module": state.get("current_module"),
         "answers": state.get("answers", {}),
         "currentQuestionId": state.get("current_question_id"),
+        "question": state.get("current_question"),
         "done": state.get("done", False),
-        "progress": calculate_progress(state),
+        "paymentMethods": state.get("payment_methods", []),
+        "payrollAreas": state.get("payroll_areas", []),
     }
+
 
 
 # ============================================
@@ -975,7 +975,8 @@ async def start_payment_method_session(
         "current_module": "payment_method",
     }
 
-    result = payment_method_graph.invoke(initial_state)
+    result = master_graph.invoke(initial_state, config=cfg(session_id))
+
 
     # optional auth + DB saving (same pattern as your /api/start)
     current_user = None
@@ -1037,7 +1038,8 @@ async def submit_payment_method_answer(
     state["answers"][question_id] = answer
 
     # run the correct graph
-    result = payment_method_graph.invoke(state)
+    result = master_graph.invoke(state, config=cfg(session_id))
+
 
     # save updated session
     if current_user:
