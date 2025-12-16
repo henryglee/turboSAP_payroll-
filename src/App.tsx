@@ -19,6 +19,7 @@ import { AdminCategoriesPage } from './pages/AdminCategoriesPage';
 import { AuthPage, ProtectedRoute } from './components/auth';
 import { useAuthStore } from './store/auth';
 import { getCurrentUser } from './api/auth';
+import {DataTerminalPage} from "./pages/DataTerminalPage.tsx";
 
 function App() {
     return (

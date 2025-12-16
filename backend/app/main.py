@@ -78,6 +78,9 @@ frontend_dir = Path(__file__).parent / "static"
 if ENV == "production":
     app.mount("/assets", StaticFiles(directory=frontend_dir / "assets"), name="assets")
 
+# Mount API routers that live in app.routes
+app.include_router(data_terminal.router)
+
 # Serve uploaded logos (in both dev and production)
 uploads_dir = Path(__file__).parent.parent / "uploads"
 if not uploads_dir.exists():
