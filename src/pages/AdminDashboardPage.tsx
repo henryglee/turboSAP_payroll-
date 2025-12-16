@@ -18,7 +18,6 @@ import {
   Activity,
   Clock,
   CheckCircle2,
-  AlertCircle,
   HelpCircle,
 } from 'lucide-react';
 

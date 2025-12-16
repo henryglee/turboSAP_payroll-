@@ -6,6 +6,7 @@ import './DataTerminalPage.css';
 
 import { fetchTerminalCustomers } from '../api/dataTerminal';
 import { useAuthStore } from '../store/auth';
+import { AdminLayout } from '../components/layout/AdminLayout';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -183,68 +184,70 @@ export function DataTerminalPage() {
 
   if (!token) {
     return (
-      <div className="data-terminal-page">
+      <AdminLayout title="Data Console" description="Terminal access for data exploration">
         <div className="terminal-error">Sign in to access the Reachnett data terminal.</div>
-      </div>
+      </AdminLayout>
     );
   }
 
   if (!isAdmin) {
     return (
-      <div className="data-terminal-page">
+      <AdminLayout title="Data Console" description="Terminal access for data exploration">
         <div className="terminal-error">Only administrators can access the Reachnett data terminal.</div>
-      </div>
+      </AdminLayout>
     );
   }
 
   return (
-    <div className="data-terminal-page">
-      <div className="terminal-header">
-        <div>
-          <h2>Reachnett Data Terminal</h2>
-          <p className="terminal-subtitle">
-            Explore files under <code>/data/reachnett</code> via the backend data-terminal service.
-          </p>
+    <AdminLayout title="Data Console" description="Terminal access for data exploration">
+      <div className="data-terminal-page">
+        <div className="terminal-header">
+          <div>
+            <h2>Reachnett Data Terminal</h2>
+            <p className="terminal-subtitle">
+              Explore files under <code>/data/reachnett</code> via the backend data-terminal service.
+            </p>
+          </div>
+          <div className={`status-pill status-${status}`}>
+            {status === 'connected' && 'Connected'}
+            {status === 'connecting' && 'Connecting...'}
+            {status === 'idle' && 'Disconnected'}
+            {status === 'error' && 'Error'}
+          </div>
         </div>
-        <div className={`status-pill status-${status}`}>
-          {status === 'connected' && 'Connected'}
-          {status === 'connecting' && 'Connecting...'}
-          {status === 'idle' && 'Disconnected'}
-          {status === 'error' && 'Error'}
-        </div>
-      </div>
 
-      <div className="terminal-controls">
-        <label className="control-group">
-          <span>Customer Folder</span>
-          <select
-            value={selectedCustomer}
-            onChange={handleCustomerChange}
-            disabled={!isAdmin || status === 'connecting'}
+        <div className="terminal-controls">
+          <label className="control-group">
+            <span>Customer Folder</span>
+            <select
+              value={selectedCustomer}
+              onChange={handleCustomerChange}
+              disabled={!isAdmin || status === 'connecting'}
+            >
+              {customers.map((customer) => (
+                <option key={customer} value={customer}>
+                  {customer}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            className="terminal-button"
+            type="button"
+            onClick={() => {
+              disconnectTerminal();
+              initializeTerminal();
+              connectSocket();
+            }}
           >
-            {customers.map((customer) => (
-              <option key={customer} value={customer}>
-                {customer}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button
-          className="terminal-button"
-          type="button"
-          onClick={() => {
-            disconnectTerminal();
-            initializeTerminal();
-            connectSocket();
-          }}
-        >
-          Reconnect
-        </button>
+            Reconnect
+          </button>
+        </div>
+
+        {errorMessage && <div className="terminal-error">{errorMessage}</div>}
+
+        <div className="terminal-shell" ref={containerRef} />
       </div>
-
-      {errorMessage && <div className="terminal-error">{errorMessage}</div>}
-
-      <div className="terminal-shell" ref={containerRef} />
-    </div>
+    </AdminLayout>
   );
 }

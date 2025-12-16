@@ -9,7 +9,6 @@ import {
   FolderTree,
   Plus,
   Edit,
-  Trash2,
   ArrowRight,
 } from 'lucide-react';
 

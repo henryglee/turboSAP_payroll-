@@ -8,10 +8,8 @@ import { AdminLayout } from '../components/layout/AdminLayout';
 import { useAuthStore } from '../store/auth';
 import { apiFetch } from '../api/utils';
 import {
-  Users,
   UserPlus,
   Search,
-  MoreVertical,
   Calendar,
   Clock,
   CheckCircle2,
@@ -19,7 +17,6 @@ import {
   AlertCircle,
   X,
   ChevronRight,
-  FileJson,
   CreditCard,
 } from 'lucide-react';
 
@@ -46,7 +43,7 @@ const mockUserProgress: Record<number, UserProgress> = {
 };
 
 export function AdminUsersPage() {
-  const { user: currentUser } = useAuthStore();
+  useAuthStore(); // Auth check
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

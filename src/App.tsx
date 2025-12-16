@@ -19,7 +19,6 @@ import { AdminCategoriesPage } from './pages/AdminCategoriesPage';
 import { AuthPage, ProtectedRoute } from './components/auth';
 import { useAuthStore } from './store/auth';
 import { getCurrentUser } from './api/auth';
-import {DataTerminalPage} from "./pages/DataTerminalPage.tsx";
 
 function App() {
     return (
@@ -120,7 +119,7 @@ function AppContent() {
         }
       />
       <Route
-        path="/admin/questions"
+        path="/admin/modules"
         element={
           <ProtectedRoute requireAdmin>
             <QuestionsConfigPage />
@@ -132,6 +131,14 @@ function AppContent() {
         element={
           <ProtectedRoute requireAdmin>
             <AdminSettingsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/console"
+        element={
+          <ProtectedRoute requireAdmin>
+            <DataTerminalPage />
           </ProtectedRoute>
         }
       />
@@ -151,7 +158,7 @@ function AppContent() {
 
         {/* Admin-only routes (legacy - kept as backup) */}
         <Route
-          path="/questions"
+          path="/modules"
           element={
             <ProtectedRoute requireAdmin>
               <QuestionsConfigPage />
@@ -167,15 +174,6 @@ function AppContent() {
             </ProtectedRoute>
           }
         />
-        {/* Data Terminal - Admin console */}
-        <Route
-          path="/admin/console"
-          element={
-            <ProtectedRoute requireAdmin>
-              <DataTerminalPage />
-            </ProtectedRoute>
-          }
-        />
         {/* Redirect old /admin to new admin dashboard */}
         <Route
           path="/admin"
@@ -183,10 +181,10 @@ function AppContent() {
         />
 
         {/* Default redirect */}
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/" element={<Navigate to="/login" replace />} />
 
         {/* 404 catch-all */}
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Route>
     </Routes>
   );
@@ -236,8 +234,8 @@ function AppLayout() {
 
         {user?.role === 'admin' && (
           <>
-            <Link to="/questions" className={`nav-button ${location.pathname === '/questions' ? 'active' : ''}`}>
-              Questions Configuration
+            <Link to="/modules" className={`nav-button ${location.pathname === '/modules' ? 'active' : ''}`}>
+              Modules
             </Link>
             <Link to="/admin" className={`nav-button ${location.pathname === '/admin' ? 'active' : ''}`}>
               User Management
