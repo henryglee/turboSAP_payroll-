@@ -1,9 +1,16 @@
 """
 SQLite database module for TurboSAP Payroll Configuration.
 
+Architecture: Single-Instance, Single-Customer
+- Each deployment has its own independent database (turbosap.db)
+- No multi-tenancy: one customer = one instance = one database
+- All data is isolated within the instance
+
 Database schema:
-- users: User accounts with authentication
-- sessions: User configuration sessions
+- users: User accounts with authentication (instance-specific)
+- sessions: User configuration sessions (instance-specific)
+
+Note: company_name field is for display purposes only, not for tenant isolation.
 """
 
 import sqlite3
@@ -38,6 +45,16 @@ def init_database():
         cursor = conn.cursor()
 
         # Create users table
+        # Note: username UNIQUE constraint applies only within this instance.
+        # Different deployment instances can have the same usernames.
+        # company_name is for display only, not for tenant isolation.
+        #
+        # Future MFA support: Will add columns:
+        #   mfa_enabled BOOLEAN DEFAULT 0
+        #   mfa_method TEXT (e.g., 'email', 'sms', 'totp')
+        #   mfa_secret TEXT (for TOTP)
+        #   email TEXT (for email OTP)
+        #   phone_number TEXT (for SMS OTP)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -288,3 +305,68 @@ def delete_user_sessions(user_id: int, module: Optional[str] = None) -> int:
             cursor.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
         return cursor.rowcount
 
+def _default_combined_state() -> Dict[str, Any]:
+    return {
+        "payroll_area": {},
+        "payment_method": {},
+    }
+
+
+def get_or_create_combined_session(session_id: str, user_id: int) -> Dict[str, Any]:
+    """
+    Ensures a combined session row exists for this session_id + user_id.
+    Returns the combined config_state dict.
+    """
+    existing = get_session(session_id)
+    if existing and existing["user_id"] == user_id:
+        # If older sessions accidentally used module-specific shapes, normalize.
+        state = existing["config_state"]
+        if "payroll_area" not in state or "payment_method" not in state:
+            normalized = _default_combined_state()
+            if isinstance(state, dict):
+                # best-effort merge if older state was flat
+                normalized.update(state)
+            create_session(session_id, user_id, normalized, module="combined")
+            return normalized
+        return state
+
+    # Create new combined session
+    state = _default_combined_state()
+    create_session(session_id, user_id, state, module="combined")
+    return state
+
+
+def update_combined_module_state(
+    session_id: str,
+    user_id: int,
+    module: str,
+    patch: Dict[str, Any],
+) -> Dict[str, Any]:
+    """
+    Updates either payroll_area or payment_method inside the combined session JSON.
+    Returns the updated combined state.
+    """
+    if module not in ("payroll_area", "payment_method"):
+        raise ValueError("module must be 'payroll_area' or 'payment_method'")
+
+    state = get_or_create_combined_session(session_id, user_id)
+
+    module_state = state.get(module, {})
+    if not isinstance(module_state, dict):
+        module_state = {}
+
+    module_state.update(patch)
+    state[module] = module_state
+
+    create_session(session_id, user_id, state, module="combined")
+    return state
+
+
+def get_combined_state(session_id: str) -> Optional[Dict[str, Any]]:
+    """
+    Convenience wrapper: returns combined state dict or None.
+    """
+    s = get_session(session_id)
+    if not s:
+        return None
+    return s["config_state"]

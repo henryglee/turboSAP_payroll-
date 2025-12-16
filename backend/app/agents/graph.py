@@ -17,6 +17,13 @@ The master router determines which module should run next based on:
 from typing import TypedDict, Optional
 from langgraph.graph import StateGraph, START, END
 
+from typing import TypedDict, Optional
+from langgraph.graph import StateGraph, START, END
+
+from langgraph.checkpoint.memory import MemorySaver
+
+
+
 # Import module graphs
 from .payroll.payroll_area_graph import (
     payroll_graph as payroll_module,
@@ -24,6 +31,14 @@ from .payroll.payroll_area_graph import (
     router_node as payroll_router
 )
 
+from .payments.payment_method_graph import (
+    payment_method_graph as payment_module,
+    PaymentMethodState,
+    router_node as payment_router
+)
+
+# global in-memory checkpointer (process-local)
+memory_checkpointer = MemorySaver()
 
 # ============================================
 # Master State
@@ -64,7 +79,7 @@ class MasterState(TypedDict, total=False):
 # Future: Replace with dependency DAG
 MODULE_SEQUENCE = [
     "payroll_area",
-    # "payment_method",
+    "payment_method",
     # Future modules:
     # "time_management",
     # "benefits",
@@ -99,7 +114,7 @@ def master_router(state: MasterState) -> MasterState:
     Master routing logic - determines which module to execute.
 
     Flow:
-    1. Check which modules are complete
+    default_code. Check which modules are complete
     2. Route to next module
     3. Execute that module's logic
     4. Mark as complete if done
@@ -107,8 +122,14 @@ def master_router(state: MasterState) -> MasterState:
     """
     completed_modules = state.get("completed_modules") or []
 
-    # Determine next module
-    next_module = get_next_module(state)
+    # Check if a specific module was requested (from /api/start)
+    # If current_module is set and not completed, use that
+    current_module = state.get("current_module")
+    if current_module and current_module not in completed_modules:
+        next_module = current_module
+    else:
+        # Otherwise, determine next module from sequence
+        next_module = get_next_module(state)
 
     if next_module is None:
         # All modules complete!
@@ -159,19 +180,42 @@ def master_router(state: MasterState) -> MasterState:
             }
 
     elif next_module == "payment_method":
-        # Payment method module (skeleton for demo)
-        # For now, just mark as complete immediately
-        # Future: Execute payment_method_router(state)
+        # Execute payment method module
+        result = payment_router(state)
 
-        new_completed = completed_modules + ["payment_method"]
+        # Check if payment method module is complete
+        if result.get("done"):
+            # Mark payment_method as complete, move to next module
+            new_completed = completed_modules + ["payment_method"]
 
-        return {
-            **state,
-            "completed_modules": new_completed,
-            "current_module": next_module,
-            "done": False,  # Check for more modules
-            "message": "Payment Method module complete (skeleton)",
-        }
+            # Determine if there are any modules left; if none, stay done
+            next_after_payment = get_next_module({
+                **result,
+                "completed_modules": new_completed,
+            })
+
+            if next_after_payment is None:
+                return {
+                    **result,
+                    "completed_modules": new_completed,
+                    "current_module": None,
+                    "done": True,
+                }
+
+            # Reset done flag so master can continue to remaining modules
+            return {
+                **result,
+                "completed_modules": new_completed,
+                "current_module": next_after_payment,
+                "done": False,  # Master not done yet
+            }
+        else:
+            # Payment method still in progress
+            return {
+                **result,
+                "completed_modules": completed_modules,
+                "current_module": next_module,
+            }
 
     # Fallback: unknown module
     return {
@@ -185,28 +229,17 @@ def master_router(state: MasterState) -> MasterState:
 # Create and Compile Master Graph
 # ============================================
 
-def create_master_graph() -> StateGraph:
-    """
-    Create the master orchestration graph.
+from langgraph.checkpoint.base import BaseCheckpointSaver
 
-    Simple for MVP: START → master_router → END
-
-    The master_router handles all module routing internally.
-    """
+def create_master_graph(checkpointer: BaseCheckpointSaver | None = None):
     graph = StateGraph(MasterState)
-
-    # Add the master router node
     graph.add_node("master_router", master_router)
-
-    # Edges
     graph.add_edge(START, "master_router")
     graph.add_edge("master_router", END)
+    return graph.compile(checkpointer=checkpointer)
 
-    return graph.compile()
-
-
-# Create the compiled master graph (singleton)
-master_graph = create_master_graph()
+# ✅ compile with memory
+master_graph = create_master_graph(checkpointer=memory_checkpointer)
 
 
 # ============================================
@@ -238,7 +271,7 @@ if __name__ == "__main__":
     # Run the master graph
     result = master_graph.invoke(state)
 
-    print(f"\n1. First module: {result.get('current_module')}")
+    print(f"\ndefault_code. First module: {result.get('current_module')}")
     print(f"   Question: {result.get('current_question_id')}")
     print(f"   Done: {result.get('done')}")
 

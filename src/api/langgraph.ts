@@ -14,17 +14,22 @@ import type {
 } from '../types/chat';
 
 /**
- * Start a new configuration session.
+ * Start a new configuration session for any module.
  *
- * @param request - Optional company name
+ * @param module - Which module to configure ('payroll_area' | 'payment_method'). Defaults to 'payroll_area'.
+ * @param request - Optional company name and other data
  * @returns Session ID and first question
  */
 export async function startSession(
-  request: StartSessionRequest = {}
+  module: 'payroll_area' | 'payment_method' = 'payroll_area',
+  request: Omit<StartSessionRequest, 'module'> = {}
 ): Promise<StartSessionResponse> {
   return apiFetch<StartSessionResponse>('/api/start', {
     method: 'POST',
-    body: JSON.stringify(request),
+    body: JSON.stringify({
+      ...request,
+      module,
+    }),
   });
 }
 
@@ -52,7 +57,7 @@ export async function submitAnswer(
  */
 export async function checkHealth(): Promise<boolean> {
   try {
-    await apiFetch<{ status: string }>('/');
+    await apiFetch<{ status: string }>('/api/health');
     return true;
   } catch {
     return false;
@@ -70,4 +75,24 @@ export async function getSession(sessionId: string): Promise<{
   progress: number;
 }> {
   return apiFetch(`/api/session/${sessionId}`);
+}
+
+export async function startPaymentSession(): Promise<StartSessionResponse> {
+  return apiFetch<StartSessionResponse>('/api/session/payment_method/start', {
+    method: 'POST',
+    body: JSON.stringify({}), 
+  });
+}
+
+export async function submitPaymentAnswer(
+  request: SubmitAnswerRequest
+): Promise<SubmitAnswerResponse> {
+  return apiFetch<SubmitAnswerResponse>('/api/session/payment_method/answer', {
+    method: 'POST',
+    body: JSON.stringify({
+      sessionId: request.sessionId,
+      questionId: request.questionId,
+      answer: request.answer,
+    }),
+  });
 }

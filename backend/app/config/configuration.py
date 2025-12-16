@@ -1,3 +1,12 @@
+"""
+Configuration management for questions.
+
+Note: Admins can directly edit these JSON files:
+- CURRENT_PATH: backend/app/config/questions_current.json (current active config)
+- ORIGINAL_PATH: backend/app/config/questions_original.json (backup/reference)
+
+UI focus is on client users. Admins can edit JSON files directly or use API endpoints.
+"""
 import json
 from pathlib import Path
 from typing import Any, Dict

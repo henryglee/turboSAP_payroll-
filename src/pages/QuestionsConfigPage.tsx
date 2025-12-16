@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { apiFetch } from '../api/utils';
+import { useAuthStore } from '../store/auth';
 
 type Question = {
   id: string;
@@ -13,12 +14,41 @@ type QuestionsConfig = {
   questions: Question[];
 };
 
+/**
+ * Questions configuration page for admins.
+ * 
+ * Note: UI focus is on client users, not admin. Admins can also:
+ * - Edit JSON files directly: backend/app/config/questions_current.json
+ * - Use API endpoints: PUT /api/config/questions/current
+ * This UI is functional but admin can accept direct file editing.
+ */
 export function QuestionsConfigPage() {
+  const { user } = useAuthStore();
   const [config, setConfig] = useState<QuestionsConfig | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [showScrollUp, setShowScrollUp] = useState(false);
+  const [showScrollDown, setShowScrollDown] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Check if user is admin
+  if (user?.role !== 'admin') {
+    return (
+      <main className="main-container">
+        <div className="right-panel">
+          <div className="section">
+            <div className="admin-access-denied">
+              <h2>Access Denied</h2>
+              <p>This page is only available to administrators.</p>
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   const loadCurrent = async () => {
     setLoading(true);
@@ -35,6 +65,45 @@ export function QuestionsConfigPage() {
 
   useEffect(() => {
     loadCurrent();
+  }, []);
+
+  // Check scroll position and show/hide scroll buttons
+  const checkScrollPosition = () => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    
+    const { scrollTop, scrollHeight, clientHeight } = container;
+    setShowScrollUp(scrollTop > 50);
+    setShowScrollDown(scrollTop < scrollHeight - clientHeight - 50);
+  };
+
+  // Scroll functions
+  const scrollUp = () => {
+    scrollContainerRef.current?.scrollBy({ top: -300, behavior: 'smooth' });
+  };
+
+  const scrollDown = () => {
+    scrollContainerRef.current?.scrollBy({ top: 300, behavior: 'smooth' });
+  };
+
+  // Check scroll position on mount and when config changes
+  useEffect(() => {
+    checkScrollPosition();
+    const container = scrollContainerRef.current;
+    if (container) {
+      container.addEventListener('scroll', checkScrollPosition);
+      return () => container.removeEventListener('scroll', checkScrollPosition);
+    }
+  }, [config]);
+
+  // Check screen size for responsive layout
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    return () => window.removeEventListener('resize', checkScreenSize);
   }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -235,160 +304,362 @@ export function QuestionsConfigPage() {
   };
 
   return (
-    <div className="app">
-      <header className="header">
-        <h1>Questions Configuration</h1>
-        <p>Upload, edit, and manage the questions JSON used by the chat flow.</p>
-      </header>
-
-      <main className="main-container">
-        <div className="left-panel" style={{ width: '100%' }}>
-          <div style={{ marginBottom: '1rem' }}>
-            <label>
-              Import questions JSON:{' '}
-              <input type="file" accept="application/json" onChange={handleFileChange} />
-            </label>
-          </div>
-
-          <div style={{ marginBottom: '1rem' }}>
-            <button onClick={handleAddQuestion}>Add Question</button>{' '}
-            <button onClick={handleSave} disabled={saving || !config}>
-              {saving ? 'Saving...' : 'Save Current'}
-            </button>{' '}
-            <button onClick={handleRestore}>Restore Original</button>
-          </div>
-
-          {loading && <p>Loading questions…</p>}
-          {error && (
-            <p style={{ color: 'red' }}>
-              {error}
+    <main className="main-container">
+      <div className="left-panel">
+        <div className="section">
+          <div style={{ marginBottom: '2rem' }}>
+            <h2 className="section-title">Module Configuration</h2>
+            <p style={{ marginTop: '0.5rem', color: '#718096', fontSize: '0.9375rem', lineHeight: '1.6' }}>
+              Upload, edit, and manage the configuration modules used by the guided flow.
             </p>
+          </div>
+
+          <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+            <label className="form-label">
+              Import module JSON
+            </label>
+            <input 
+              type="file" 
+              accept="application/json" 
+              onChange={handleFileChange}
+              className="form-input"
+              style={{ padding: '0.625rem' }}
+            />
+          </div>
+
+          <div style={{ 
+            marginBottom: '1.5rem', 
+            display: 'grid', 
+            gridTemplateColumns: '1fr 1fr',
+            gap: '0.75rem'
+          }}>
+            <button className="button" onClick={handleAddQuestion}>
+              Add Question
+            </button>
+            <button 
+              className="button" 
+              onClick={handleSave} 
+              disabled={saving || !config}
+            >
+              {saving ? 'Saving...' : 'Save Current'}
+            </button>
+          </div>
+          
+          <div style={{ marginBottom: '1.5rem' }}>
+            <button className="button button-secondary" onClick={handleRestore} style={{ width: '100%' }}>
+              Restore Original
+            </button>
+          </div>
+
+          {loading && (
+            <div style={{ padding: '1rem', textAlign: 'center', color: '#718096' }}>
+              Loading questions…
+            </div>
+          )}
+          {error && (
+            <div className="admin-message error" style={{ marginBottom: '1rem' }}>
+              {error}
+            </div>
           )}
           {message && (
-            <p style={{ color: 'green' }}>
+            <div className="admin-message success" style={{ marginBottom: '1rem' }}>
               {message}
-            </p>
-          )}
-
-          {config && (
-            <div style={{ maxHeight: '60vh', overflow: 'auto', border: '1px solid #ddd', padding: '0.5rem' }}>
-              {config.questions.map((q, index) => (
-                <div
-                  key={q.id}
-                  style={{
-                    borderBottom: '1px solid #eee',
-                    paddingBottom: '0.5rem',
-                    marginBottom: '0.5rem',
-                  }}
-                >
-                  <div>
-                    <label>
-                      ID:{' '}
-                      <input
-                        value={q.id}
-                        onChange={e => handleQuestionChange(index, 'id', e.target.value)}
-                      />
-                    </label>
-                  </div>
-                  <div>
-                    <label>
-                      Text:{' '}
-                      <input
-                        value={q.text}
-                        onChange={e => handleQuestionChange(index, 'text', e.target.value)}
-                        style={{ width: '80%' }}
-                      />
-                    </label>
-                  </div>
-                  <div>
-                    <label>
-                      Type:{' '}
-                      <input
-                        value={q.type ?? ''}
-                        onChange={e => handleQuestionChange(index, 'type', e.target.value)}
-                      />
-                    </label>
-                  </div>
-
-
-                  {(q.type === 'multiple_choice' || q.type === 'multiple_select') && (
-                    <div style={{ marginTop: '0.5rem', marginLeft: '1rem' }}>
-                      <strong>Options</strong>
-                      {Array.isArray(q.options) && q.options.length > 0 ? (
-                        q.options.map((opt: any, optIndex: number) => (
-                          <div key={opt.id ?? optIndex} style={{ marginBottom: '0.25rem' }}>
-                            <label>
-                              Option ID:{' '}
-                              <input
-                                value={opt.id ?? ''}
-                                onChange={e =>
-                                  handleOptionChange(index, optIndex, 'id', e.target.value)
-                                }
-                              />
-                            </label>{' '}
-                            <label>
-                              Label:{' '}
-                              <input
-                                value={opt.label ?? ''}
-                                onChange={e =>
-                                  handleOptionChange(index, optIndex, 'label', e.target.value)
-                                }
-                                style={{ width: '40%' }}
-                              />
-                            </label>{' '}
-                            <label>
-                              Description:{' '}
-                              <input
-                                value={opt.description ?? ''}
-                                onChange={e =>
-                                  handleOptionChange(
-                                    index,
-                                    optIndex,
-                                    'description',
-                                    e.target.value,
-                                  )
-                                }
-                                style={{ width: '40%' }}
-                              />
-                            </label>{' '}
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteOption(index, optIndex)}
-                            >
-                              Delete option
-                            </button>
-                          </div>
-                        ))
-                      ) : (
-                        <p style={{ fontSize: '0.85rem', color: '#666' }}>
-                          No options yet.
-                        </p>
-                      )}
-
-                      <button type="button" onClick={() => handleAddOption(index)}>
-                        Add option
-                      </button>
-                    </div>
-                  )}
-                  {q.id === 'q1_frequencies' && (
-                    <div style={{ marginTop: '0.5rem' }}>
-                      <button
-                        type="button"
-                        onClick={() => handleAddQuarterlyWithFollowups(index)}
-                      >
-                        Add quarterly option + follow-up questions
-                      </button>
-                    </div>
-                  )}
-                  <button type="button" onClick={() => handleDeleteQuestion(q.id)}>
-                    Delete
-                  </button>
-                </div>
-              ))}
             </div>
           )}
         </div>
-      </main>
-    </div>
+      </div>
+
+      <div className="right-panel">
+        <div className="section" style={{ marginBottom: 0 }}>
+          <div style={{ marginBottom: '1.5rem' }}>
+            <h2 className="section-title" style={{ marginTop: 0 }}>Modules</h2>
+            {config && (
+              <p style={{ marginTop: '0.5rem', color: '#718096', fontSize: '0.9375rem' }}>
+                {config.questions.length} module{config.questions.length !== 1 ? 's' : ''} configured
+              </p>
+            )}
+          </div>
+          {!config && !loading && (
+            <div style={{ 
+              padding: '3rem 2rem', 
+              textAlign: 'center', 
+              color: '#718096',
+              background: 'linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%)',
+              borderRadius: '12px',
+              border: '2px dashed #cbd5e0'
+            }}>
+              <p style={{ fontSize: '1rem', marginBottom: '0.5rem', fontWeight: 500 }}>
+                No questions loaded
+              </p>
+              <p style={{ fontSize: '0.875rem', opacity: 0.8 }}>
+                Please import a questions JSON file or wait for questions to load.
+              </p>
+            </div>
+          )}
+          {config && (
+            <div style={{ 
+              position: 'relative',
+              flex: 1,
+              minHeight: 0,
+              maxHeight: '70vh', // Limit max height to 70% of viewport height
+              display: 'flex',
+              flexDirection: 'column',
+              width: '100%',
+            }}>
+              {/* Scroll Up Button */}
+              {showScrollUp && (
+                <button
+                  onClick={scrollUp}
+                  style={{
+                    position: 'absolute',
+                    top: '0.5rem',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    zIndex: 10,
+                    padding: '0.5rem 1rem',
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '20px',
+                    fontSize: '0.875rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 8px rgba(102, 126, 234, 0.4)',
+                    transition: 'all 0.2s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateX(-50%) translateY(-2px)';
+                    e.currentTarget.style.boxShadow = '0 6px 12px rgba(102, 126, 234, 0.5)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateX(-50%)';
+                    e.currentTarget.style.boxShadow = '0 4px 8px rgba(102, 126, 234, 0.4)';
+                  }}
+                >
+                  ↑ Scroll Up
+                </button>
+              )}
+
+              {/* Scroll Down Button */}
+              {showScrollDown && (
+                <button
+                  onClick={scrollDown}
+                  style={{
+                    position: 'absolute',
+                    bottom: '0.5rem',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    zIndex: 10,
+                    padding: '0.5rem 1rem',
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '20px',
+                    fontSize: '0.875rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 8px rgba(102, 126, 234, 0.4)',
+                    transition: 'all 0.2s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateX(-50%) translateY(2px)';
+                    e.currentTarget.style.boxShadow = '0 6px 12px rgba(102, 126, 234, 0.5)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateX(-50%)';
+                    e.currentTarget.style.boxShadow = '0 4px 8px rgba(102, 126, 234, 0.4)';
+                  }}
+                >
+                  ↓ Scroll Down
+                </button>
+              )}
+
+              <div
+                ref={scrollContainerRef}
+                style={{ 
+                  flex: 1,
+                  overflowY: 'auto',
+                  overflowX: 'hidden',
+                  border: '2px solid #e2e8f0', 
+                  borderRadius: '12px',
+                  padding: '1.5rem',
+                  background: 'linear-gradient(135deg, #ffffff 0%, #f7fafc 100%)',
+                  minHeight: 0,
+                  boxSizing: 'border-box',
+                  boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.02)',
+                  maxHeight: '100%',
+                  display: 'grid',
+                  gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)',
+                  gap: '1.5rem',
+                  alignContent: 'start',
+                }}
+              >
+              {config.questions.map((q, index) => (
+                  <div
+                    key={q.id}
+                    style={{
+                      marginBottom: '1.5rem',
+                      padding: '1.5rem',
+                      background: 'white',
+                      borderRadius: '12px',
+                      border: '2px solid #e2e8f0',
+                      boxShadow: '0 2px 4px rgba(0, 0, 0, 0.04)',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.08)';
+                      e.currentTarget.style.borderColor = '#cbd5e0';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.04)';
+                      e.currentTarget.style.borderColor = '#e2e8f0';
+                    }}
+                  >
+                    <div className="form-group">
+                      <label className="form-label">
+                        Question ID:
+                      </label>
+                      <input
+                        className="form-input"
+                        value={q.id}
+                        onChange={e => handleQuestionChange(index, 'id', e.target.value)}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">
+                        Question Text:
+                      </label>
+                      <input
+                        className="form-input"
+                        value={q.text}
+                        onChange={e => handleQuestionChange(index, 'text', e.target.value)}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">
+                        Type:
+                      </label>
+                      <input
+                        className="form-input"
+                        value={q.type ?? ''}
+                        onChange={e => handleQuestionChange(index, 'type', e.target.value)}
+                      />
+                    </div>
+
+
+                    {(q.type === 'multiple_choice' || q.type === 'multiple_select') && (
+                      <div style={{ 
+                        marginTop: '1.5rem', 
+                        padding: '1.5rem', 
+                        background: 'linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%)', 
+                        borderRadius: '10px',
+                        border: '2px solid #e2e8f0'
+                      }}>
+                        <strong style={{ 
+                          display: 'block', 
+                          marginBottom: '1rem', 
+                          color: '#2d3748',
+                          fontSize: '0.9375rem',
+                          fontWeight: 700
+                        }}>
+                          Options
+                        </strong>
+                        {Array.isArray(q.options) && q.options.length > 0 ? (
+                          q.options.map((opt: any, optIndex: number) => (
+                            <div key={opt.id ?? optIndex} style={{ 
+                              marginBottom: '1rem', 
+                              padding: '1.25rem', 
+                              background: 'white', 
+                              borderRadius: '8px', 
+                              border: '2px solid #e2e8f0',
+                              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)'
+                            }}>
+                              <div className="form-group" style={{ marginBottom: '0.5rem' }}>
+                                <label className="form-label">Option ID:</label>
+                                <input
+                                  className="form-input"
+                                  value={opt.id ?? ''}
+                                  onChange={e =>
+                                    handleOptionChange(index, optIndex, 'id', e.target.value)
+                                  }
+                                />
+                              </div>
+                              <div className="form-group" style={{ marginBottom: '0.5rem' }}>
+                                <label className="form-label">Label:</label>
+                                <input
+                                  className="form-input"
+                                  value={opt.label ?? ''}
+                                  onChange={e =>
+                                    handleOptionChange(index, optIndex, 'label', e.target.value)
+                                  }
+                                />
+                              </div>
+                              <div className="form-group" style={{ marginBottom: '0.5rem' }}>
+                                <label className="form-label">Description:</label>
+                                <input
+                                  className="form-input"
+                                  value={opt.description ?? ''}
+                                  onChange={e =>
+                                    handleOptionChange(
+                                      index,
+                                      optIndex,
+                                      'description',
+                                      e.target.value,
+                                    )
+                                  }
+                                />
+                              </div>
+                              <button
+                                type="button"
+                                className="button button-small button-secondary"
+                                onClick={() => handleDeleteOption(index, optIndex)}
+                              >
+                                Delete Option
+                              </button>
+                            </div>
+                          ))
+                        ) : (
+                          <p style={{ fontSize: '0.875rem', color: '#718096', fontStyle: 'italic' }}>
+                            No options yet.
+                          </p>
+                        )}
+
+                        <button 
+                          type="button" 
+                          className="button button-small"
+                          onClick={() => handleAddOption(index)}
+                        >
+                          Add Option
+                        </button>
+                      </div>
+                    )}
+                    {q.id === 'q1_frequencies' && (
+                      <div style={{ marginTop: '0.75rem' }}>
+                        <button
+                          type="button"
+                          className="button button-small"
+                          onClick={() => handleAddQuarterlyWithFollowups(index)}
+                        >
+                          Add Quarterly Option + Follow-up Questions
+                        </button>
+                      </div>
+                    )}
+                    <div style={{ marginTop: '0.75rem' }}>
+                      <button 
+                        type="button" 
+                        className="button button-small button-secondary"
+                        onClick={() => handleDeleteQuestion(q.id)}
+                      >
+                        Delete Question
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </main>
   );
 }

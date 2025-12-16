@@ -51,13 +51,7 @@ export function ChatPage() {
   };
 
   return (
-    <div className="app">
-      <header className="header">
-        <h1>TurboSAP Payroll Configuration</h1>
-        <p>{profile.companyName} - Chat-Based Configuration</p>
-      </header>
-
-      <main className="main-container">
+    <main className="main-container">
         {/* Left side: Chat Interface */}
         <div className="left-panel">
           <ChatInterface onComplete={handleChatComplete} />
@@ -66,6 +60,5 @@ export function ChatPage() {
         {/* Right side: Same PayrollAreasPanel as ConfigPage */}
         <PayrollAreasPanel />
       </main>
-    </div>
   );
 }

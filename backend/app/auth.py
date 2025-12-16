@@ -2,6 +2,10 @@
 Authentication utilities for TurboSAP Payroll Configuration.
 
 Handles password hashing and JWT token generation/validation.
+
+Current: Single-factor authentication (username + password).
+Future: Will support MFA (Multi-Factor Authentication).
+        See MFA_ARCHITECTURE.md for extension plan.
 """
 
 import jwt
@@ -55,7 +59,7 @@ def create_token(user_id: int, username: str, role: str) -> str:
     Args:
         user_id: User ID
         username: Username
-        role: User role (client or admin)
+        role: User role (currently "client" or "admin", future: module roles like "ROLE_PAYROLL")
 
     Returns:
         JWT token string

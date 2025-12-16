@@ -52,32 +52,27 @@ def get_calendar_combos(answers: dict) -> list[dict]:
         frequencies = [frequencies]
 
     for freq in frequencies:
-        # Get pattern
+        # Get patterns
         if freq == "monthly":
-            pattern = "1-end"
-            pattern_label = "1st-End"
+            patterns = ["1-end"]
         elif freq == "semimonthly":
-            pattern = answers.get(f"q1_{freq}_pattern", "1-15_16-end")
-            pattern_label = {
-                "1-15_16-end": "1st-15th & 16th-End"
-            }.get(pattern, pattern)
+            patterns = answers.get(f"q1_{freq}_pattern", ["1-15_16-end"])
         else:
-            pattern = answers.get(f"q1_{freq}_pattern", "mon-sun")
-            pattern_label = {
-                "mon-sun": "Mon-Sun",
-                "sun-sat": "Sun-Sat"
-            }.get(pattern, pattern)
+            patterns = answers.get(f"q1_{freq}_pattern", ["mon-sun"])
 
-        # Get payday
-        payday = answers.get(f"q1_{freq}_payday", "friday")
-        payday_label = payday.capitalize()
+        # Ensure patterns is a list
+        if isinstance(patterns, str):
+            patterns = [patterns]
 
-        # Build key (used for question IDs)
-        # Replace hyphens with underscores, remove special chars
-        pattern_key = pattern.replace("-", "").replace("_", "")
-        key = f"{freq}_{pattern_key}_{payday}"
+        # Pattern labels
+        pattern_labels = {
+            "mon-sun": "Mon-Sun",
+            "sun-sat": "Sun-Sat",
+            "1-15_16-end": "1st-15th & 16th-End",
+            "1-end": "1st-End"
+        }
 
-        # Build human-readable label
+        # Frequency label
         freq_label = {
             "weekly": "Weekly",
             "biweekly": "Bi-weekly",
@@ -85,15 +80,45 @@ def get_calendar_combos(answers: dict) -> list[dict]:
             "monthly": "Monthly"
         }.get(freq, freq.capitalize())
 
-        label = f"{freq_label} {pattern_label} (Payday: {payday_label})"
+        # For each pattern, get its specific pay days
+        for pattern in patterns:
+            pattern_key = pattern.replace("-", "").replace("_", "")
 
-        combos.append({
-            "key": key,
-            "label": label,
-            "frequency": freq,
-            "pattern": pattern,
-            "payday": payday
-        })
+            # Get pattern-specific paydays (NOT cross-product!)
+            if freq == "monthly":
+                # Monthly doesn't have patterns, use global payday
+                paydays = answers.get(f"q1_{freq}_payday", ["last"])
+            else:
+                # Look for pattern-specific payday question: q1_weekly_monsun_payday
+                payday_q = f"q1_{freq}_{pattern_key}_payday"
+                paydays = answers.get(payday_q, [])
+
+            # Ensure paydays is a list
+            if isinstance(paydays, str):
+                paydays = [paydays]
+
+            # Generate calendars only for selected pay days for this pattern
+            for payday in paydays:
+                pattern_label = pattern_labels.get(pattern, pattern)
+                payday_label = payday.capitalize()
+
+                # Build key (used for question IDs)
+                key = f"{freq}_{pattern_key}_{payday}"
+
+                # Build human-readable label
+                # Include pattern only if there are multiple patterns for this frequency
+                if len(patterns) > 1:
+                    label = f"{freq_label} {pattern_label} {payday_label}"
+                else:
+                    label = f"{freq_label} {payday_label}"
+
+                combos.append({
+                    "key": key,
+                    "label": label,
+                    "frequency": freq,
+                    "pattern": pattern,
+                    "payday": payday
+                })
 
     return combos
 
@@ -116,7 +141,7 @@ def generate_dynamic_question(calendar: dict, question_type: str) -> dict:
         return {
             "id": f"business_{key}",
             "text": f"Does {label} need to be separated by business unit?",
-            "type": "multiple_choice",
+            "type": "choice",
             "options": [
                 {
                     "id": "yes",
@@ -143,7 +168,7 @@ def generate_dynamic_question(calendar: dict, question_type: str) -> dict:
         return {
             "id": f"geographic_{key}",
             "text": f"Does {label} need to be separated by geographic region?",
-            "type": "multiple_choice",
+            "type": "choice",
             "options": [
                 {
                     "id": "mainland_only",
@@ -215,17 +240,72 @@ def determine_next_question(answers: dict) -> tuple[Optional[str], Optional[dict
     if isinstance(frequencies, str):
         frequencies = [frequencies]
 
-    # For each selected frequency, ask pattern and payday
+    # For each selected frequency, ask pattern, then payday per pattern
     for freq in frequencies:
         pattern_q = f"q1_{freq}_pattern"
-        payday_q = f"q1_{freq}_payday"
 
         # Monthly doesn't have a pattern question (always 1-end)
-        if freq != "monthly" and pattern_q not in answers:
-            return (pattern_q, None)
+        if freq != "monthly":
+            if pattern_q not in answers:
+                return (pattern_q, None)
 
-        if payday_q not in answers:
-            return (payday_q, None)
+            # Get the patterns they selected
+            patterns = answers.get(pattern_q, [])
+            if isinstance(patterns, str):
+                patterns = [patterns]
+
+            # For EACH pattern, ask its specific pay days
+            for pattern in patterns:
+                # Build pattern-specific payday question ID
+                pattern_key = pattern.replace("-", "").replace("_", "")
+                payday_q = f"q1_{freq}_{pattern_key}_payday"
+
+                if payday_q not in answers:
+                    # Generate dynamic question
+                    pattern_labels = {
+                        "mon-sun": "Monday to Sunday",
+                        "sun-sat": "Sunday to Saturday",
+                        "1-15_16-end": "1st-15th and 16th-End of month"
+                    }
+                    freq_labels = {
+                        "weekly": "WEEKLY",
+                        "biweekly": "BI-WEEKLY",
+                        "semimonthly": "SEMI-MONTHLY"
+                    }
+
+                    pattern_label = pattern_labels.get(pattern, pattern)
+                    freq_label = freq_labels.get(freq, freq.upper())
+
+                    # Determine which payday options to show
+                    if freq == "weekly":
+                        payday_options = [
+                            {"id": "friday", "label": "Friday", "description": "Paid on Friday following the pay period"},
+                            {"id": "thursday", "label": "Thursday", "description": "Paid on Thursday following the pay period"},
+                            {"id": "wednesday", "label": "Wednesday", "description": "Paid on Wednesday following the pay period"}
+                        ]
+                    elif freq == "biweekly":
+                        payday_options = [
+                            {"id": "friday", "label": "Friday", "description": "Paid on Friday following the pay period"},
+                            {"id": "thursday", "label": "Thursday", "description": "Paid on Thursday following the pay period"}
+                        ]
+                    else:  # semimonthly
+                        payday_options = [
+                            {"id": "15-last", "label": "15th and Last day of month", "description": "Paid on the 15th and last business day"},
+                            {"id": "15-30", "label": "15th and 30th", "description": "Paid on fixed dates"}
+                        ]
+
+                    question = {
+                        "id": payday_q,
+                        "text": f"For {freq_label} payroll with {pattern_label} period, what pay days do you use?",
+                        "type": "multiple_select",
+                        "options": payday_options
+                    }
+                    return (payday_q, question)
+        else:
+            # Monthly: ask payday directly (no pattern selection)
+            payday_q = f"q1_{freq}_payday"
+            if payday_q not in answers:
+                return (payday_q, None)
 
     # Now we have all calendar combos defined
     # Ask business unit and geographic questions for EACH calendar
