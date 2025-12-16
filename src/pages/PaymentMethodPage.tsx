@@ -51,6 +51,54 @@ function checkRangesOverlap(range1: string, range2: string): boolean {
   return !(r1.end < r2.start || r2.end < r1.start);
 }
 
+const PAYMENT_SESSION_KEY = 'turbosap.payment_method.sessionId';
+
+function getSavedPaymentSessionId() {
+  return localStorage.getItem(PAYMENT_SESSION_KEY) || '';
+}
+
+function savePaymentSessionId(id: string) {
+  localStorage.setItem(PAYMENT_SESSION_KEY, id);
+}
+
+function clearPaymentSessionId() {
+  localStorage.removeItem(PAYMENT_SESSION_KEY);
+}
+
+const PAYMENT_DRAFT_KEY = 'turbosap.payment_method.draft.v1';
+
+type PaymentDraft = {
+  selectedMethods: string[];
+  houseBanks: string;
+  achSpec: string;
+  checkVolume: string;
+  systemCheckBankAccount: string;
+  systemCheckRange: string;
+  manualCheckBankAccount: string;
+  manualCheckRange: string;
+  agreeNoPreNote: boolean | null;
+  paymentResults: PaymentMethodConfig[] | null;
+  showResults: boolean;
+};
+
+function loadPaymentDraft(): PaymentDraft | null {
+  try {
+    const raw = localStorage.getItem(PAYMENT_DRAFT_KEY);
+    return raw ? (JSON.parse(raw) as PaymentDraft) : null;
+  } catch {
+    return null;
+  }
+}
+
+function savePaymentDraft(draft: PaymentDraft) {
+  localStorage.setItem(PAYMENT_DRAFT_KEY, JSON.stringify(draft));
+}
+
+function clearPaymentDraft() {
+  localStorage.removeItem(PAYMENT_DRAFT_KEY);
+}
+
+
 // Types for editable CSV data
 interface EditablePaymentMethod {
   payment_method: string;
@@ -63,6 +111,9 @@ interface EditableCheckRange {
   bank_account: string;
   check_number_range: string;
 }
+
+
+
 
 export function PaymentMethodPage() {
   // Form state - matching April's question IDs
@@ -97,11 +148,70 @@ export function PaymentMethodPage() {
     manualCheck: true,
     prenotification: true,
   });
+  const [hydrated, setHydrated] = useState(false);
+
 
   // Editable CSV data state
   const [editablePaymentMethods, setEditablePaymentMethods] = useState<EditablePaymentMethod[]>([]);
   const [editableCheckRanges, setEditableCheckRanges] = useState<EditableCheckRange[]>([]);
   const [editablePreNotification, setEditablePreNotification] = useState<string>('No');
+
+useEffect(() => {
+  const draft = loadPaymentDraft();
+  if (!draft) return;
+
+  // Restore UI state
+  setSelectedMethods(draft.selectedMethods ?? []);
+  setHouseBanks(draft.houseBanks ?? '');
+  setAchSpec(draft.achSpec ?? '');
+  setCheckVolume(draft.checkVolume ?? '');
+  setSystemCheckBankAccount(draft.systemCheckBankAccount ?? '');
+  setSystemCheckRange(draft.systemCheckRange ?? '');
+  setManualCheckBankAccount(draft.manualCheckBankAccount ?? '');
+  setManualCheckRange(draft.manualCheckRange ?? '');
+  setAgreeNoPreNote(draft.agreeNoPreNote ?? null);
+  setPaymentResults(draft.paymentResults ?? null);
+  setShowResults(draft.showResults ?? false);
+
+  // CRITICAL: backend session must be reset
+  clearPaymentSessionId();
+}, []);
+
+
+
+useEffect(() => {
+  if (!hydrated) return;
+
+  const draft: PaymentDraft = {
+    selectedMethods,
+    houseBanks,
+    achSpec,
+    checkVolume,
+    systemCheckBankAccount,
+    systemCheckRange,
+    manualCheckBankAccount,
+    manualCheckRange,
+    agreeNoPreNote,
+    paymentResults,
+    showResults,
+  };
+
+  savePaymentDraft(draft);
+}, [
+  hydrated,
+  selectedMethods,
+  houseBanks,
+  achSpec,
+  checkVolume,
+  systemCheckBankAccount,
+  systemCheckRange,
+  manualCheckBankAccount,
+  manualCheckRange,
+  agreeNoPreNote,
+  paymentResults,
+  showResults,
+]);
+
 
   const toggleSection = (section: keyof typeof expandedSections) => {
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
@@ -114,6 +224,8 @@ export function PaymentMethodPage() {
         : [...prev, method]
     );
   };
+
+  
 
   // Validate field on change
   const validateField = (fieldName: string, value: string) => {
@@ -198,6 +310,7 @@ export function PaymentMethodPage() {
     return Object.keys(errors).length === 0;
   };
 
+  
   /**
    * Handle form submission - Submit sequentially to April's backend
    * Maps form data to April's question-by-question flow
@@ -215,7 +328,14 @@ export function PaymentMethodPage() {
 
     try {
       // Step 1: Start session for payment_method module
-      const { sessionId } = await startSession('payment_method');
+      let sessionId = getSavedPaymentSessionId();
+
+      if (!sessionId) {
+        const start = await startSession('payment_method');
+        sessionId = start.sessionId;
+        savePaymentSessionId(sessionId);
+      }
+
 
       // Step 2: Answer Q1 - Payment method P (ACH)?
       let response = await submitAnswer({
@@ -354,7 +474,15 @@ export function PaymentMethodPage() {
         setEditablePreNotification(agreeNoPreNote ? 'No' : 'Yes');
       }
     }
-  }, [paymentResults]);
+  }, [
+    paymentResults,
+    systemCheckRange,
+    systemCheckBankAccount,
+    manualCheckRange,
+    manualCheckBankAccount,
+    agreeNoPreNote,
+  ]);
+
 
   // CSV Export Functions
   const exportToCSV = (data: any[], filename: string, headers: string[]) => {
