@@ -51,21 +51,21 @@ function checkRangesOverlap(range1: string, range2: string): boolean {
   return !(r1.end < r2.start || r2.end < r1.start);
 }
 
-const PAYMENT_SESSION_KEY = 'turbosap.payment_method.sessionId';
+// const PAYMENT_SESSION_KEY = 'turbosap.payment_method.sessionId';
 
-function getSavedPaymentSessionId() {
-  return localStorage.getItem(PAYMENT_SESSION_KEY) || '';
-}
+// function getSavedPaymentSessionId() {
+//   return localStorage.getItem(PAYMENT_SESSION_KEY) || '';
+// }
 
-function savePaymentSessionId(id: string) {
-  localStorage.setItem(PAYMENT_SESSION_KEY, id);
-}
+// function savePaymentSessionId(id: string) {
+//   localStorage.setItem(PAYMENT_SESSION_KEY, id);
+// }
 
-function clearPaymentSessionId() {
-  localStorage.removeItem(PAYMENT_SESSION_KEY);
-}
+// function clearPaymentSessionId() {
+//   localStorage.removeItem(PAYMENT_SESSION_KEY);
+// }
 
-const PAYMENT_DRAFT_KEY = 'turbosap.payment_method.draft.v1';
+// const PAYMENT_DRAFT_KEY = 'turbosap.payment_method.draft.v1';
 
 type PaymentDraft = {
   selectedMethods: string[];
@@ -81,22 +81,60 @@ type PaymentDraft = {
   showResults: boolean;
 };
 
-function loadPaymentDraft(): PaymentDraft | null {
+function paymentSessionKey(userKey: string) {
+  return `turbosap.payment_method.sessionId.${userKey}`;
+}
+
+function paymentDraftKey(userKey: string) {
+  return `turbosap.payment_method.draft.v1.${userKey}`;
+}
+
+function getSavedPaymentSessionId(userKey: string) {
+  return localStorage.getItem(paymentSessionKey(userKey)) || '';
+}
+
+function savePaymentSessionId(userKey: string, id: string) {
+  localStorage.setItem(paymentSessionKey(userKey), id);
+}
+
+function clearPaymentSessionId(userKey: string) {
+  localStorage.removeItem(paymentSessionKey(userKey));
+}
+
+function loadPaymentDraft(userKey: string): PaymentDraft | null {
   try {
-    const raw = localStorage.getItem(PAYMENT_DRAFT_KEY);
+    const raw = localStorage.getItem(paymentDraftKey(userKey));
     return raw ? (JSON.parse(raw) as PaymentDraft) : null;
   } catch {
     return null;
   }
 }
 
-function savePaymentDraft(draft: PaymentDraft) {
-  localStorage.setItem(PAYMENT_DRAFT_KEY, JSON.stringify(draft));
+function savePaymentDraft(userKey: string, draft: PaymentDraft) {
+  localStorage.setItem(paymentDraftKey(userKey), JSON.stringify(draft));
 }
 
-function clearPaymentDraft() {
-  localStorage.removeItem(PAYMENT_DRAFT_KEY);
+function clearPaymentDraft(userKey: string) {
+  localStorage.removeItem(paymentDraftKey(userKey));
 }
+
+
+// function loadPaymentDraft(): PaymentDraft | null {
+//   try {
+//     const raw = localStorage.getItem(PAYMENT_DRAFT_KEY);
+//     return raw ? (JSON.parse(raw) as PaymentDraft) : null;
+//   } catch {
+//     return null;
+//   }
+// }
+
+// function savePaymentDraft(draft: PaymentDraft) {
+//   localStorage.setItem(PAYMENT_DRAFT_KEY, JSON.stringify(draft));
+// }
+
+// function clearPaymentDraft() {
+//   localStorage.removeItem(PAYMENT_DRAFT_KEY);
+// }
 
 
 // Types for editable CSV data
@@ -149,6 +187,9 @@ export function PaymentMethodPage() {
     prenotification: true,
   });
   const [hydrated, setHydrated] = useState(false);
+  
+  const userKey = localStorage.getItem("userId") || "anonymous";
+
 
 
   // Editable CSV data state
@@ -157,10 +198,9 @@ export function PaymentMethodPage() {
   const [editablePreNotification, setEditablePreNotification] = useState<string>('No');
 
 useEffect(() => {
-  const draft = loadPaymentDraft();
+  const draft = loadPaymentDraft(userKey);
 
   if (draft) {
-    // Restore UI state
     setSelectedMethods(draft.selectedMethods ?? []);
     setHouseBanks(draft.houseBanks ?? '');
     setAchSpec(draft.achSpec ?? '');
@@ -174,9 +214,9 @@ useEffect(() => {
     setShowResults(draft.showResults ?? false);
   }
 
-  // ✅ IMPORTANT: mark hydration complete AFTER restore
   setHydrated(true);
-}, []);
+}, [userKey]);
+
 
 
 
@@ -198,9 +238,11 @@ useEffect(() => {
     showResults,
   };
 
-  savePaymentDraft(draft);
+  savePaymentDraft(userKey, draft);
+
 }, [
   hydrated,
+   userKey,
   selectedMethods,
   houseBanks,
   achSpec,
@@ -330,12 +372,12 @@ useEffect(() => {
 
     try {
       // Step 1: Start session for payment_method module
-      let sessionId = getSavedPaymentSessionId();
+      let sessionId = getSavedPaymentSessionId(userKey);
 
       if (!sessionId) {
         const start = await startSession('payment_method');
         sessionId = start.sessionId;
-        savePaymentSessionId(sessionId);
+        savePaymentSessionId(userKey, sessionId);
       }
 
 

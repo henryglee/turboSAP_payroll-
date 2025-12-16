@@ -3,7 +3,7 @@
  * Navigation sidebar for TurboSAP with status indicators
  */
 
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '../../lib/utils.ts';
 import { useAuthStore } from '../../store/auth';
 import {
@@ -37,8 +37,14 @@ interface SidebarProps {
 
 export function Sidebar({ currentPath, statusIndicators = {} }: SidebarProps) {
   const location = useLocation();
+  const navigate = useNavigate();
   const pathname = currentPath || location.pathname;
   const { user, clearAuth } = useAuthStore();
+
+    const handleSignOut = () => {
+    clearAuth();
+    navigate('/login'); // change to your login route if different
+  };
 
   const getStatusIcon = (key: string) => {
     if (key === 'dashboard' || key === 'export') return null;
@@ -127,8 +133,8 @@ export function Sidebar({ currentPath, statusIndicators = {} }: SidebarProps) {
               Account
             </Link>
             <button
-              onClick={clearAuth}
-              className="w-full flex items-center justify-start gap-2 px-3 py-2 text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 rounded-lg transition-colors"
+                   onClick={handleSignOut}
+                   className="w-full flex items-center justify-start gap-2 px-3 py-2 text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 rounded-lg transition-colors"
             >
               <LogOut className="h-4 w-4" />
               Sign Out

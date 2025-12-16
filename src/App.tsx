@@ -19,6 +19,8 @@ import { AdminCategoriesPage } from './pages/AdminCategoriesPage';
 import { AuthPage, ProtectedRoute } from './components/auth';
 import { useAuthStore } from './store/auth';
 import { getCurrentUser } from './api/auth';
+import { useNavigate } from 'react-router-dom';
+
 
 function App() {
     return (
@@ -154,7 +156,10 @@ function AppContent() {
         {/* User routes */}
         <Route path="/chat" element={<ChatPage />} />
         <Route path="/config" element={<ConfigPage />} />
-        <Route path="/payment-methods" element={<PaymentMethodPage />} />
+        <Route
+              path="/payment-methods"
+              element={<PaymentMethodPage key={user?.username ?? 'anon'} />}
+        />
 
         {/* Admin-only routes (legacy - kept as backup) */}
         <Route
@@ -193,6 +198,13 @@ function AppContent() {
 function AppLayout() {
   const { user, clearAuth } = useAuthStore();
   const location = useLocation();
+  const navigate = useNavigate();
+
+
+  const handleLogout = () => {
+    clearAuth();
+    navigate('/login', { replace: true });
+  };
 
     return (
         <div className="app">
@@ -208,7 +220,7 @@ function AppLayout() {
                             <span className="user-name">{user?.username || ''}</span>
                             <span className="user-role">{user?.role || ''}</span>
                         </div>
-                        <button onClick={clearAuth} className="logout-button">
+                        <button onClick={handleLogout} className="logout-button">
                             Logout
                         </button>
                     </div>

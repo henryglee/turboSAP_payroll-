@@ -50,14 +50,21 @@ export const useAuthStore = create<AuthState>((set) => ({
     });
   },
 
-  clearAuth: () => {
-    localStorage.removeItem('turbosap-auth');
-    set({
-      token: null,
-      user: null,
-      isAuthenticated: false,
-    });
-  },
+clearAuth: () => {
+  // ✅ Clear auth
+  localStorage.removeItem('turbosap-auth');
+
+  // ✅ Clear Payment Method local state
+  localStorage.removeItem('turbosap.payment_method.draft.v1');
+  localStorage.removeItem('turbosap.payment_method.sessionId');
+
+  set({
+    token: null,
+    user: null,
+    isAuthenticated: false,
+  });
+},
+
 
   updateUser: (updates) =>
     set((state) => {
