@@ -158,24 +158,26 @@ export function PaymentMethodPage() {
 
 useEffect(() => {
   const draft = loadPaymentDraft();
-  if (!draft) return;
 
-  // Restore UI state
-  setSelectedMethods(draft.selectedMethods ?? []);
-  setHouseBanks(draft.houseBanks ?? '');
-  setAchSpec(draft.achSpec ?? '');
-  setCheckVolume(draft.checkVolume ?? '');
-  setSystemCheckBankAccount(draft.systemCheckBankAccount ?? '');
-  setSystemCheckRange(draft.systemCheckRange ?? '');
-  setManualCheckBankAccount(draft.manualCheckBankAccount ?? '');
-  setManualCheckRange(draft.manualCheckRange ?? '');
-  setAgreeNoPreNote(draft.agreeNoPreNote ?? null);
-  setPaymentResults(draft.paymentResults ?? null);
-  setShowResults(draft.showResults ?? false);
+  if (draft) {
+    // Restore UI state
+    setSelectedMethods(draft.selectedMethods ?? []);
+    setHouseBanks(draft.houseBanks ?? '');
+    setAchSpec(draft.achSpec ?? '');
+    setCheckVolume(draft.checkVolume ?? '');
+    setSystemCheckBankAccount(draft.systemCheckBankAccount ?? '');
+    setSystemCheckRange(draft.systemCheckRange ?? '');
+    setManualCheckBankAccount(draft.manualCheckBankAccount ?? '');
+    setManualCheckRange(draft.manualCheckRange ?? '');
+    setAgreeNoPreNote(draft.agreeNoPreNote ?? null);
+    setPaymentResults(draft.paymentResults ?? null);
+    setShowResults(draft.showResults ?? false);
+  }
 
-  // CRITICAL: backend session must be reset
-  clearPaymentSessionId();
+  // ✅ IMPORTANT: mark hydration complete AFTER restore
+  setHydrated(true);
 }, []);
+
 
 
 
