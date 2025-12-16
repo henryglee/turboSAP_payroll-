@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
+import { Brain, RefreshCw } from 'lucide-react';
+import { clsx } from 'clsx';
 import '@xterm/xterm/css/xterm.css';
-import './DataTerminalPage.css';
 
 import { fetchTerminalCustomers } from '../api/dataTerminal';
 import { useAuthStore } from '../store/auth';
@@ -81,60 +82,60 @@ export function DataTerminalPage() {
     };
   }, []);
 
- const connectSocket = useCallback(() => {
-  if (!token || !termRef.current || !isAdmin) return;
+  const connectSocket = useCallback(() => {
+    if (!token || !termRef.current || !isAdmin) return;
 
-  // Close existing socket
-  intentionalCloseRef.current = true;
-  socketRef.current?.close();
+    // Close existing socket
+    intentionalCloseRef.current = true;
+    socketRef.current?.close();
 
-  intentionalCloseRef.current = false;
-  setStatus('connecting');
-  setErrorMessage(null);
+    intentionalCloseRef.current = false;
+    setStatus('connecting');
+    setErrorMessage(null);
 
-  const socket = new WebSocket(wsUrl);
-  socketRef.current = socket;
+    const socket = new WebSocket(wsUrl);
+    socketRef.current = socket;
 
-  const term = termRef.current;
+    const term = termRef.current;
 
-  const disposeDataListener = term.onData((data) => {
-    if (socket.readyState === WebSocket.OPEN) {
-      socket.send(data);
-    }
-  });
+    const disposeDataListener = term.onData((data) => {
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(data);
+      }
+    });
 
-  socket.addEventListener('open', () => {
-    setStatus('connected');
-    term.focus();
-  });
+    socket.addEventListener('open', () => {
+      setStatus('connected');
+      term.focus();
+    });
 
-  // Ignore transient errors
-  socket.addEventListener('error', () => {
-    console.warn('WebSocket transient error');
-  });
+    // Ignore transient errors
+    socket.addEventListener('error', () => {
+      console.warn('WebSocket transient error');
+    });
 
-  socket.addEventListener('close', (event) => {
-    disposeDataListener.dispose();
+    socket.addEventListener('close', (event) => {
+      disposeDataListener.dispose();
 
-    if (intentionalCloseRef.current) {
-      setStatus('idle');
-      return;
-    }
+      if (intentionalCloseRef.current) {
+        setStatus('idle');
+        return;
+      }
 
-    if (!event.wasClean) {
-      setStatus('error');
-      // setErrorMessage('Connection lost');
-      term.write('\r\n[connection lost]\r\n');
-    } else {
-      setStatus('idle');
-      term.write('\r\n[connection closed]\r\n');
-    }
-  });
+      if (!event.wasClean) {
+        setStatus('error');
+        // setErrorMessage('Connection lost');
+        term.write('\r\n[connection lost]\r\n');
+      } else {
+        setStatus('idle');
+        term.write('\r\n[connection closed]\r\n');
+      }
+    });
 
-  socket.addEventListener('message', (event) => {
-    term.write(event.data ?? '');
-  });
-}, [token, wsUrl, isAdmin]);
+    socket.addEventListener('message', (event) => {
+      term.write(event.data ?? '');
+    });
+  }, [token, wsUrl, isAdmin]);
 
 
   useEffect(() => {
@@ -200,53 +201,89 @@ export function DataTerminalPage() {
 
   return (
     <AdminLayout title="Data Console" description="Terminal access for data exploration">
-      <div className="data-terminal-page">
-        <div className="terminal-header">
-          <div>
-            <h2>Reachnett Data Terminal</h2>
-            <p className="terminal-subtitle">
-              Explore files under <code>/data/reachnett</code> via the backend data-terminal service.
-            </p>
+      <div className="flex flex-col gap-6 p-6 max-w-7xl mx-auto w-full h-[calc(100vh-100px)]">
+        {/* Header & Controls Section */}
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 bg-white dark:bg-zinc-900 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm shrink-0">
+          <div className="flex items-start gap-4">
+            <div className="p-2.5 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg shrink-0">
+              <Brain className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                TurboSAPShell
+                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
+                  BETA
+                </span>
+                <div className={clsx(
+                  "ml-2 flex items-center gap-2 px-2 py-0.5 rounded-full text-xs font-medium border",
+                  status === 'connected' && "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-900",
+                  status === 'connecting' && "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-900",
+                  status === 'error' && "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-900/20 dark:text-rose-400 dark:border-rose-900",
+                  status === 'idle' && "bg-zinc-100 text-zinc-600 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700"
+                )}>
+                  <span className={clsx("relative flex h-2 w-2")}>
+                    {status === 'connected' && (
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    )}
+                    <span className={clsx(
+                      "relative inline-flex rounded-full h-2 w-2",
+                      status === 'connected' && "bg-emerald-500",
+                      status === 'connecting' && "bg-amber-500",
+                      status === 'error' && "bg-rose-500",
+                      status === 'idle' && "bg-zinc-400"
+                    )}></span>
+                  </span>
+                  {status === 'connected' && 'Online'}
+                  {status === 'connecting' && 'Connecting...'}
+                  {status === 'idle' && 'Disconnected'}
+                  {status === 'error' && 'Error'}
+                </div>
+              </h2>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                Direct to <code className="px-1 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 font-mono text-xs">/data/reachnett</code>
+              </p>
+            </div>
           </div>
-          <div className={`status-pill status-${status}`}>
-            {status === 'connected' && 'Connected'}
-            {status === 'connecting' && 'Connecting...'}
-            {status === 'idle' && 'Disconnected'}
-            {status === 'error' && 'Error'}
-          </div>
-        </div>
 
-        <div className="terminal-controls">
-          <label className="control-group">
-            <span>Customer Folder</span>
-            <select
-              value={selectedCustomer}
-              onChange={handleCustomerChange}
-              disabled={!isAdmin || status === 'connecting'}
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                disconnectTerminal();
+                initializeTerminal();
+                connectSocket();
+              }}
+              className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200 rounded-lg text-sm font-medium hover:bg-zinc-50 dark:hover:bg-zinc-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-colors"
             >
-              {customers.map((customer) => (
-                <option key={customer} value={customer}>
-                  {customer}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            className="terminal-button"
-            type="button"
-            onClick={() => {
-              disconnectTerminal();
-              initializeTerminal();
-              connectSocket();
-            }}
-          >
-            Reconnect
-          </button>
+              <RefreshCw className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
-        {errorMessage && <div className="terminal-error">{errorMessage}</div>}
+        {errorMessage && (
+          <div className="flex items-center gap-2 p-4 bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-900 rounded-lg text-rose-700 dark:text-rose-400 text-sm shrink-0">
+            <div className="shrink-0 p-1 bg-rose-100 dark:bg-rose-900/40 rounded-full">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </div>
+            {errorMessage}
+          </div>
+        )}
 
-        <div className="terminal-shell" ref={containerRef} />
+        <div className="flex-1 min-h-0 relative rounded-lg overflow-hidden border border-zinc-800 shadow-xl bg-[#0f0f0f] flex flex-col">
+          <div className="shrink-0 h-6 bg-[#1a1b1e] border-b border-[#2b2d31] flex items-center px-3 gap-2">
+            <div className="flex gap-1.5">
+              <div className="w-2.5 h-2.5 rounded-full bg-[#ff5f56]"></div>
+              <div className="w-2.5 h-2.5 rounded-full bg-[#ffbd2e]"></div>
+              <div className="w-2.5 h-2.5 rounded-full bg-[#27c93f]"></div>
+            </div>
+            <div className="flex-1 text-center text-[10px] font-mono text-zinc-500">
+              secure_shell — -bash — 80x24
+            </div>
+          </div>
+          <div className="terminal-shell flex-1 p-1" ref={containerRef} />
+        </div>
       </div>
     </AdminLayout>
   );
