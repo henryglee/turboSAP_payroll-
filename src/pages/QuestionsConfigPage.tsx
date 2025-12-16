@@ -308,15 +308,15 @@ export function QuestionsConfigPage() {
       <div className="left-panel">
         <div className="section">
           <div style={{ marginBottom: '2rem' }}>
-            <h2 className="section-title">Questions Configuration</h2>
+            <h2 className="section-title">Module Configuration</h2>
             <p style={{ marginTop: '0.5rem', color: '#718096', fontSize: '0.9375rem', lineHeight: '1.6' }}>
-              Upload, edit, and manage the questions JSON used by the chat flow.
+              Upload, edit, and manage the configuration modules used by the guided flow.
             </p>
           </div>
 
           <div className="form-group" style={{ marginBottom: '1.5rem' }}>
             <label className="form-label">
-              Import questions JSON
+              Import module JSON
             </label>
             <input 
               type="file" 
@@ -372,10 +372,10 @@ export function QuestionsConfigPage() {
       <div className="right-panel">
         <div className="section" style={{ marginBottom: 0 }}>
           <div style={{ marginBottom: '1.5rem' }}>
-            <h2 className="section-title" style={{ marginTop: 0 }}>Questions List</h2>
+            <h2 className="section-title" style={{ marginTop: 0 }}>Modules</h2>
             {config && (
               <p style={{ marginTop: '0.5rem', color: '#718096', fontSize: '0.9375rem' }}>
-                {config.questions.length} question{config.questions.length !== 1 ? 's' : ''} configured
+                {config.questions.length} module{config.questions.length !== 1 ? 's' : ''} configured
               </p>
             )}
           </div>

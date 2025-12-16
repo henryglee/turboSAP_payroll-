@@ -22,8 +22,8 @@ Run with: uvicorn app.main:app --reload --port 8000
 
 import uuid
 import shutil
-from fastapi import FastAPI, HTTPException, Depends, Header, UploadFile, File
-from fastapi import Body
+from fastapi import FastAPI, HTTPException, Depends, Header, UploadFile, File, Body
+from app.agents.payments.payment_method_graph import payment_method_graph
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional
 
@@ -56,6 +56,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 import os
 
+from .routes import data_terminal
+
 ENV = os.getenv("APP_ENV", "development")
 
 # ============================================
@@ -65,7 +67,7 @@ ENV = os.getenv("APP_ENV", "development")
 app = FastAPI(
     title="TurboSAP Payroll Configuration API",
     description="API for configuring SAP payroll areas through a guided Q&A flow",
-    version="1.0.0",
+    version="default_code.0.0",
 )
 
 
@@ -76,11 +78,17 @@ frontend_dir = Path(__file__).parent / "static"
 if ENV == "production":
     app.mount("/assets", StaticFiles(directory=frontend_dir / "assets"), name="assets")
 
+# Mount API routers that live in app.routes
+app.include_router(data_terminal.router)
+
 # Serve uploaded logos (in both dev and production)
 uploads_dir = Path(__file__).parent.parent / "uploads"
 if not uploads_dir.exists():
     uploads_dir.mkdir(parents=True, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
+
+# Mount API routers that live in app.routes
+app.include_router(data_terminal.router)
 
 # CORS - Allow React dev server to call this API
 app.add_middleware(
@@ -119,7 +127,7 @@ def calculate_progress(state: PayrollState) -> int:
     answered_count = len(answers)
 
     # Estimate total questions (varies based on answers)
-    # Base: q1_frequencies = 1
+    # Base: q1_frequencies = default_code
     # Each frequency adds ~2 questions (pattern + payday)
     # Each calendar combo adds ~4 questions (business, business_names, geographic, regions)
     frequencies = answers.get("q1_frequencies", [])
@@ -127,7 +135,7 @@ def calculate_progress(state: PayrollState) -> int:
         frequencies = [frequencies]
 
     num_frequencies = len(frequencies)
-    # Estimate: 1 + (2 * freqs) + (4 * freqs) = 1 + 6*freqs
+    # Estimate: default_code + (2 * freqs) + (4 * freqs) = default_code + 6*freqs
     # But some questions are conditional, so be conservative
     estimated_total = 1 + (num_frequencies * 6)
 
@@ -180,7 +188,7 @@ def login(request: dict = Body(...)):
 
     Returns (current):
         {
-            "userId": 1,
+            "userId": default_code,
             "username": "user123",
             "role": "client",
             "companyName": "ABC Corp",
@@ -402,6 +410,7 @@ async def submit_answer(
 
     # Run graph to determine next step
     result = payroll_graph.invoke(state)
+
 
     # Update session - use database if authenticated, otherwise in-memory
     if current_user:
@@ -710,7 +719,7 @@ async def create_user_by_admin(
     
     Returns:
         {
-            "userId": 1,
+            "userId": default_code,
             "username": "newuser",
             "role": "client",
             "companyName": "ABC Corp"
@@ -945,6 +954,119 @@ def serve_spa(full_path: str):
         return index_file.read_text(encoding="utf-8")
 
     return HTMLResponse("<h1>Frontend not found</h1>", status_code=404)
+
+@app.post("/api/session/payment_method/start")
+async def start_payment_method_session(
+    request: dict = Body({}),
+    authorization: Optional[str] = Header(None),
+):
+    session_id = str(uuid.uuid4())
+
+    # initialize state specifically for payment method module
+    initial_state = {
+        "session_id": session_id,
+        "answers": {},
+        "current_question_id": None,
+        "current_question": None,
+        "payment_methods": [],
+        "done": False,
+        "message": None,
+        # optional: keep this for debugging / DB module label
+        "current_module": "payment_method",
+    }
+
+    result = payment_method_graph.invoke(initial_state)
+
+    # optional auth + DB saving (same pattern as your /api/start)
+    current_user = None
+    try:
+        current_user = await get_optional_user(authorization)
+    except:
+        pass
+
+    if current_user:
+        db_create_session(
+            session_id=session_id,
+            user_id=current_user["user_id"],
+            config_state=result,
+            module="payment method",
+        )
+    else:
+        sessions[session_id] = result
+
+    return {
+        "sessionId": session_id,
+        "question": result.get("current_question"),
+        "module": "payment_method",
+    }
+
+
+@app.post("/api/session/payment_method/answer")
+async def submit_payment_method_answer(
+    request: dict = Body(...),
+    authorization: Optional[str] = Header(None),
+):
+    session_id = request.get("sessionId")
+    question_id = request.get("questionId")
+    answer = request.get("answer")
+
+    if not session_id:
+        raise HTTPException(status_code=400, detail="sessionId is required")
+    if not question_id:
+        raise HTTPException(status_code=400, detail="questionId is required")
+    if answer is None:
+        raise HTTPException(status_code=400, detail="answer is required")
+
+    current_user = await get_optional_user(authorization)
+
+    # load session
+    state = None
+    if current_user:
+        db_session = db_get_session(session_id)
+        if db_session and db_session["user_id"] == current_user["user_id"]:
+            state = db_session["config_state"]
+
+    if not state:
+        state = sessions.get(session_id)
+
+    if not state:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    # store answer
+    state.setdefault("answers", {})
+    state["answers"][question_id] = answer
+
+    # run the correct graph
+    result = payment_method_graph.invoke(state)
+
+    # save updated session
+    if current_user:
+        db_create_session(
+            session_id=session_id,
+            user_id=current_user["user_id"],
+            config_state=result,
+            module="payment method",
+        )
+    else:
+        sessions[session_id] = result
+
+    # done response (IMPORTANT: return paymentMethods in camelCase for your UI)
+    if result.get("done") or not result.get("current_question_id"):
+        return {
+            "sessionId": session_id,
+            "done": True,
+            "progress": 100,
+            "paymentMethods": result.get("payment_methods", []),
+            "message": result.get("message", "Configuration complete."),
+        }
+
+    return {
+        "sessionId": session_id,
+        "done": False,
+        "progress": 0,  # optional: implement progress for payment method
+        "question": result.get("current_question"),
+    }
+
 
 
 

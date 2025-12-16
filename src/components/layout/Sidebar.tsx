@@ -16,12 +16,14 @@ import {
   CheckCircle2,
   Circle,
   ChevronRight,
+  Layers,
 } from 'lucide-react';
 
 const navItems = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard', key: 'dashboard' },
   { icon: Calendar, label: 'Payroll Areas', href: '/payroll-area', key: 'payrollAreas' },
   { icon: CreditCard, label: 'Payment Methods', href: '/payment-methods', key: 'paymentMethods' },
+  { icon: Layers, label: 'All Modules', href: '/scope', key: 'scope' },
   { icon: FileJson, label: 'Export', href: '/export', key: 'export' },
 ];
 

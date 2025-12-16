@@ -57,7 +57,7 @@ export async function submitAnswer(
  */
 export async function checkHealth(): Promise<boolean> {
   try {
-    await apiFetch<{ status: string }>('/');
+    await apiFetch<{ status: string }>('/api/health');
     return true;
   } catch {
     return false;
@@ -77,24 +77,22 @@ export async function getSession(sessionId: string): Promise<{
   return apiFetch(`/api/session/${sessionId}`);
 }
 
-// ============================================
-// Deprecated Payment Method Functions
-// ============================================
-
-/**
- * @deprecated Use startSession('payment_method') instead.
- * Start a payment method configuration session.
- */
 export async function startPaymentSession(): Promise<StartSessionResponse> {
-  return startSession('payment_method');
+  return apiFetch<StartSessionResponse>('/api/session/payment_method/start', {
+    method: 'POST',
+    body: JSON.stringify({}), 
+  });
 }
 
-/**
- * @deprecated Use submitAnswer() instead.
- * Submit an answer for payment method configuration.
- */
 export async function submitPaymentAnswer(
   request: SubmitAnswerRequest
 ): Promise<SubmitAnswerResponse> {
-  return submitAnswer(request);
+  return apiFetch<SubmitAnswerResponse>('/api/session/payment_method/answer', {
+    method: 'POST',
+    body: JSON.stringify({
+      sessionId: request.sessionId,
+      questionId: request.questionId,
+      answer: request.answer,
+    }),
+  });
 }

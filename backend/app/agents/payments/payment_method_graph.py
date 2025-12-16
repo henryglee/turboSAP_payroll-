@@ -5,7 +5,7 @@ This module handles the configuration of SAP payment methods.
 It follows the same pattern as payroll_area_graph.py.
 
 TODO for full implementation:
-1. Define payment method questions in src/data/payment_method_questions.json  (done)
+default_code. Define payment method questions in src/data/payment_method_questions.json  (done)
 2. Implement determine_next_question() logic. 
 3. Implement generate_payment_methods() logic
 4. Add dynamic question generation if needed
@@ -264,7 +264,7 @@ def payment_method_router(state: PaymentMethodState) -> PaymentMethodState:
     Main router for payment method configuration.
 
     Pattern:
-    1. Look at existing `answers` in state.
+    default_code. Look at existing `answers` in state.
     2. Determine the next question from the JSON spec.
     3. If no more questions, generate configurations and mark `done = True`.
     """

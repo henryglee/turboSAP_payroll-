@@ -93,7 +93,7 @@ export function DashboardPage() {
 
   // Calculate progress (mock for now)
   const totalModules = modules.filter(m => m.id !== 'export').length;
-  const completedModules = modules.filter(m => m.status === 'complete').length;
+  const completedModules = modules.filter(m => (m.status as string) === 'complete').length;
   const progress = Math.round((completedModules / totalModules) * 100);
 
   const getStatusBadge = (status: string) => {

@@ -10,17 +10,21 @@ import { useAuthStore } from '../../store/auth';
 import {
   LayoutDashboard,
   Users,
-  HelpCircle,
+  Layers,
+  Boxes,
   Settings,
   LogOut,
   FileJson,
   ChevronRight,
+  Terminal,
 } from 'lucide-react';
 
 const adminNavItems = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/admin/dashboard', key: 'dashboard' },
   { icon: Users, label: 'Users', href: '/admin/users', key: 'users' },
-  { icon: HelpCircle, label: 'Questions', href: '/admin/questions', key: 'questions' },
+  { icon: Layers, label: 'Categories', href: '/admin/categories', key: 'categories' },
+  { icon: Boxes, label: 'Modules', href: '/admin/modules', key: 'modules' },
+  { icon: Terminal, label: 'Console', href: '/admin/console', key: 'console' },
   { icon: Settings, label: 'Settings', href: '/admin/settings', key: 'settings' },
 ];
 

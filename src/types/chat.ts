@@ -144,6 +144,7 @@ export interface SubmitPaymentAnswerResponse {
   message?: string;
 }
 
+
 // ============================================
 // Chat State (for UI state management)
 // ============================================
