@@ -11,6 +11,7 @@ import {
   LayoutDashboard,
   Users,
   HelpCircle,
+  Layers,
   Settings,
   LogOut,
   FileJson,
@@ -20,6 +21,7 @@ import {
 const adminNavItems = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/admin/dashboard', key: 'dashboard' },
   { icon: Users, label: 'Users', href: '/admin/users', key: 'users' },
+  { icon: Layers, label: 'Categories', href: '/admin/categories', key: 'categories' },
   { icon: HelpCircle, label: 'Questions', href: '/admin/questions', key: 'questions' },
   { icon: Settings, label: 'Settings', href: '/admin/settings', key: 'settings' },
 ];

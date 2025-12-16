@@ -14,6 +14,8 @@ import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { AdminUsersPage } from './pages/AdminUsersPage';
 import { AdminSettingsPage } from './pages/AdminSettingsPage';
 import { DataTerminalPage } from "./pages/DataTerminalPage.tsx";
+import { ConfigurationScopePage } from './pages/ConfigurationScopePage';
+import { AdminCategoriesPage } from './pages/AdminCategoriesPage';
 import { AuthPage, ProtectedRoute } from './components/auth';
 import { useAuthStore } from './store/auth';
 import { getCurrentUser } from './api/auth';
@@ -81,6 +83,16 @@ function AppContent() {
         }
       />
 
+      {/* Configuration Scope - Shows all modules in Genie hierarchy */}
+      <Route
+        path="/scope"
+        element={
+          <ProtectedRoute>
+            <ConfigurationScopePage />
+          </ProtectedRoute>
+        }
+      />
+
       {/* New Admin Routes - Uses AdminLayout with gold/amber accent */}
       <Route
         path="/admin/dashboard"
@@ -95,6 +107,14 @@ function AppContent() {
         element={
           <ProtectedRoute requireAdmin>
             <AdminUsersPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/categories"
+        element={
+          <ProtectedRoute requireAdmin>
+            <AdminCategoriesPage />
           </ProtectedRoute>
         }
       />
@@ -148,7 +168,7 @@ function AppContent() {
         />
         {/* Data Terminal - Admin console */}
         <Route
-          path="/console"
+          path="/admin/console"
           element={
             <ProtectedRoute requireAdmin>
               <DataTerminalPage />

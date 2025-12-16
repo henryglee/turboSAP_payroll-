@@ -10,7 +10,7 @@ import { useAuthStore } from '../store/auth';
 import { apiFetch } from '../api/utils';
 import {
   Users,
-  HelpCircle,
+  Layers,
   FileJson,
   ArrowRight,
   UserPlus,
@@ -19,12 +19,13 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
+  HelpCircle,
 } from 'lucide-react';
 
 interface DashboardStats {
   totalUsers: number;
   activeUsers: number;
-  totalQuestions: number;
+  totalModules: number;
   recentExports: number;
 }
 
@@ -89,7 +90,7 @@ export function AdminDashboardPage() {
   const [stats, setStats] = useState<DashboardStats>({
     totalUsers: 0,
     activeUsers: 0,
-    totalQuestions: 24,
+    totalModules: 2, // Payroll Area + Payment Method
     recentExports: 0,
   });
   const [loading, setLoading] = useState(true);
@@ -126,10 +127,10 @@ export function AdminDashboardPage() {
       bgColor: 'bg-blue-50',
     },
     {
-      title: 'Questions',
-      value: stats.totalQuestions,
-      subtitle: 'Configuration questions',
-      icon: HelpCircle,
+      title: 'Modules',
+      value: stats.totalModules,
+      subtitle: 'Configuration modules',
+      icon: Layers,
       href: '/admin/questions',
       color: 'text-purple-600',
       bgColor: 'bg-purple-50',
@@ -269,30 +270,10 @@ export function AdminDashboardPage() {
       {/* System Status */}
       <div className="mt-6">
         <div className="bg-white border border-gray-200 rounded-xl p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">System Status</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-50">
-              <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-              <div>
-                <p className="text-sm font-medium text-gray-900">Platform</p>
-                <p className="text-xs text-gray-500">Operational</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-50">
-              <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-              <div>
-                <p className="text-sm font-medium text-gray-900">Services</p>
-                <p className="text-xs text-gray-500">Running</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-50">
-              <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-              <div>
-                <p className="text-sm font-medium text-gray-900">Configuration</p>
-                <p className="text-xs text-gray-500">Active</p>
-              </div>
-            </div>
-          </div>
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">System Status</h2>
+          <p className="text-sm text-gray-500">
+            Status monitoring will be available as integrations are connected.
+          </p>
         </div>
       </div>
     </AdminLayout>
