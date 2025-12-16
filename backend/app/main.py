@@ -62,14 +62,45 @@ from .routes import data_terminal
 
 ENV = os.getenv("APP_ENV", "development")
 
+from contextlib import asynccontextmanager
+
 # ============================================
 # FastAPI App Setup
 # ============================================
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: Initialize database and seed users
+    users_to_seed = [
+        {"username": "admin123", "password": "admin123", "role": "admin", "company_name": "Admin Corp"},
+        {"username": "test123", "password": "test123", "role": "client", "company_name": "Test Client Inc"}
+    ]
+
+    for u in users_to_seed:
+        if not get_user_by_username(u["username"]):
+            print(f"[Seeding] Creating user: {u['username']}")
+            pw_hash = hash_password(u["password"])
+            try:
+                create_user(
+                    username=u["username"],
+                    password_hash=pw_hash,
+                    role=u["role"],
+                    company_name=u["company_name"]
+                )
+                print(f"[Seeding] Successfully created {u['username']}")
+            except Exception as e:
+                print(f"[Seeding] Error creating {u['username']}: {e}")
+        else:
+            print(f"[Seeding] User already exists: {u['username']}")
+
+    yield
+    # Shutdown logic (if any)
 
 app = FastAPI(
     title="TurboSAP Payroll Configuration API",
     description="API for configuring SAP payroll areas through a guided Q&A flow",
     version="default_code.0.0",
+    lifespan=lifespan
 )
 
 
