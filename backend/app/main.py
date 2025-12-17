@@ -295,6 +295,62 @@ def get_current_user_info(current_user: dict = Depends(get_current_user)):
     }
 
 
+@app.post("/api/auth/change-password")
+async def change_password(
+    request: dict = Body(...),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Change current user's password.
+    
+    User must provide their current password for verification.
+    System does not support password recovery - old passwords cannot be retrieved.
+    
+    Request body:
+        {
+            "currentPassword": "oldpass123",
+            "newPassword": "newpass456"
+        }
+    
+    Returns:
+        {
+            "status": "ok",
+            "message": "Password changed successfully"
+        }
+    """
+    current_password = request.get("currentPassword")
+    new_password = request.get("newPassword")
+    
+    # Validate input
+    if not current_password:
+        raise HTTPException(status_code=400, detail="Current password is required")
+    if not new_password:
+        raise HTTPException(status_code=400, detail="New password is required")
+    if len(new_password) < 6:
+        raise HTTPException(status_code=400, detail="New password must be at least 6 characters")
+    if current_password == new_password:
+        raise HTTPException(status_code=400, detail="New password must be different from current password")
+    
+    # Get user from database
+    user = get_user_by_id(current_user["user_id"])
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Verify current password
+    if not verify_password(current_password, user["password_hash"]):
+        raise HTTPException(status_code=401, detail="Current password is incorrect")
+    
+    # Hash new password and update
+    new_password_hash = hash_password(new_password)
+    from .database import update_user_password
+    update_user_password(user["id"], new_password_hash)
+    
+    return {
+        "status": "ok",
+        "message": "Password changed successfully"
+    }
+
+
 @app.post("/api/start")
 async def start_session(
     request: dict = Body({}),
@@ -901,6 +957,53 @@ async def update_user_role(
         conn.commit()
     
     return {"status": "ok", "userId": user_id, "role": new_role}
+
+
+@app.put("/api/admin/users/{user_id}/reset-password")
+async def reset_user_password(
+    user_id: int,
+    request: dict = Body(...),
+    current_user: dict = Depends(require_admin),
+):
+    """
+    Reset a user's password. Admin only.
+    
+    Admin can reset any user's password to a new temporary password.
+    System does not support viewing or recovering old passwords.
+    
+    Request body:
+        {
+            "newPassword": "newtemp123"
+        }
+    
+    Returns:
+        {
+            "status": "ok",
+            "message": "Password reset successfully for user 'username'"
+        }
+    """
+    new_password = request.get("newPassword")
+    
+    # Validate input
+    if not new_password:
+        raise HTTPException(status_code=400, detail="New password is required")
+    if len(new_password) < 6:
+        raise HTTPException(status_code=400, detail="New password must be at least 6 characters")
+    
+    # Check if user exists
+    user = get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Hash new password and update
+    new_password_hash = hash_password(new_password)
+    from .database import update_user_password
+    update_user_password(user_id, new_password_hash)
+    
+    return {
+        "status": "ok",
+        "message": f"Password reset successfully for user '{user['username']}'"
+    }
 
 
 # ============================================
