@@ -195,6 +195,23 @@ def update_user_profile(
         """, params)
 
 
+def update_user_password(user_id: int, new_password_hash: str):
+    """
+    Update user's password hash.
+    
+    Args:
+        user_id: User ID
+        new_password_hash: New hashed password
+    """
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE users
+            SET password_hash = ?
+            WHERE id = ?
+        """, (new_password_hash, user_id))
+
+
 # ============================================
 # Session Operations
 # ============================================

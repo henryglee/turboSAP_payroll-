@@ -71,3 +71,24 @@ export async function getCurrentUser(token: string): Promise<UserInfo> {
   });
 }
 
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+}
+
+export interface ChangePasswordResponse {
+  status: string;
+  message: string;
+}
+
+/**
+ * Change current user's password.
+ * Requires authentication token.
+ */
+export async function changePassword(request: ChangePasswordRequest): Promise<ChangePasswordResponse> {
+  return apiFetch<ChangePasswordResponse>('/api/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify(request),
+  });
+}
+

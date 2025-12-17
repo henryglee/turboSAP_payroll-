@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { apiFetch } from '../api/utils';
 import { useAuthStore } from '../store/auth';
+import { AdminLayout } from '../components/layout/AdminLayout';
 
 type Question = {
   id: string;
@@ -14,14 +15,6 @@ type QuestionsConfig = {
   questions: Question[];
 };
 
-/**
- * Questions configuration page for admins.
- * 
- * Note: UI focus is on client users, not admin. Admins can also:
- * - Edit JSON files directly: backend/app/config/questions_current.json
- * - Use API endpoints: PUT /api/config/questions/current
- * This UI is functional but admin can accept direct file editing.
- */
 export function QuestionsConfigPage() {
   const { user } = useAuthStore();
   const [config, setConfig] = useState<QuestionsConfig | null>(null);
@@ -32,21 +25,19 @@ export function QuestionsConfigPage() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [showScrollUp, setShowScrollUp] = useState(false);
   const [showScrollDown, setShowScrollDown] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
 
   // Check if user is admin
   if (user?.role !== 'admin') {
     return (
-      <main className="main-container">
-        <div className="right-panel">
-          <div className="section">
-            <div className="admin-access-denied">
-              <h2>Access Denied</h2>
-              <p>This page is only available to administrators.</p>
-            </div>
-          </div>
+      <AdminLayout
+        title="Access Denied"
+        description="This page is only available to administrators"
+      >
+        <div className="bg-white border border-gray-200 rounded-xl p-8 text-center">
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Access Denied</h2>
+          <p className="text-sm text-gray-500">This page is only available to administrators.</p>
         </div>
-      </main>
+      </AdminLayout>
     );
   }
 
@@ -95,16 +86,6 @@ export function QuestionsConfigPage() {
       return () => container.removeEventListener('scroll', checkScrollPosition);
     }
   }, [config]);
-
-  // Check screen size for responsive layout
-  useEffect(() => {
-    const checkScreenSize = () => {
-      setIsMobile(window.innerWidth < 1024);
-    };
-    checkScreenSize();
-    window.addEventListener('resize', checkScreenSize);
-    return () => window.removeEventListener('resize', checkScreenSize);
-  }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -304,171 +285,100 @@ export function QuestionsConfigPage() {
   };
 
   return (
-    <main className="main-container">
-      <div className="left-panel">
-        <div className="section">
-          <div style={{ marginBottom: '2rem' }}>
-            <h2 className="section-title">Module Configuration</h2>
-            <p style={{ marginTop: '0.5rem', color: '#718096', fontSize: '0.9375rem', lineHeight: '1.6' }}>
-              Upload, edit, and manage the configuration modules used by the guided flow.
-            </p>
-          </div>
+    <AdminLayout
+      title="Module Configuration"
+      description="Upload, edit, and manage the configuration modules used by the guided flow"
+    >
+      <div className="space-y-6">
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+          <div className="space-y-5">
+            <div>
+              <label className="block text-sm font-medium text-gray-900 mb-2">
+                Import module JSON
+              </label>
+              <input 
+                type="file" 
+                accept="application/json" 
+                onChange={handleFileChange}
+                className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100"
+              />
+            </div>
 
-          <div className="form-group" style={{ marginBottom: '1.5rem' }}>
-            <label className="form-label">
-              Import module JSON
-            </label>
-            <input 
-              type="file" 
-              accept="application/json" 
-              onChange={handleFileChange}
-              className="form-input"
-              style={{ padding: '0.625rem' }}
-            />
-          </div>
-
-          <div style={{ 
-            marginBottom: '1.5rem', 
-            display: 'grid', 
-            gridTemplateColumns: '1fr 1fr',
-            gap: '0.75rem'
-          }}>
-            <button className="button" onClick={handleAddQuestion}>
-              Add Question
-            </button>
+            <div className="grid grid-cols-2 gap-3">
+              <button 
+                onClick={handleAddQuestion}
+                className="px-4 py-2 bg-amber-500 text-white font-medium rounded-lg hover:bg-amber-600 transition-colors"
+              >
+                Add Question
+              </button>
+              <button 
+                onClick={handleSave} 
+                disabled={saving || !config}
+                className="px-4 py-2 bg-amber-500 text-white font-medium rounded-lg hover:bg-amber-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+              >
+                {saving ? 'Saving...' : 'Save Current'}
+              </button>
+            </div>
+            
             <button 
-              className="button" 
-              onClick={handleSave} 
-              disabled={saving || !config}
+              onClick={handleRestore}
+              className="w-full px-4 py-2 bg-gray-200 text-gray-700 font-medium rounded-lg hover:bg-gray-300 transition-colors"
             >
-              {saving ? 'Saving...' : 'Save Current'}
-            </button>
-          </div>
-          
-          <div style={{ marginBottom: '1.5rem' }}>
-            <button className="button button-secondary" onClick={handleRestore} style={{ width: '100%' }}>
               Restore Original
             </button>
+
+            {loading && (
+              <div className="text-center py-4 text-gray-500 text-sm">
+                Loading questions…
+              </div>
+            )}
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                {error}
+              </div>
+            )}
+            {message && (
+              <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm">
+                {message}
+              </div>
+            )}
           </div>
-
-          {loading && (
-            <div style={{ padding: '1rem', textAlign: 'center', color: '#718096' }}>
-              Loading questions…
-            </div>
-          )}
-          {error && (
-            <div className="admin-message error" style={{ marginBottom: '1rem' }}>
-              {error}
-            </div>
-          )}
-          {message && (
-            <div className="admin-message success" style={{ marginBottom: '1rem' }}>
-              {message}
-            </div>
-          )}
         </div>
-      </div>
 
-      <div className="right-panel">
-        <div className="section" style={{ marginBottom: 0 }}>
-          <div style={{ marginBottom: '1.5rem' }}>
-            <h2 className="section-title" style={{ marginTop: 0 }}>Modules</h2>
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+          <div className="mb-6">
+            <h2 className="text-lg font-semibold text-gray-900">Modules</h2>
             {config && (
-              <p style={{ marginTop: '0.5rem', color: '#718096', fontSize: '0.9375rem' }}>
+              <p className="text-sm text-gray-500 mt-1">
                 {config.questions.length} module{config.questions.length !== 1 ? 's' : ''} configured
               </p>
             )}
           </div>
           {!config && !loading && (
-            <div style={{ 
-              padding: '3rem 2rem', 
-              textAlign: 'center', 
-              color: '#718096',
-              background: 'linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%)',
-              borderRadius: '12px',
-              border: '2px dashed #cbd5e0'
-            }}>
-              <p style={{ fontSize: '1rem', marginBottom: '0.5rem', fontWeight: 500 }}>
+            <div className="py-12 text-center bg-gray-50 border border-dashed border-gray-300 rounded-lg">
+              <p className="text-base font-medium text-gray-900 mb-1">
                 No questions loaded
               </p>
-              <p style={{ fontSize: '0.875rem', opacity: 0.8 }}>
+              <p className="text-sm text-gray-500">
                 Please import a questions JSON file or wait for questions to load.
               </p>
             </div>
           )}
           {config && (
-            <div style={{ 
-              position: 'relative',
-              flex: 1,
-              minHeight: 0,
-              maxHeight: '70vh', // Limit max height to 70% of viewport height
-              display: 'flex',
-              flexDirection: 'column',
-              width: '100%',
-            }}>
-              {/* Scroll Up Button */}
+            <div className="relative">
               {showScrollUp && (
                 <button
                   onClick={scrollUp}
-                  style={{
-                    position: 'absolute',
-                    top: '0.5rem',
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    zIndex: 10,
-                    padding: '0.5rem 1rem',
-                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '20px',
-                    fontSize: '0.875rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    boxShadow: '0 4px 8px rgba(102, 126, 234, 0.4)',
-                    transition: 'all 0.2s ease',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = 'translateX(-50%) translateY(-2px)';
-                    e.currentTarget.style.boxShadow = '0 6px 12px rgba(102, 126, 234, 0.5)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = 'translateX(-50%)';
-                    e.currentTarget.style.boxShadow = '0 4px 8px rgba(102, 126, 234, 0.4)';
-                  }}
+                  className="absolute top-2 left-1/2 -translate-x-1/2 z-10 px-4 py-2 bg-amber-500 text-white text-sm font-semibold rounded-full shadow-lg hover:bg-amber-600 transition-all"
                 >
                   ↑ Scroll Up
                 </button>
               )}
 
-              {/* Scroll Down Button */}
               {showScrollDown && (
                 <button
                   onClick={scrollDown}
-                  style={{
-                    position: 'absolute',
-                    bottom: '0.5rem',
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    zIndex: 10,
-                    padding: '0.5rem 1rem',
-                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '20px',
-                    fontSize: '0.875rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    boxShadow: '0 4px 8px rgba(102, 126, 234, 0.4)',
-                    transition: 'all 0.2s ease',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = 'translateX(-50%) translateY(2px)';
-                    e.currentTarget.style.boxShadow = '0 6px 12px rgba(102, 126, 234, 0.5)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = 'translateX(-50%)';
-                    e.currentTarget.style.boxShadow = '0 4px 8px rgba(102, 126, 234, 0.4)';
-                  }}
+                  className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 px-4 py-2 bg-amber-500 text-white text-sm font-semibold rounded-full shadow-lg hover:bg-amber-600 transition-all"
                 >
                   ↓ Scroll Down
                 </button>
@@ -476,128 +386,78 @@ export function QuestionsConfigPage() {
 
               <div
                 ref={scrollContainerRef}
-                style={{ 
-                  flex: 1,
-                  overflowY: 'auto',
-                  overflowX: 'hidden',
-                  border: '2px solid #e2e8f0', 
-                  borderRadius: '12px',
-                  padding: '1.5rem',
-                  background: 'linear-gradient(135deg, #ffffff 0%, #f7fafc 100%)',
-                  minHeight: 0,
-                  boxSizing: 'border-box',
-                  boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.02)',
-                  maxHeight: '100%',
-                  display: 'grid',
-                  gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)',
-                  gap: '1.5rem',
-                  alignContent: 'start',
-                }}
+                className="max-h-[70vh] overflow-y-auto overflow-x-hidden border border-gray-200 rounded-lg p-6 bg-gray-50 space-y-4"
               >
               {config.questions.map((q, index) => (
                   <div
                     key={q.id}
-                    style={{
-                      marginBottom: '1.5rem',
-                      padding: '1.5rem',
-                      background: 'white',
-                      borderRadius: '12px',
-                      border: '2px solid #e2e8f0',
-                      boxShadow: '0 2px 4px rgba(0, 0, 0, 0.04)',
-                      transition: 'all 0.2s ease'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.08)';
-                      e.currentTarget.style.borderColor = '#cbd5e0';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.04)';
-                      e.currentTarget.style.borderColor = '#e2e8f0';
-                    }}
+                    className="p-6 bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md hover:border-gray-300 transition-all"
                   >
-                    <div className="form-group">
-                      <label className="form-label">
-                        Question ID:
-                      </label>
-                      <input
-                        className="form-input"
-                        value={q.id}
-                        onChange={e => handleQuestionChange(index, 'id', e.target.value)}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">
-                        Question Text:
-                      </label>
-                      <input
-                        className="form-input"
-                        value={q.text}
-                        onChange={e => handleQuestionChange(index, 'text', e.target.value)}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">
-                        Type:
-                      </label>
-                      <input
-                        className="form-input"
-                        value={q.type ?? ''}
-                        onChange={e => handleQuestionChange(index, 'type', e.target.value)}
-                      />
-                    </div>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-900 mb-2">
+                          Question ID:
+                        </label>
+                        <input
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                          value={q.id}
+                          onChange={e => handleQuestionChange(index, 'id', e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-900 mb-2">
+                          Question Text:
+                        </label>
+                        <input
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                          value={q.text}
+                          onChange={e => handleQuestionChange(index, 'text', e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-900 mb-2">
+                          Type:
+                        </label>
+                        <input
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                          value={q.type ?? ''}
+                          onChange={e => handleQuestionChange(index, 'type', e.target.value)}
+                        />
+                      </div>
 
 
                     {(q.type === 'multiple_choice' || q.type === 'multiple_select') && (
-                      <div style={{ 
-                        marginTop: '1.5rem', 
-                        padding: '1.5rem', 
-                        background: 'linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%)', 
-                        borderRadius: '10px',
-                        border: '2px solid #e2e8f0'
-                      }}>
-                        <strong style={{ 
-                          display: 'block', 
-                          marginBottom: '1rem', 
-                          color: '#2d3748',
-                          fontSize: '0.9375rem',
-                          fontWeight: 700
-                        }}>
+                      <div className="mt-6 p-6 bg-gray-100 rounded-lg border border-gray-200">
+                        <strong className="block mb-4 text-gray-900 text-sm font-bold">
                           Options
                         </strong>
                         {Array.isArray(q.options) && q.options.length > 0 ? (
                           q.options.map((opt: any, optIndex: number) => (
-                            <div key={opt.id ?? optIndex} style={{ 
-                              marginBottom: '1rem', 
-                              padding: '1.25rem', 
-                              background: 'white', 
-                              borderRadius: '8px', 
-                              border: '2px solid #e2e8f0',
-                              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)'
-                            }}>
-                              <div className="form-group" style={{ marginBottom: '0.5rem' }}>
-                                <label className="form-label">Option ID:</label>
+                            <div key={opt.id ?? optIndex} className="mb-4 p-5 bg-white rounded-lg border border-gray-200 shadow-sm space-y-3">
+                              <div>
+                                <label className="block text-sm font-medium text-gray-900 mb-2">Option ID:</label>
                                 <input
-                                  className="form-input"
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
                                   value={opt.id ?? ''}
                                   onChange={e =>
                                     handleOptionChange(index, optIndex, 'id', e.target.value)
                                   }
                                 />
                               </div>
-                              <div className="form-group" style={{ marginBottom: '0.5rem' }}>
-                                <label className="form-label">Label:</label>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-900 mb-2">Label:</label>
                                 <input
-                                  className="form-input"
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
                                   value={opt.label ?? ''}
                                   onChange={e =>
                                     handleOptionChange(index, optIndex, 'label', e.target.value)
                                   }
                                 />
                               </div>
-                              <div className="form-group" style={{ marginBottom: '0.5rem' }}>
-                                <label className="form-label">Description:</label>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-900 mb-2">Description:</label>
                                 <input
-                                  className="form-input"
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
                                   value={opt.description ?? ''}
                                   onChange={e =>
                                     handleOptionChange(
@@ -611,7 +471,7 @@ export function QuestionsConfigPage() {
                               </div>
                               <button
                                 type="button"
-                                className="button button-small button-secondary"
+                                className="px-3 py-1.5 bg-gray-200 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-300 transition-colors"
                                 onClick={() => handleDeleteOption(index, optIndex)}
                               >
                                 Delete Option
@@ -619,14 +479,14 @@ export function QuestionsConfigPage() {
                             </div>
                           ))
                         ) : (
-                          <p style={{ fontSize: '0.875rem', color: '#718096', fontStyle: 'italic' }}>
+                          <p className="text-sm text-gray-500 italic">
                             No options yet.
                           </p>
                         )}
 
                         <button 
                           type="button" 
-                          className="button button-small"
+                          className="px-3 py-1.5 bg-amber-500 text-white text-sm font-medium rounded-lg hover:bg-amber-600 transition-colors"
                           onClick={() => handleAddOption(index)}
                         >
                           Add Option
@@ -634,24 +494,25 @@ export function QuestionsConfigPage() {
                       </div>
                     )}
                     {q.id === 'q1_frequencies' && (
-                      <div style={{ marginTop: '0.75rem' }}>
+                      <div className="mt-3">
                         <button
                           type="button"
-                          className="button button-small"
+                          className="px-3 py-1.5 bg-amber-500 text-white text-sm font-medium rounded-lg hover:bg-amber-600 transition-colors"
                           onClick={() => handleAddQuarterlyWithFollowups(index)}
                         >
                           Add Quarterly Option + Follow-up Questions
                         </button>
                       </div>
                     )}
-                    <div style={{ marginTop: '0.75rem' }}>
+                    <div className="mt-3">
                       <button 
                         type="button" 
-                        className="button button-small button-secondary"
+                        className="px-3 py-1.5 bg-gray-200 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-300 transition-colors"
                         onClick={() => handleDeleteQuestion(q.id)}
                       >
                         Delete Question
                       </button>
+                    </div>
                     </div>
                   </div>
                 ))}
@@ -660,6 +521,6 @@ export function QuestionsConfigPage() {
           )}
         </div>
       </div>
-    </main>
+    </AdminLayout>
   );
 }

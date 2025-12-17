@@ -102,7 +102,7 @@ function AppContent() {
         }
       />
 
-      {/* Payment Methods - No header wrapper */}
+      {/* Payment Methods - uses DashboardLayout */}
       <Route
         path="/payment-methods"
         element={

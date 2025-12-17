@@ -159,9 +159,6 @@ export function PayrollResultsCard() {
       return;
     }
 
-    const area =
-      payrollAreas.find(a => a.code === selectedPeriodAreaCode) ?? payrollAreas[0];
-
     const headers = [
       'period_parameters',
       'period_parameter_name',
@@ -170,15 +167,14 @@ export function PayrollResultsCard() {
       'start_date',
     ];
 
-    const rows = [
-      [
-        escapeCSV(String(area.calendarId || '80')), // period_parameters (link to calendarId)
-        escapeCSV(area.description),                // period_parameter_name (from description)
-        escapeCSV('03'),                            // time_unit (still fixed, SAP code for weeks/months as you prefer)
-        escapeCSV(area.frequency),                  // time_unit_desc (from frequency)
-        escapeCSV('1/1/1990'),                      // start_date (anchor; adjust if needed)
-      ],
-    ];
+    // Generate a row for each payroll area
+    const rows = payrollAreas.map(area => [
+      escapeCSV(String(area.calendarId || '80')), // period_parameters (link to calendarId)
+      escapeCSV(area.description),                // period_parameter_name (from description)
+      escapeCSV('03'),                            // time_unit (SAP code for weeks/months)
+      escapeCSV(area.frequency),                  // time_unit_desc (from frequency)
+      escapeCSV('1/1/1990'),                      // start_date (anchor date)
+    ]);
 
     const csvContent = [
       headers.join(','),
@@ -189,7 +185,7 @@ export function PayrollResultsCard() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `calendar-id-${area.code}-${area.frequency}.csv`;
+    a.download = 'payroll-calendar-entries.csv';
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -215,9 +211,6 @@ export function PayrollResultsCard() {
       return;
     }
 
-    const area =
-      payrollAreas.find(a => a.code === selectedPeriodAreaCode) ?? payrollAreas[0];
-
     const headers = [
       'payroll_area',
       'payroll_area_text',
@@ -226,17 +219,14 @@ export function PayrollResultsCard() {
       'date_modifier',
     ];
 
-    const payrollAreaValue = area.region || '';
-
-    const rows = [
-      [
-        escapeCSV(payrollAreaValue),             // payroll_area from Region column
-        escapeCSV('McCarthy'),                  // payroll_area_text (still fixed, adjust if needed)
-        escapeCSV(String(area.calendarId || '08')), // period_parameters (link to calendarId if you want)
-        escapeCSV('X'),                         // run_payroll
-        escapeCSV('0'),                         // date_modifier
-      ],
-    ];
+    // Generate a row for each payroll area
+    const rows = payrollAreas.map(area => [
+      escapeCSV(area.region || ''),            // payroll_area from Region column
+      escapeCSV(area.description || ''),       // payroll_area_text from area description
+      escapeCSV(String(area.calendarId || '08')), // period_parameters (linked to calendarId)
+      escapeCSV('X'),                          // run_payroll
+      escapeCSV('0'),                          // date_modifier
+    ]);
 
     const csvContent = [
       headers.join(','),
@@ -247,7 +237,7 @@ export function PayrollResultsCard() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `payroll-area-configuration-${area.code}-${area.frequency}.csv`;
+    a.download = 'payroll-area-configuration.csv';
     a.click();
     URL.revokeObjectURL(url);
   };

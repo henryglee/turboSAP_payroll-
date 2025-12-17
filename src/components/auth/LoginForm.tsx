@@ -1,11 +1,6 @@
-/**
- * Login form component.
- */
-
 import { useState } from 'react';
 import { login } from '../../api/auth';
 import { useAuthStore } from '../../store/auth';
-import './auth.css';
 
 interface LoginFormProps {
   onLoginSuccess?: () => void;
@@ -41,11 +36,12 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps) {
   };
 
   return (
-    <div className="auth-form">
-      <h2>Login to TurboSAP</h2>
-      <form onSubmit={handleSubmit}>
-        <div className="form-group">
-          <label htmlFor="username">Username</label>
+    <div className="w-full">
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <div>
+          <label htmlFor="username" className="block text-sm font-medium text-gray-900 mb-2">
+            Username
+          </label>
           <input
             id="username"
             type="text"
@@ -53,11 +49,14 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps) {
             onChange={(e) => setUsername(e.target.value)}
             required
             autoComplete="username"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-colors"
           />
         </div>
 
-        <div className="form-group">
-          <label htmlFor="password">Password</label>
+        <div>
+          <label htmlFor="password" className="block text-sm font-medium text-gray-900 mb-2">
+            Password
+          </label>
           <input
             id="password"
             type="password"
@@ -65,14 +64,27 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps) {
             onChange={(e) => setPassword(e.target.value)}
             required
             autoComplete="current-password"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-colors"
           />
         </div>
 
-        {error && <div className="error-message">{error}</div>}
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+            {error}
+          </div>
+        )}
 
-        <button type="submit" disabled={loading} className="submit-button">
-          {loading ? 'Logging in...' : 'Login'}
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full px-4 py-2.5 bg-amber-500 text-white font-semibold rounded-lg hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all"
+        >
+          {loading ? 'Signing in...' : 'Sign In'}
         </button>
+
+        <p className="text-sm text-gray-500 text-center mt-4">
+          Forgot password? Please contact your administrator.
+        </p>
       </form>
     </div>
   );
