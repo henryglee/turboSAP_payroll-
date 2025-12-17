@@ -6,11 +6,13 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '../../lib/utils.ts';
 import { useAuthStore } from '../../store/auth';
+import { useExportData } from '../../hooks/useExportData';
 import {
   LayoutDashboard,
   Calendar,
   CreditCard,
   FileJson,
+  Download,
   LogOut,
   User,
   CheckCircle2,
@@ -24,38 +26,42 @@ const navItems = [
   { icon: Calendar, label: 'Payroll Areas', href: '/payroll-area', key: 'payrollAreas' },
   { icon: CreditCard, label: 'Payment Methods', href: '/payment-methods', key: 'paymentMethods' },
   { icon: Layers, label: 'All Modules', href: '/scope', key: 'scope' },
-  { icon: FileJson, label: 'Export', href: '/export', key: 'export' },
+  { icon: Download, label: 'Export Center', href: '/export', key: 'export' },
 ];
 
 interface SidebarProps {
   currentPath?: string;
-  statusIndicators?: {
-    payrollAreas?: 'complete' | 'in-progress' | 'not-started';
-    paymentMethods?: 'complete' | 'in-progress' | 'not-started';
-  };
 }
 
-export function Sidebar({ currentPath, statusIndicators = {} }: SidebarProps) {
+export function Sidebar({ currentPath }: SidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const pathname = currentPath || location.pathname;
   const { user, clearAuth } = useAuthStore();
 
-    const handleSignOut = () => {
+  // Get live status from localStorage via useExportData hook
+  const { payrollStatus, paymentStatus } = useExportData();
+
+  const handleSignOut = () => {
     clearAuth();
-    navigate('/login'); // change to your login route if different
+    navigate('/login');
   };
 
   const getStatusIcon = (key: string) => {
-    if (key === 'dashboard' || key === 'export') return null;
+    if (key === 'dashboard' || key === 'export' || key === 'scope') return null;
 
-    const statusKey = key as keyof typeof statusIndicators;
-    const status = statusIndicators[statusKey];
+    // Map key to actual status from useExportData
+    let status: 'complete' | 'incomplete' | 'not-started' = 'not-started';
+    if (key === 'payrollAreas') {
+      status = payrollStatus.status;
+    } else if (key === 'paymentMethods') {
+      status = paymentStatus.status;
+    }
 
     if (status === 'complete') {
       return <CheckCircle2 className="h-3.5 w-3.5 text-success" />;
     }
-    if (status === 'in-progress') {
+    if (status === 'incomplete') {
       return <Circle className="h-3.5 w-3.5 text-warning fill-warning" />;
     }
     return <Circle className="h-3.5 w-3.5 text-muted-foreground/40" />;

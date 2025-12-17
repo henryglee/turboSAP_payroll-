@@ -123,10 +123,6 @@ export function DashboardPage() {
       title={`Welcome back, ${user?.username || 'Sarah'}`}
       description="Configure your SAP payroll migration settings"
       currentPath="/dashboard"
-      statusIndicators={{
-        payrollAreas: 'not-started',
-        paymentMethods: 'not-started',
-      }}
     >
       {/* Progress Indicator */}
       <div className="mb-6 flex items-center gap-4">

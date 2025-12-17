@@ -676,9 +676,7 @@ export function PayrollResultsCard() {
   };
 
 
-  if (payrollAreas.length === 0) {
-    return null;
-  }
+  const isEmpty = payrollAreas.length === 0;
 
   return (
     <div className="rounded-lg border border-border bg-card overflow-hidden">
@@ -703,7 +701,11 @@ export function PayrollResultsCard() {
         </div>
 
         {/* Validation badge */}
-        {validation.isValid ? (
+        {isEmpty ? (
+          <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground bg-muted px-2.5 py-1 rounded-full">
+            Not Configured
+          </span>
+        ) : validation.isValid ? (
           <span className="inline-flex items-center gap-1.5 text-sm text-green-600 bg-green-50 px-2.5 py-1 rounded-full">
             <CheckCircle2 className="h-4 w-4" />
             Valid
@@ -718,7 +720,8 @@ export function PayrollResultsCard() {
 
       {isExpanded && (
         <div className="p-4 space-y-4">
-          {/* Action buttons */}
+          {/* Action buttons - only show when there's data */}
+          {!isEmpty && (
           <div className="flex flex-wrap gap-2">
             {isEditing ? (
               <>
@@ -824,8 +827,10 @@ export function PayrollResultsCard() {
               </>
             )}
           </div>
+          )}
 
-          {/* Validation summary */}
+          {/* Validation summary - only show when there's data */}
+          {!isEmpty && (
           <div className={cn(
             "p-3 rounded-lg text-sm",
             validation.isValid ? "bg-green-50 text-green-800" : "bg-red-50 text-red-800"
@@ -863,6 +868,7 @@ export function PayrollResultsCard() {
               </div>
             )}
           </div>
+          )}
 
           {/* Table */}
           <div className="overflow-x-auto">
@@ -879,6 +885,13 @@ export function PayrollResultsCard() {
                 </tr>
               </thead>
               <tbody>
+                {isEmpty && !isEditing && (
+                  <tr>
+                    <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                      No payroll areas configured yet. Complete the configuration assistant above to generate areas.
+                    </td>
+                  </tr>
+                )}
                 {displayAreas.map((area, idx) => (
                   <tr key={idx} className="border-b border-border last:border-0 hover:bg-muted/50">
                     <td className="py-2 px-3">

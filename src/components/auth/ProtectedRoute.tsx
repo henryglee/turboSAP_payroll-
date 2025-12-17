@@ -11,9 +11,10 @@ import { useAuthStore } from '../../store/auth';
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requireAdmin?: boolean;
+  requireClient?: boolean;
 }
 
-export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRouteProps) {
+export function ProtectedRoute({ children, requireAdmin = false, requireClient = false }: ProtectedRouteProps) {
   const { isAuthenticated, user } = useAuthStore();
 
   // Not authenticated → redirect to login
@@ -24,6 +25,11 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
   // Authenticated but needs admin role → redirect to home
   if (requireAdmin && user?.role !== 'admin') {
     return <Navigate to="/dashboard" replace />;
+  }
+
+  // Authenticated but client-only page and user is admin → redirect to admin
+  if (requireClient && user?.role === 'admin') {
+    return <Navigate to="/admin/dashboard" replace />;
   }
 
   // All checks passed → render the page

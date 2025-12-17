@@ -10,9 +10,10 @@ import { useState, useEffect } from 'react';
 import { DashboardLayout } from '../components/layout/DashboardLayout.tsx';
 import { startSession, submitAnswer } from '../api/langgraph.ts';
 import type { PaymentMethodConfig } from '../types/chat';
-import { CheckCircle2, AlertCircle, ChevronDown, ChevronRight, AlertTriangle, Download, Plus, Trash2 } from 'lucide-react';
+import { CheckCircle2, AlertCircle, ChevronDown, ChevronRight, AlertTriangle, Download, Plus, Trash2, RotateCcw } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useAuthStore } from '../store/auth';
+import { useConfigStore } from '../store';
 
 
 // Validation helper functions
@@ -91,7 +92,7 @@ function paymentDraftKey(userKey: string) {
   return `turbosap.payment_method.draft.v1.${userKey}`;
 }
 
-function getSavedPaymentSessionId(userKey: string) {
+export function getSavedPaymentSessionId(userKey: string) {
   return localStorage.getItem(paymentSessionKey(userKey)) || '';
 }
 
@@ -99,7 +100,7 @@ function savePaymentSessionId(userKey: string, id: string) {
   localStorage.setItem(paymentSessionKey(userKey), id);
 }
 
-function clearPaymentSessionId(userKey: string) {
+export function clearPaymentSessionId(userKey: string) {
   localStorage.removeItem(paymentSessionKey(userKey));
 }
 
@@ -116,7 +117,7 @@ function savePaymentDraft(userKey: string, draft: PaymentDraft) {
   localStorage.setItem(paymentDraftKey(userKey), JSON.stringify(draft));
 }
 
-function clearPaymentDraft(userKey: string) {
+export function clearPaymentDraft(userKey: string) {
   localStorage.removeItem(paymentDraftKey(userKey));
 }
 
@@ -245,6 +246,11 @@ useEffect(() => {
   };
 
   savePaymentDraft(userKey, draft);
+
+  // Notify sidebar to update when we have results
+  if (paymentResults && paymentResults.length > 0) {
+    useConfigStore.getState().notifyPaymentDataChanged();
+  }
 
 }, [
   hydrated,
@@ -377,14 +383,13 @@ useEffect(() => {
     setShowResults(false);
 
     try {
-      // Step 1: Start session for payment_method module
-      let sessionId = getSavedPaymentSessionId(userKey);
+      // Step 1: ALWAYS start a fresh session for payment_method module
+      // Clear any stale session ID to prevent reusing corrupted/wrong-module state
+      clearPaymentSessionId(userKey);
 
-      if (!sessionId) {
-        const start = await startSession('payment_method');
-        sessionId = start.sessionId;
-        savePaymentSessionId(userKey, sessionId);
-      }
+      const start = await startSession('payment_method');
+      const sessionId = start.sessionId;
+      savePaymentSessionId(userKey, sessionId);
 
 
       // Step 2: Answer Q1 - Payment method P (ACH)?
@@ -466,10 +471,12 @@ useEffect(() => {
       });
 
       // Check if we got results
+      console.log('Final response:', JSON.stringify(response, null, 2));
       if (response.done && response.paymentMethods) {
         setPaymentResults(response.paymentMethods);
         setShowResults(true);
       } else {
+        console.warn('Missing done or paymentMethods:', { done: response.done, hasPaymentMethods: !!response.paymentMethods });
         setError('Configuration incomplete - please check all required fields');
       }
     } catch (err) {
@@ -478,6 +485,44 @@ useEffect(() => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  /**
+   * Reset the form to initial state
+   * Clears all form fields, results, and saved session
+   */
+  const handleStartOver = () => {
+    // Clear form state
+    setSelectedMethods([]);
+    setHouseBanks('');
+    setAchSpec('');
+    setCheckVolume('');
+    setSystemCheckBankAccount('');
+    setSystemCheckRange('');
+    setManualCheckBankAccount('');
+    setManualCheckRange('');
+    setAgreeNoPreNote(null);
+
+    // Clear validation state
+    setFieldErrors({});
+    setFieldWarnings({});
+
+    // Clear results
+    setPaymentResults(null);
+    setShowResults(false);
+    setError(null);
+
+    // Clear editable CSV data
+    setEditablePaymentMethods([]);
+    setEditableCheckRanges([]);
+    setEditablePreNotification('No');
+
+    // Clear saved session and draft from localStorage
+    clearPaymentSessionId(userKey);
+    clearPaymentDraft(userKey);
+
+    // Notify Zustand store so sidebar updates immediately
+    useConfigStore.getState().notifyPaymentDataChanged();
   };
 
   // Parse paymentResults into editable CSV format when results are generated
@@ -1091,8 +1136,22 @@ useEffect(() => {
           )}
         </div>
 
-        {/* Generate Button */}
+        {/* Action Buttons */}
         <div className="flex justify-end gap-3">
+          <button
+            onClick={handleStartOver}
+            disabled={isLoading}
+            className={cn(
+              'px-4 py-2.5 rounded-lg font-medium transition-all duration-200',
+              'focus:outline-none focus:ring-2 focus:ring-secondary focus:ring-offset-2',
+              'border border-border bg-background text-foreground hover:bg-secondary/50',
+              'flex items-center gap-2',
+              isLoading && 'opacity-50 cursor-not-allowed'
+            )}
+          >
+            <RotateCcw className="h-4 w-4" />
+            Start Over
+          </button>
           <button
             onClick={handleGenerateConfig}
             disabled={isLoading}

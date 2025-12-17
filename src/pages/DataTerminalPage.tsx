@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { Brain, RefreshCw } from 'lucide-react';
@@ -20,7 +20,8 @@ export function DataTerminalPage() {
 
   const { token, user } = useAuthStore();
   const isAdmin = user?.role === 'admin';
-  const [customers, setCustomers] = useState<string[]>(['default']);
+  // customers state - UI selector not yet implemented
+  const [, setCustomers] = useState<string[]>(['default']);
   const [selectedCustomer, setSelectedCustomer] = useState('default');
   const [status, setStatus] = useState<'idle' | 'connecting' | 'connected' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -178,10 +179,11 @@ export function DataTerminalPage() {
     };
   }, [isAdmin]);
 
-  const handleCustomerChange = (event: ChangeEvent<HTMLSelectElement>) => {
-    const value = event.target.value;
-    setSelectedCustomer(value);
-  };
+  // TODO: Re-enable when customer selector UI is added
+  // const handleCustomerChange = (event: ChangeEvent<HTMLSelectElement>) => {
+  //   const value = event.target.value;
+  //   setSelectedCustomer(value);
+  // };
 
   if (!token) {
     return (

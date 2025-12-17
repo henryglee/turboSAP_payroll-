@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import type {
   CompanyProfile,
   PayrollArea,
@@ -24,6 +25,11 @@ interface ConfigurationStore {
 
   // Validation results
   validation: ValidationResult;
+
+  // Payment data sync - incremented when payment localStorage changes
+  // Used to trigger re-renders in useExportData since localStorage isn't reactive
+  paymentDataVersion: number;
+  notifyPaymentDataChanged: () => void;
 
   // Actions
   updateCompanyName: (name: string) => void;
@@ -91,10 +97,26 @@ const initialProfile: CompanyProfile = {
   securitySplitting: false,
 };
 
-export const useConfigStore = create<ConfigurationStore>((set, get) => ({
-  profile: initialProfile,
-  payrollAreas: calculateMinimalAreas(initialProfile),
-  validation: validateConfiguration(initialProfile, calculateMinimalAreas(initialProfile)),
+export const useConfigStore = create<ConfigurationStore>()(
+  persist(
+    (set, get) => ({
+      profile: initialProfile,
+      // Start with empty payrollAreas - they get populated when user completes the chat flow
+      // This ensures sidebar shows "not started" initially instead of "incomplete" with template data
+      payrollAreas: [],
+      validation: {
+        isValid: false,
+        employeesCovered: 0,
+        totalEmployees: 0,
+        warnings: [],
+        errors: [],
+      },
+
+      // Payment data sync
+      paymentDataVersion: 0,
+      notifyPaymentDataChanged: () => set((state) => ({
+        paymentDataVersion: state.paymentDataVersion + 1
+      })),
 
   updateCompanyName: (name) =>
     set((state) => {
@@ -263,9 +285,19 @@ export const useConfigStore = create<ConfigurationStore>((set, get) => ({
     }),
 
   reset: () => {
-    const newAreas = calculateMinimalAreas(initialProfile);
-    const newValidation = validateConfiguration(initialProfile, newAreas);
-    set({ profile: initialProfile, payrollAreas: newAreas, validation: newValidation });
+    // Reset to empty state, not pre-calculated areas
+    // This ensures sidebar shows "not started" after reset
+    set({
+      profile: initialProfile,
+      payrollAreas: [],
+      validation: {
+        isValid: false,
+        employeesCovered: 0,
+        totalEmployees: 0,
+        warnings: [],
+        errors: [],
+      },
+    });
   },
 
   exportJSON: () => {
@@ -282,4 +314,15 @@ export const useConfigStore = create<ConfigurationStore>((set, get) => ({
     };
     return JSON.stringify(config, null, 2);
   },
-}));
+    }),
+    {
+      name: 'turbosap-config',
+      // Only persist data, not actions
+      partialize: (state) => ({
+        profile: state.profile,
+        payrollAreas: state.payrollAreas,
+        validation: state.validation,
+      }),
+    }
+  )
+);

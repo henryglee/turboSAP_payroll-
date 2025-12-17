@@ -5,14 +5,14 @@
  * Layout: ConfigurationPanel on left, PayrollAreasPanel on right
  */
 
-import { ConfigurationPanel } from '../ConfigurationPanel';
+/*import { ConfigurationPanel } from '../ConfigurationPanel'; */
 import { PayrollAreasPanel } from '../PayrollAreasPanel';
 
 export function ConfigPage() {
 
   return (
     <main className="main-container">
-      <ConfigurationPanel />
+      {/* <ConfigurationPanel /> */}
       <PayrollAreasPanel />
     </main>
   );
