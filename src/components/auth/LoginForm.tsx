@@ -73,6 +73,10 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps) {
         <button type="submit" disabled={loading} className="submit-button">
           {loading ? 'Logging in...' : 'Login'}
         </button>
+
+        <p className="text-sm text-gray-500 text-center mt-4">
+          Forgot password? Please contact your administrator.
+        </p>
       </form>
     </div>
   );
