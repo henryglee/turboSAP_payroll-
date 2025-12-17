@@ -32,6 +32,8 @@ copy-static:
 package-backend:
 	@echo "==> Zipping backend → $(DEPLOY_DIR)/$(ZIP_NAME)"
 	mkdir -p $(DEPLOY_DIR)
+	uv pip compile pyproject.toml -o requirements.txt
+
 	zip -r "$(DEPLOY_DIR)/$(ZIP_NAME)" . \
 		-x "deploy/*" \
 		-x "*.zip" \
