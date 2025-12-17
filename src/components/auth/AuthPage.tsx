@@ -1,25 +1,28 @@
-/**
- * Authentication page component.
- * Shows login form only. Registration is disabled - users must be created by administrators.
- */
-
 import { LoginForm } from './LoginForm';
-import './auth.css';
+import { FileJson } from 'lucide-react';
 
 export function AuthPage() {
   return (
-    <div className="auth-page">
-      <div className="auth-container">
-        <div className="auth-header">
-          <h1>TurboSAP Payroll Configuration</h1>
-          <p>Sign in to continue</p>
-        </div>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-12">
+      <div className="w-full max-w-md">
+        <div className="bg-white border border-gray-200 rounded-xl p-8">
+          <div className="flex justify-center mb-8">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-amber-500 shadow-md">
+                <FileJson className="h-7 w-7 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">TurboSAP</h1>
+                <p className="text-sm text-gray-500">Payroll Configuration</p>
+              </div>
+            </div>
+          </div>
 
-        <LoginForm
-          onLoginSuccess={() => {
-            // Auth state is managed by store, App.tsx will handle redirect
-          }}
-        />
+          <LoginForm
+            onLoginSuccess={() => {
+            }}
+          />
+        </div>
       </div>
     </div>
   );
