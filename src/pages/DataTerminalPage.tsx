@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { Brain, RefreshCw } from 'lucide-react';
@@ -163,6 +163,7 @@ export function DataTerminalPage() {
     fetchTerminalCustomers()
       .then((response) => {
         if (!active) return;
+        console.log(`Pre fetch customer: ${customers}`)
         const fetched = response.customers.length > 0 ? response.customers : ['default'];
         setCustomers(fetched);
         setSelectedCustomer((current) => (fetched.includes(current) ? current : fetched[0]));
@@ -178,10 +179,10 @@ export function DataTerminalPage() {
     };
   }, [isAdmin]);
 
-  const handleCustomerChange = (event: ChangeEvent<HTMLSelectElement>) => {
-    const value = event.target.value;
-    setSelectedCustomer(value);
-  };
+  // const handleCustomerChange = (event: ChangeEvent<HTMLSelectElement>) => {
+  //   const value = event.target.value;
+  //   setSelectedCustomer(value);
+  // };
 
   if (!token) {
     return (

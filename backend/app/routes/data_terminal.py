@@ -17,14 +17,17 @@ from fastapi import (
 )
 from pydantic import BaseModel, Field
 from ..auth import verify_token
+from ..data.ReachNettDataManager import ReachNettDataManager
 from ..middleware import get_current_user
 from ..roles import is_admin
 
 router = APIRouter(prefix="/api/console/reachnett", tags=["data-terminal"])
-
-REACHNETT_ROOT = (Path(__file__).resolve().parent.parent / "data" / "reachnett").resolve()
+dataManager = ReachNettDataManager()
+REACHNETT_ROOT = dataManager.root_dir()
 DEFAULT_CUSTOMER = "default"
 MAX_TEXT_BYTES = 2 * 1024 * 1024  # 2 MB safeguard for JSON/text payloads
+
+COMMANDS = ["help", "ls", "pwd", "cd", "cat", "clear", "customers"]
 
 
 class FileWritePayload(BaseModel):
@@ -227,6 +230,35 @@ async def _send_prompt(ws: WebSocket, state: "TerminalState") -> None:
     prompt = f"{state.customer}:{rel}$ "
     await ws.send_text(prompt)
 
+def _complete_token(state: TerminalState, token: str) -> list[str]:
+    """
+    Return completion candidates for a single token.
+    """
+    # Command completion (first token)
+    if " " not in state.buffer:
+        return [c for c in COMMANDS if c.startswith(token)]
+
+    # Path completion
+    try:
+        base = Path(token)
+        parent = state.cwd if not base.parent.as_posix() else _resolve_path(
+            str(base.parent), state.root, state.cwd
+        )
+    except Exception:
+        return []
+
+    if not parent.exists() or not parent.is_dir():
+        return []
+
+    prefix = base.name
+    results = []
+    for child in parent.iterdir():
+        if child.name.startswith(prefix):
+            suffix = "/" if child.is_dir() else ""
+            results.append(child.name + suffix)
+
+    return sorted(results)
+
 
 class TerminalState:
     def __init__(self, user: dict, root: Path, customer: str) -> None:
@@ -406,6 +438,29 @@ async def data_terminal_ws(websocket: WebSocket, token: str, customer: Optional[
                     if state.buffer:
                         state.buffer = state.buffer[:-1]
                         await websocket.send_text("\b \b")
+                elif char == "\u0009":  # TAB (autocomplete)
+                    tokens = state.buffer.split()
+                    if not tokens:
+                        continue
+
+                    last = tokens[-1]
+                    matches = _complete_token(state, last)
+
+                    if not matches:
+                        continue
+
+                    # Single match → auto-complete
+                    if len(matches) == 1:
+                        completion = matches[0][len(last):]
+                        state.buffer += completion
+                        await websocket.send_text(completion)
+                        continue
+
+                    # Multiple matches → print options
+                    await _send_line(websocket)
+                    await _send_line(websocket, "  ".join(matches))
+                    await _send_prompt(websocket, state)
+                    await websocket.send_text(state.buffer)
                 else:
                     state.buffer += char
                     await websocket.send_text(char)

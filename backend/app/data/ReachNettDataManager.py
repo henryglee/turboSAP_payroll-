@@ -5,8 +5,10 @@ from typing import List, Optional
 
 class ReachNettDataManager:
     def __init__(self, base_dir: str = "/data/reachnett"):
-        self.base_dir = Path(base_dir)
+        self.base_dir = (Path(__file__).resolve().parent /"reachnett").resolve()
 
+    def root_dir(self) -> Path:
+        return self.base_dir
     # -------------------------
     # Customer / Company Helpers
     # -------------------------
@@ -65,5 +67,3 @@ class ReachNettDataManager:
         path = self.module_file(customer, company_code, module)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(data, indent=2))
-
-dataManager = ReachNettDataManager()
