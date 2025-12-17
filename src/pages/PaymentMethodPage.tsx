@@ -12,6 +12,8 @@ import { startSession, submitAnswer } from '../api/langgraph.ts';
 import type { PaymentMethodConfig } from '../types/chat';
 import { CheckCircle2, AlertCircle, ChevronDown, ChevronRight, AlertTriangle, Download, Plus, Trash2 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useAuthStore } from '../store/auth';
+
 
 // Validation helper functions
 function validateAchRouting(value: string): { valid: boolean; message?: string } {
@@ -188,7 +190,11 @@ export function PaymentMethodPage() {
   });
   const [hydrated, setHydrated] = useState(false);
   
-  const userKey = localStorage.getItem("userId") || "anonymous";
+  const { user } = useAuthStore();
+  const userKey = user?.userId
+    ? String(user.userId)
+    : 'anonymous';
+
 
 
 
