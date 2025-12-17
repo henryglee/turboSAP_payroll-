@@ -301,12 +301,12 @@ export function ChatCard({ onComplete }: ChatCardProps) {
     return (
       <div className="rounded-lg border border-border bg-card overflow-hidden">
         <div className="flex items-center gap-3 p-4 border-b border-border">
-          <MessageCircle className="h-5 w-5 text-primary" />
+          <MessageCircle className="h-5 w-5 text-teal-600" />
           <h2 className="text-lg font-semibold">Configuration Assistant</h2>
         </div>
         <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
-          <div className="rounded-full bg-primary/10 p-4 mb-4">
-            <Play className="h-8 w-8 text-primary" />
+          <div className="rounded-full bg-teal-600/10 p-4 mb-4">
+            <Play className="h-8 w-8 text-teal-600" />
           </div>
           <h3 className="text-lg font-medium mb-2">Ready to Configure</h3>
           <p className="text-muted-foreground mb-6 max-w-md">
@@ -320,7 +320,7 @@ export function ChatCard({ onComplete }: ChatCardProps) {
           )}
           <button
             onClick={handleStart}
-            className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-teal-600 text-white rounded-lg font-medium hover:bg-teal-700 transition-colors"
           >
             <Play className="h-4 w-4" />
             Start Configuration

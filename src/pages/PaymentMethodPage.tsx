@@ -627,7 +627,7 @@ useEffect(() => {
       description="Configure payment methods for payroll processing"
       currentPath="/payment-methods"
     >
-      <div className="max-w-4xl space-y-6">
+      <div className="space-y-6">
         {/* Error Display */}
         {error && (
           <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4">

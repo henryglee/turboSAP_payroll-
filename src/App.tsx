@@ -95,6 +95,16 @@ function AppContent() {
         }
       />
 
+      {/* Payment Methods - uses DashboardLayout */}
+      <Route
+        path="/payment-methods"
+        element={
+          <ProtectedRoute>
+            <PaymentMethodPage key={user?.username ?? 'anon'} />
+          </ProtectedRoute>
+        }
+      />
+
       {/* New Admin Routes - Uses AdminLayout with gold/amber accent */}
       <Route
         path="/admin/dashboard"
@@ -156,10 +166,6 @@ function AppContent() {
         {/* User routes */}
         <Route path="/chat" element={<ChatPage />} />
         <Route path="/config" element={<ConfigPage />} />
-        <Route
-              path="/payment-methods"
-              element={<PaymentMethodPage key={user?.username ?? 'anon'} />}
-        />
 
         {/* Admin-only routes (legacy - kept as backup) */}
         <Route
