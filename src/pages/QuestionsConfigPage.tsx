@@ -390,7 +390,7 @@ export function QuestionsConfigPage() {
               >
               {config.questions.map((q, index) => (
                   <div
-                    key={q.id}
+                    key={`question-${index}`}
                     className="p-6 bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md hover:border-gray-300 transition-all"
                   >
                     <div className="space-y-4">
@@ -433,7 +433,7 @@ export function QuestionsConfigPage() {
                         </strong>
                         {Array.isArray(q.options) && q.options.length > 0 ? (
                           q.options.map((opt: any, optIndex: number) => (
-                            <div key={opt.id ?? optIndex} className="mb-4 p-5 bg-white rounded-lg border border-gray-200 shadow-sm space-y-3">
+                            <div key={`option-${index}-${optIndex}`} className="mb-4 p-5 bg-white rounded-lg border border-gray-200 shadow-sm space-y-3">
                               <div>
                                 <label className="block text-sm font-medium text-gray-900 mb-2">Option ID:</label>
                                 <input
