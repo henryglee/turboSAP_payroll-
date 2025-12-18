@@ -4,7 +4,7 @@ from typing import List, Optional
 
 
 class ReachNettDataManager:
-    def __init__(self, base_dir: str = "/data/reachnett"):
+    def __init__(self):
         self.base_dir = (Path(__file__).resolve().parent /"reachnett").resolve()
 
     def root_dir(self) -> Path:
