@@ -7,6 +7,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { DashboardLayout } from '../components/layout/DashboardLayout';
 import { useExportData } from '../hooks/useExportData';
+import type { PayrollArea } from '../types';
 import {
   FolderOpen,
   Folder,
@@ -448,8 +449,36 @@ export function ExportCenterPage() {
     const payrollDisabled = payrollStatus.status === 'not-started';
     const paymentDisabled = paymentStatus.status === 'not-started';
 
-    // Get row counts for payroll files
-    const calendarCount = new Set(payrollAreas.map((a) => a.calendarId || '80')).size;
+    // Get unique calendars and group areas by calendar
+    const calendarMap = new Map<string, PayrollArea>();
+    payrollAreas.forEach((area) => {
+      const calId = area.calendarId || '80';
+      if (!calendarMap.has(calId)) {
+        calendarMap.set(calId, area);
+      }
+    });
+
+    // Build Pay Periods folder with one file per calendar
+    const payPeriodsChildren: FileNode[] = Array.from(calendarMap.entries()).map(([calId, area]) => ({
+      id: `pay-period-${calId}`,
+      name: `pay_period_${calId}.csv`,
+      type: 'file',
+      module: 'payroll',
+      generator: 'pay-period',
+      disabled: payrollDisabled,
+      rowCount: 52, // Approximate
+    }));
+
+    // Build Pay Dates folder with one file per calendar
+    const payDatesChildren: FileNode[] = Array.from(calendarMap.entries()).map(([calId, area]) => ({
+      id: `pay-date-${calId}`,
+      name: `pay_date_${calId}.csv`,
+      type: 'file',
+      module: 'payroll',
+      generator: 'pay-date',
+      disabled: payrollDisabled,
+      rowCount: 52, // Approximate
+    }));
 
     return [
       {
@@ -475,7 +504,7 @@ export function ExportCenterPage() {
             module: 'payroll',
             generator: 'calendar-id',
             disabled: payrollDisabled,
-            rowCount: calendarCount,
+            rowCount: calendarMap.size,
           },
           {
             id: 'payroll-area-config',
@@ -487,22 +516,20 @@ export function ExportCenterPage() {
             rowCount: payrollAreas.length,
           },
           {
-            id: 'pay-period',
-            name: 'pay_period.csv',
-            type: 'file',
+            id: 'pay-periods-folder',
+            name: 'Pay Periods',
+            type: 'folder',
             module: 'payroll',
-            generator: 'pay-period',
             disabled: payrollDisabled,
-            rowCount: payrollAreas.length > 0 ? 52 : 0, // Approximate
+            children: payPeriodsChildren,
           },
           {
-            id: 'pay-date',
-            name: 'pay_date.csv',
-            type: 'file',
+            id: 'pay-dates-folder',
+            name: 'Pay Dates',
+            type: 'folder',
             module: 'payroll',
-            generator: 'pay-date',
             disabled: payrollDisabled,
-            rowCount: payrollAreas.length > 0 ? 52 : 0, // Approximate
+            children: payDatesChildren,
           },
         ],
       },
@@ -554,12 +581,26 @@ export function ExportCenterPage() {
       }
 
       // Helper to return headers-only if no data
-      const getEmptyOrGenerated = (hasData: boolean, generator: () => string): string => {
+      const getEmptyOrGenerated = (hasData: boolean, generator: () => string, emptyKey?: string): string => {
         if (hasData) {
           return generator();
         }
-        return EMPTY_CSVS[fileId] || '';
+        return EMPTY_CSVS[emptyKey || fileId] || '';
       };
+
+      // Handle calendar-specific pay-period files
+      if (fileId.startsWith('pay-period-')) {
+        const calendarId = fileId.replace('pay-period-', '');
+        const area = payrollAreas.find((a) => (a.calendarId || '80') === calendarId);
+        return getEmptyOrGenerated(!!area, () => generatePayrollPeriodCSV(area!), 'pay-period');
+      }
+
+      // Handle calendar-specific pay-date files
+      if (fileId.startsWith('pay-date-')) {
+        const calendarId = fileId.replace('pay-date-', '');
+        const area = payrollAreas.find((a) => (a.calendarId || '80') === calendarId);
+        return getEmptyOrGenerated(!!area, () => generatePayDateCSV(area!), 'pay-date');
+      }
 
       switch (fileId) {
         case 'payroll-areas':
@@ -568,10 +609,6 @@ export function ExportCenterPage() {
           return getEmptyOrGenerated(payrollAreas.length > 0, () => generateCalendarIdCSV(payrollAreas));
         case 'payroll-area-config':
           return getEmptyOrGenerated(payrollAreas.length > 0, () => generatePayrollAreaConfigCSV(payrollAreas));
-        case 'pay-period':
-          return getEmptyOrGenerated(payrollAreas.length > 0, () => generatePayrollPeriodCSV(payrollAreas[0]));
-        case 'pay-date':
-          return getEmptyOrGenerated(payrollAreas.length > 0, () => generatePayDateCSV(payrollAreas[0]));
         case 'payment-method':
           return getEmptyOrGenerated(!!paymentData?.methods.length, () => generatePaymentMethodCSV(paymentData!.methods));
         case 'check-range':
@@ -587,12 +624,20 @@ export function ExportCenterPage() {
 
   // Get file name from ID
   const getFileName = (fileId: string): string => {
+    // Handle calendar-specific files
+    if (fileId.startsWith('pay-period-')) {
+      const calendarId = fileId.replace('pay-period-', '');
+      return `pay_period_${calendarId}.csv`;
+    }
+    if (fileId.startsWith('pay-date-')) {
+      const calendarId = fileId.replace('pay-date-', '');
+      return `pay_date_${calendarId}.csv`;
+    }
+
     const fileMap: Record<string, string> = {
       'payroll-areas': 'payroll_areas.csv',
       'calendar-id': 'calendar_id.csv',
       'payroll-area-config': 'payroll_area_config.csv',
-      'pay-period': 'pay_period.csv',
-      'pay-date': 'pay_date.csv',
       'payment-method': 'payment_method.csv',
       'check-range': 'check_range.csv',
       'pre-notification': 'pre_notification.csv',
@@ -636,8 +681,21 @@ export function ExportCenterPage() {
       files.push({ name: 'payroll_areas.csv', content: generateContent('payroll-areas') });
       files.push({ name: 'calendar_id.csv', content: generateContent('calendar-id') });
       files.push({ name: 'payroll_area_config.csv', content: generateContent('payroll-area-config') });
-      files.push({ name: 'pay_period.csv', content: generateContent('pay-period') });
-      files.push({ name: 'pay_date.csv', content: generateContent('pay-date') });
+
+      // Get unique calendars
+      const uniqueCalendars = new Set(payrollAreas.map((a) => a.calendarId || '80'));
+
+      // Add pay period file for each calendar
+      uniqueCalendars.forEach((calendarId) => {
+        const fileId = `pay-period-${calendarId}`;
+        files.push({ name: getFileName(fileId), content: generateContent(fileId) });
+      });
+
+      // Add pay date file for each calendar
+      uniqueCalendars.forEach((calendarId) => {
+        const fileId = `pay-date-${calendarId}`;
+        files.push({ name: getFileName(fileId), content: generateContent(fileId) });
+      });
     }
 
     // Collect all payment files
@@ -733,7 +791,7 @@ export function ExportCenterPage() {
             fileName={selectedFile ? getFileName(selectedFile) : ''}
             hasData={
               selectedFile
-                ? ['payroll-areas', 'calendar-id', 'payroll-area-config', 'pay-period', 'pay-date'].includes(selectedFile)
+                ? selectedFile.startsWith('pay-period-') || selectedFile.startsWith('pay-date-') || ['payroll-areas', 'calendar-id', 'payroll-area-config'].includes(selectedFile)
                   ? payrollAreas.length > 0
                   : !!paymentData?.methods.length
                 : false

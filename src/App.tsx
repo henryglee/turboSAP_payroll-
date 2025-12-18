@@ -137,14 +137,15 @@ function AppContent() {
           </ProtectedRoute>
         }
       />
-      <Route
+      {/* TODO: Re-enable when /admin/modules page is fixed */}
+      {/* <Route
         path="/admin/modules"
         element={
           <ProtectedRoute requireAdmin>
             <QuestionsConfigPage />
           </ProtectedRoute>
         }
-      />
+      /> */}
       <Route
         path="/admin/settings"
         element={
