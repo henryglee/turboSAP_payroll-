@@ -220,13 +220,21 @@ export function PayrollResultsCard() {
     ];
 
     // Generate a row for each payroll area
-    const rows = payrollAreas.map(area => [
-      escapeCSV(area.region || ''),            // payroll_area from Region column
-      escapeCSV(area.description || ''),       // payroll_area_text from area description
-      escapeCSV(String(area.calendarId || '08')), // period_parameters (linked to calendarId)
-      escapeCSV('X'),                          // run_payroll
-      escapeCSV('0'),                          // date_modifier
-    ]);
+    const rows = payrollAreas.map(area => {
+      // Get first letter of region and description, capitalize them, and combine
+      // If either is missing, use 'ML' as fallback
+      const regionFirst = area.region ? area.region.charAt(0).toUpperCase() : null;
+      const descFirst = area.description ? area.description.charAt(0).toUpperCase() : null;
+      const payrollAreaCode = (regionFirst && descFirst) ? `${regionFirst}${descFirst}` : 'ML';
+      
+      return [
+        escapeCSV(payrollAreaCode),            // payroll_area: First letter of region + first letter of description (both capitalized)
+        escapeCSV(area.description || ''),     // payroll_area_text from area description
+        escapeCSV(String(area.calendarId || '08')), // period_parameters (linked to calendarId)
+        escapeCSV('X'),                        // run_payroll
+        escapeCSV('0'),                        // date_modifier
+      ];
+    });
 
     const csvContent = [
       headers.join(','),
