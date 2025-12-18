@@ -290,8 +290,8 @@ def get_current_user_info(current_user: dict = Depends(get_current_user)):
         "role": user["role"],
         "companyName": user.get("company_name"),
         "logoPath": user.get("logo_path"),
-        "createdAt": user.get("created_at"),
-        "lastLogin": user.get("last_login"),
+        "createdAt": user.get("created_at") + "Z" if user.get("created_at") else None,
+        "lastLogin": user.get("last_login") + "Z" if user.get("last_login") else None,
     }
 
 
@@ -890,10 +890,55 @@ async def list_all_users(current_user: dict = Depends(require_admin)):
                 "role": user_dict.get("role"),
                 "logoPath": user_dict.get("logo_path"),
                 "companyName": user_dict.get("company_name"),
-                "createdAt": user_dict.get("created_at"),
-                "lastLogin": user_dict.get("last_login"),
+                "createdAt": user_dict.get("created_at") + "Z" if user_dict.get("created_at") else None,
+                "lastLogin": user_dict.get("last_login") + "Z" if user_dict.get("last_login") else None,
             })
         return {"users": users}
+
+
+@app.get("/api/admin/users/{user_id}/progress")
+async def get_user_progress(
+    user_id: int,
+    current_user: dict = Depends(require_admin),
+):
+    from .database import get_user_by_id
+    
+    user = get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    sessions_list = get_user_sessions(user_id)
+    
+    payroll_status = "not-started"
+    payment_status = "not-started"
+    last_activity = None
+    
+    for session in sessions_list:
+        config_state = session.get("config_state", {})
+        updated_at = session.get("updated_at")
+        completed_modules = config_state.get("completed_modules", [])
+        answers = config_state.get("answers", {})
+        
+        if updated_at and (not last_activity or updated_at > last_activity):
+            last_activity = updated_at
+        
+        if "payroll_area" in completed_modules or config_state.get("payroll_areas"):
+            payroll_status = "completed"
+        elif any(key.startswith(("q1_frequencies", "q1_weekly", "q1_biweekly", "q1_semimonthly", "q1_monthly", "business_", "geographic_", "regions_")) for key in answers.keys()):
+            if payroll_status != "completed":
+                payroll_status = "in-progress"
+        
+        if "payment_method" in completed_modules or config_state.get("payment_methods"):
+            payment_status = "completed"
+        elif any(key.startswith(("q1_payment_method", "q2_payment_method", "q3_payment_method", "q4_payment_method", "q5_pre_note", "q1_p_", "q2_q_")) for key in answers.keys()):
+            if payment_status != "completed":
+                payment_status = "in-progress"
+    
+    return {
+        "payrollArea": payroll_status,
+        "paymentMethod": payment_status,
+        "lastActivity": last_activity + "Z" if last_activity else None,
+    }
 
 
 @app.get("/api/admin/users/{user_id}")

@@ -54,21 +54,6 @@ function checkRangesOverlap(range1: string, range2: string): boolean {
   return !(r1.end < r2.start || r2.end < r1.start);
 }
 
-// const PAYMENT_SESSION_KEY = 'turbosap.payment_method.sessionId';
-
-// function getSavedPaymentSessionId() {
-//   return localStorage.getItem(PAYMENT_SESSION_KEY) || '';
-// }
-
-// function savePaymentSessionId(id: string) {
-//   localStorage.setItem(PAYMENT_SESSION_KEY, id);
-// }
-
-// function clearPaymentSessionId() {
-//   localStorage.removeItem(PAYMENT_SESSION_KEY);
-// }
-
-// const PAYMENT_DRAFT_KEY = 'turbosap.payment_method.draft.v1';
 
 type PaymentDraft = {
   selectedMethods: string[];
@@ -121,23 +106,6 @@ export function clearPaymentDraft(userKey: string) {
   localStorage.removeItem(paymentDraftKey(userKey));
 }
 
-
-// function loadPaymentDraft(): PaymentDraft | null {
-//   try {
-//     const raw = localStorage.getItem(PAYMENT_DRAFT_KEY);
-//     return raw ? (JSON.parse(raw) as PaymentDraft) : null;
-//   } catch {
-//     return null;
-//   }
-// }
-
-// function savePaymentDraft(draft: PaymentDraft) {
-//   localStorage.setItem(PAYMENT_DRAFT_KEY, JSON.stringify(draft));
-// }
-
-// function clearPaymentDraft() {
-//   localStorage.removeItem(PAYMENT_DRAFT_KEY);
-// }
 
 
 // Types for editable CSV data
