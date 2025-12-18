@@ -31,26 +31,20 @@ interface User {
   lastLogin?: string;
 }
 
-// Mock progress data for visual filler
 interface UserProgress {
   payrollArea: 'not-started' | 'in-progress' | 'completed';
   paymentMethod: 'not-started' | 'in-progress' | 'completed';
   lastActivity?: string;
 }
 
-const mockUserProgress: Record<number, UserProgress> = {
-  1: { payrollArea: 'completed', paymentMethod: 'in-progress', lastActivity: '2 hours ago' },
-  2: { payrollArea: 'in-progress', paymentMethod: 'not-started', lastActivity: '1 day ago' },
-  3: { payrollArea: 'not-started', paymentMethod: 'not-started', lastActivity: 'Never' },
-};
-
 export function AdminUsersPage() {
-  useAuthStore(); // Auth check
+  useAuthStore();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [userProgress, setUserProgress] = useState<Record<number, UserProgress>>({});
 
   // Add user form state
   const [showAddForm, setShowAddForm] = useState(false);
@@ -177,13 +171,25 @@ export function AdminUsersPage() {
     }
   };
 
-  const formatDate = (dateString?: string) => {
+  const loadUserProgress = async (userId: number) => {
+    try {
+      const data = await apiFetch<UserProgress>(`/api/admin/users/${userId}/progress`);
+      setUserProgress(prev => ({ ...prev, [userId]: data }));
+    } catch (err) {
+      console.error('Failed to load user progress:', err);
+    }
+  };
+
+  const formatDateTime = (dateString?: string) => {
     if (!dateString) return 'Never';
     try {
-      return new Date(dateString).toLocaleDateString('en-US', {
+      return new Date(dateString).toLocaleString('en-US', {
         month: 'short',
         day: 'numeric',
         year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
       });
     } catch {
       return dateString;
@@ -319,18 +325,21 @@ export function AdminUsersPage() {
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2 text-sm text-gray-500">
                         <Calendar className="h-4 w-4" />
-                        {formatDate(u.createdAt)}
+                        {formatDateTime(u.createdAt)}
                       </div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2 text-sm text-gray-500">
                         <Clock className="h-4 w-4" />
-                        {formatDate(u.lastLogin)}
+                        {formatDateTime(u.lastLogin)}
                       </div>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <button
-                        onClick={() => setSelectedUser(u)}
+                        onClick={() => {
+                          setSelectedUser(u);
+                          loadUserProgress(u.id);
+                        }}
                         className="inline-flex items-center gap-1 text-sm text-amber-600 hover:text-amber-700 transition-colors"
                       >
                         View Details
@@ -484,11 +493,11 @@ export function AdminUsersPage() {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-500">Created</span>
-                  <span className="text-sm text-gray-900">{formatDate(selectedUser.createdAt)}</span>
+                  <span className="text-sm text-gray-900">{formatDateTime(selectedUser.createdAt)}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-500">Last Login</span>
-                  <span className="text-sm text-gray-900">{formatDate(selectedUser.lastLogin)}</span>
+                  <span className="text-sm text-gray-900">{formatDateTime(selectedUser.lastLogin)}</span>
                 </div>
               </div>
 
@@ -506,9 +515,9 @@ export function AdminUsersPage() {
                         <div className="flex-1">
                           <p className="text-sm font-medium text-gray-900">Payroll Areas</p>
                           <div className="flex items-center gap-2 mt-1">
-                            {getStatusIcon(mockUserProgress[selectedUser.id]?.payrollArea || 'not-started')}
+                            {getStatusIcon(userProgress[selectedUser.id]?.payrollArea || 'not-started')}
                             <span className="text-xs text-gray-500">
-                              {getStatusText(mockUserProgress[selectedUser.id]?.payrollArea || 'not-started')}
+                              {getStatusText(userProgress[selectedUser.id]?.payrollArea || 'not-started')}
                             </span>
                           </div>
                         </div>
@@ -524,9 +533,9 @@ export function AdminUsersPage() {
                         <div className="flex-1">
                           <p className="text-sm font-medium text-gray-900">Payment Methods</p>
                           <div className="flex items-center gap-2 mt-1">
-                            {getStatusIcon(mockUserProgress[selectedUser.id]?.paymentMethod || 'not-started')}
+                            {getStatusIcon(userProgress[selectedUser.id]?.paymentMethod || 'not-started')}
                             <span className="text-xs text-gray-500">
-                              {getStatusText(mockUserProgress[selectedUser.id]?.paymentMethod || 'not-started')}
+                              {getStatusText(userProgress[selectedUser.id]?.paymentMethod || 'not-started')}
                             </span>
                           </div>
                         </div>
@@ -536,7 +545,7 @@ export function AdminUsersPage() {
                     {/* Last Activity */}
                     <div className="flex items-center gap-2 text-xs text-gray-500 mt-2">
                       <Clock className="h-3 w-3" />
-                      <span>Last activity: {mockUserProgress[selectedUser.id]?.lastActivity || 'Never'}</span>
+                      <span>Last activity: {formatDateTime(userProgress[selectedUser.id]?.lastActivity)}</span>
                     </div>
                   </div>
                 </div>
