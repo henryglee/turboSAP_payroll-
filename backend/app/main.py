@@ -139,7 +139,8 @@ app.add_middleware(
         "http://127.0.0.1:5174",
         "http://127.0.0.1:5175",
         "http://127.0.0.1:3000",
-        "http://turbosap-py312-env.eba-5hg7r3id.us-east-2.elasticbeanstalk.com"
+        "http://turbosap-py312-env.eba-5hg7r3id.us-east-2.elasticbeanstalk.com",
+        "TurboSAP-pre-stage-py312.eba-5hg7r3id.us-east-2.elasticbeanstalk.com",
     ],
     allow_credentials=True,
     allow_methods=["*"],
