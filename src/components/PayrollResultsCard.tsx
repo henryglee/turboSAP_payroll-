@@ -743,8 +743,7 @@ export function PayrollResultsCard() {
                 <select
                   value={selectedPeriodAreaCode ?? ''}
                   onChange={(e) => setSelectedPeriodAreaCode(e.target.value || null)}
-                  className="button button-small"
-                  style={{ padding: '0.25rem 0.5rem' }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border border-border bg-background rounded-md hover:bg-muted transition-colors"
                 >
                   {payrollAreas.map(area => (
                     <option key={area.code} value={area.code}>

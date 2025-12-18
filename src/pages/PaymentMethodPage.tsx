@@ -1327,46 +1327,40 @@ useEffect(() => {
                   </div>
                 </div>
 
-                {/* Check Ranges Table */}
-                <div className="rounded-lg border border-border bg-background">
-                  <div className="flex items-center justify-between p-4 border-b border-border bg-secondary/30">
-                    <h4 className="font-medium text-card-foreground">Check Ranges</h4>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={handleAddCheckRange}
-                        className="px-3 py-1.5 text-sm bg-secondary text-card-foreground rounded hover:bg-secondary/80 transition-colors flex items-center gap-1"
-                      >
-                        <Plus className="h-3.5 w-3.5" />
-                        Add Row
-                      </button>
-                      <button
-                        onClick={handleExportCheckRanges}
-                        className="px-3 py-1.5 text-sm bg-accent/10 text-accent rounded hover:bg-accent/20 transition-colors flex items-center gap-1"
-                      >
-                        <Download className="h-3.5 w-3.5" />
-                        Export CSV
-                      </button>
+                {/* Check Ranges Table - Only show if there are check ranges */}
+                {editableCheckRanges.length > 0 && (
+                  <div className="rounded-lg border border-border bg-background">
+                    <div className="flex items-center justify-between p-4 border-b border-border bg-secondary/30">
+                      <h4 className="font-medium text-card-foreground">Check Ranges</h4>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleAddCheckRange}
+                          className="px-3 py-1.5 text-sm bg-secondary text-card-foreground rounded hover:bg-secondary/80 transition-colors flex items-center gap-1"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                          Add Row
+                        </button>
+                        <button
+                          onClick={handleExportCheckRanges}
+                          className="px-3 py-1.5 text-sm bg-accent/10 text-accent rounded hover:bg-accent/20 transition-colors flex items-center gap-1"
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                          Export CSV
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead className="bg-secondary/50 border-b border-border">
-                        <tr>
-                          <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Company Code</th>
-                          <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Bank Account</th>
-                          <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Check Number Range</th>
-                          <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground w-16">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {editableCheckRanges.length === 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead className="bg-secondary/50 border-b border-border">
                           <tr>
-                            <td colSpan={4} className="px-4 py-8 text-center text-sm text-muted-foreground">
-                              No check ranges configured. Click "Add Row" to add one.
-                            </td>
+                            <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Company Code</th>
+                            <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Bank Account</th>
+                            <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Check Number Range</th>
+                            <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground w-16">Actions</th>
                           </tr>
-                        ) : (
-                          editableCheckRanges.map((range, index) => (
+                        </thead>
+                        <tbody>
+                          {editableCheckRanges.map((range, index) => (
                             <tr key={index} className="border-b border-border last:border-0">
                               <td className="px-4 py-3">
                                 <input
@@ -1405,12 +1399,12 @@ useEffect(() => {
                                 </button>
                               </td>
                             </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Pre-Notification Setting */}
                 <div className="rounded-lg border border-border bg-background">
