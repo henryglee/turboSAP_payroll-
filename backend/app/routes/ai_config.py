@@ -3,6 +3,8 @@ API routes for AI-powered configuration assistant.
 
 Provides contextual AI messages for the hybrid config interface.
 Medium verbosity - professional but with helpful context.
+
+Works with or without OpenAI API key - falls back to static messages if no key.
 """
 
 import os
@@ -15,13 +17,50 @@ from dotenv import load_dotenv
 env_path = Path(__file__).parent.parent.parent / ".env"
 load_dotenv(env_path)
 
-from openai import OpenAI
-
 router = APIRouter(prefix="/api/ai-config", tags=["AI Config"])
 
-# Initialize OpenAI client
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Initialize OpenAI client only if API key exists
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+
+# Only import and initialize OpenAI if we have a key
+client = None
+AI_ENABLED = False
+
+if OPENAI_API_KEY and OPENAI_API_KEY.strip():
+    try:
+        from openai import OpenAI
+        client = OpenAI(api_key=OPENAI_API_KEY)
+        AI_ENABLED = True
+        print("[AI Config] OpenAI client initialized successfully")
+    except Exception as e:
+        print(f"[AI Config] Failed to initialize OpenAI: {e}")
+        AI_ENABLED = False
+else:
+    print("[AI Config] No OpenAI API key found - using static fallback messages")
+
+
+@router.get("/status")
+async def get_ai_status():
+    """
+    Check if AI features are configured and available.
+
+    Returns:
+        {
+            "enabled": true/false,
+            "message": "Status message for display"
+        }
+    """
+    if AI_ENABLED:
+        return {
+            "enabled": True,
+            "message": "AI assistant is active"
+        }
+    else:
+        return {
+            "enabled": False,
+            "message": "AI features require enterprise API configuration (OpenAI, Anthropic, etc.). Contact your administrator to enable intelligent assistance."
+        }
 
 # System prompt for enterprise SAP consulting context
 SYSTEM_PROMPT = """You are an SAP Payroll configuration consultant helping enterprise clients set up payroll areas.
@@ -175,6 +214,10 @@ Current config context:
     else:
         return FALLBACK_MESSAGES.get(step, "Let's continue.")
 
+    # If AI not enabled, return fallback immediately
+    if not AI_ENABLED or client is None:
+        return FALLBACK_MESSAGES.get(step, "Let's continue with the configuration.")
+
     try:
         response = client.chat.completions.create(
             model=MODEL,
@@ -216,6 +259,10 @@ User's question: "{question}"
 Provide a helpful, concise answer (2-4 sentences). Be informative but not overwhelming.
 If the question is outside your knowledge, say "That's a detail we'll configure in the next phase" rather than guessing.
 End by gently redirecting back to the current configuration step."""
+
+    # If AI not enabled, return a helpful fallback
+    if not AI_ENABLED or client is None:
+        return f"That's a great question about {step}. For now, let's focus on completing this step, and we can address specifics in the detailed configuration phase."
 
     try:
         response = client.chat.completions.create(

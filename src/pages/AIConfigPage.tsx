@@ -19,7 +19,9 @@ import {
   Loader2,
   CheckCircle2,
   Table,
-  MessageSquare
+  MessageSquare,
+  Settings,
+  Info
 } from 'lucide-react';
 import type { PayrollArea, PayFrequencyType } from '../types';
 
@@ -143,8 +145,17 @@ export function AIConfigPage() {
   const [userQuestion, setUserQuestion] = useState('');
   const [isLoadingAI, setIsLoadingAI] = useState(false);
   const [previewAreas, setPreviewAreas] = useState<PayrollAreaPreview[]>([]);
+  const [aiStatus, setAiStatus] = useState<{ enabled: boolean; message: string } | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Check AI status on mount
+  useEffect(() => {
+    fetch(`${API_BASE}/api/ai-config/status`)
+      .then(res => res.json())
+      .then(data => setAiStatus(data))
+      .catch(() => setAiStatus({ enabled: false, message: 'AI service unavailable' }));
+  }, []);
 
   // Compute preview areas whenever config changes
   useEffect(() => {
@@ -521,6 +532,43 @@ export function AIConfigPage() {
       currentPath="/ai-config"
     >
       <div className="space-y-4">
+        {/* Awaiting Enterprise Configuration - Full page block */}
+        {aiStatus && !aiStatus.enabled ? (
+          <div className="flex items-center justify-center min-h-[60vh]">
+            <div className="max-w-md text-center p-8">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-100 to-purple-100 flex items-center justify-center mx-auto mb-6">
+                <Sparkles className="w-8 h-8 text-violet-500" />
+              </div>
+              <h2 className="text-xl font-semibold text-gray-900 mb-3">
+                AI Assistant — Awaiting Configuration
+              </h2>
+              <p className="text-gray-600 mb-4">
+                This feature uses AI to guide you through payroll configuration with intelligent recommendations.
+              </p>
+              <div className="bg-gray-50 rounded-lg p-4 text-left mb-6">
+                <p className="text-sm text-gray-700 mb-2">
+                  <span className="font-medium">Why isn't this enabled yet?</span>
+                </p>
+                <p className="text-sm text-gray-600">
+                  For security, we don't ship with pre-configured API credentials. During implementation, your team will connect your organization's preferred AI provider (OpenAI, Anthropic, Azure, etc.) — ensuring data stays within your security policies.
+                </p>
+              </div>
+              <div className="flex flex-col gap-2">
+                <a
+                  href="/payroll-area"
+                  className="inline-flex items-center justify-center px-4 py-2 bg-violet-600 text-white text-sm font-medium rounded-lg hover:bg-violet-700 transition-colors"
+                >
+                  Use Standard Configuration
+                  <ChevronRight className="w-4 h-4 ml-1" />
+                </a>
+                <p className="text-xs text-gray-500">
+                  The standard payroll area page is fully functional
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : (
+        <>
         {/* Progress bar */}
         <div className="bg-white rounded-lg border border-gray-200 p-4">
           <div className="flex items-center justify-between mb-2">
@@ -782,6 +830,8 @@ export function AIConfigPage() {
             </div>
           </div>
         </div>
+        </>
+        )}
       </div>
     </DashboardLayout>
   );
