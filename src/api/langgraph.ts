@@ -96,3 +96,20 @@ export async function submitPaymentAnswer(
     }),
   });
 }
+
+// src/api/sessionState.ts
+export async function patchSessionState(sessionId: string, patch: Record<string, unknown>) {
+  const res = await fetch(`/api/export/sessions/${sessionId}/state`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(patch),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`patchSessionState failed: ${res.status} ${text}`);
+  }
+
+  return res.json();
+}
+
