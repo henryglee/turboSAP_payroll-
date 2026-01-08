@@ -19,10 +19,12 @@ import {
   Circle,
   ChevronRight,
   Layers,
+  Sparkles,
 } from 'lucide-react';
 
 const navItems = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard', key: 'dashboard' },
+  { icon: Sparkles, label: 'AI Config', href: '/ai-config', key: 'aiConfig', isNew: true },
   { icon: Calendar, label: 'Payroll Areas', href: '/payroll-area', key: 'payrollAreas' },
   { icon: CreditCard, label: 'Payment Methods', href: '/payment-methods', key: 'paymentMethods' },
   { icon: Layers, label: 'All Modules', href: '/scope', key: 'scope' },
@@ -47,8 +49,11 @@ export function Sidebar({ currentPath }: SidebarProps) {
     navigate('/login');
   };
 
-  const getStatusIcon = (key: string) => {
-    if (key === 'dashboard' || key === 'export' || key === 'scope') return null;
+  const getStatusIcon = (key: string, isNew?: boolean) => {
+    if (isNew) {
+      return <span className="px-1.5 py-0.5 text-[10px] font-bold bg-violet-500 text-white rounded">NEW</span>;
+    }
+    if (key === 'dashboard' || key === 'export' || key === 'scope' || key === 'aiConfig') return null;
 
     // Map key to actual status from useExportData
     let status: 'complete' | 'incomplete' | 'not-started' = 'not-started';
@@ -86,7 +91,7 @@ export function Sidebar({ currentPath }: SidebarProps) {
           {navItems.map((item) => {
             const isActive = pathname === item.href;
             const Icon = item.icon;
-            const statusIcon = getStatusIcon(item.key);
+            const statusIcon = getStatusIcon(item.key, (item as any).isNew);
 
             return (
               <Link

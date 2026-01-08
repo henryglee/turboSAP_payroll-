@@ -1,0 +1,19 @@
+{
+  "version": "1.0",
+  "modules": {
+    "payment-method": {
+      "name": "Payment Method",
+      "description": "Configure payment method questions (ACH, checks, pay cards, etc.)",
+      "icon": "credit-card",
+      "status": "active",
+      "order": 1
+    },
+    "payroll-area": {
+      "name": "Payroll Area",
+      "description": "Configure payroll area questions (frequencies, patterns, etc.)",
+      "icon": "calendar",
+      "status": "active",
+      "order": 2
+    }
+  }
+}

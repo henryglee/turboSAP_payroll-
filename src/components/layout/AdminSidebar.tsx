@@ -23,8 +23,7 @@ const adminNavItems = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/admin/dashboard', key: 'dashboard' },
   { icon: Users, label: 'Users', href: '/admin/users', key: 'users' },
   { icon: Layers, label: 'Categories', href: '/admin/categories', key: 'categories' },
-  // TODO: Re-enable when /admin/modules page is fixed
-  // { icon: Boxes, label: 'Modules', href: '/admin/modules', key: 'modules' },
+  { icon: Boxes, label: 'Configuration', href: '/admin/config', key: 'config' },
   { icon: Terminal, label: 'Console', href: '/admin/console', key: 'console' },
   { icon: Settings, label: 'Settings', href: '/admin/settings', key: 'settings' },
 ];
@@ -51,7 +50,11 @@ export function AdminSidebar() {
         {/* Navigation */}
         <nav className="flex-1 space-y-1 px-3 py-4">
           {adminNavItems.map((item) => {
-            const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+            // Special case: Configuration should also be active on /admin/modules/* paths
+            const isActive =
+              pathname === item.href ||
+              pathname.startsWith(item.href + '/') ||
+              (item.key === 'config' && pathname.startsWith('/admin/modules/'));
             const Icon = item.icon;
 
             return (

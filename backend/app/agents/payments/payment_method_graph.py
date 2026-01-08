@@ -20,7 +20,7 @@ from typing import TypedDict, Optional, Dict, Any, List, Tuple
 from langgraph.graph import StateGraph, START, END  # type: ignore
 
 # ============================================
-# Load payment_method_question.json
+# Load payment_method_question.json (with hot-reload support)
 # ============================================
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -30,20 +30,25 @@ QUESTIONS_PATH = (
     BASE_DIR.parent.parent / "data" / "payment_method_questions.json"
 )
 
-# Debug print (optional)
-print("Looking for payment questions at:", QUESTIONS_PATH)
-
 # Fallback: same directory as this file
 if not QUESTIONS_PATH.exists():
     QUESTIONS_PATH = BASE_DIR / "payment_method_questions.json"
-    print("Fallback path used:", QUESTIONS_PATH)
 
-# Load JSON file
-with QUESTIONS_PATH.open("r", encoding="utf-8") as f:
-    QUESTIONS_SPEC: Dict[str, Any] = json.load(f)
 
-QUESTIONS: List[Dict[str, Any]] = QUESTIONS_SPEC.get("questions", [])
-QUESTIONS_BY_ID: Dict[str, Dict[str, Any]] = {q["id"]: q for q in QUESTIONS}
+def load_questions() -> Tuple[List[Dict[str, Any]], Dict[str, Dict[str, Any]]]:
+    """
+    Load questions from JSON file. Called on each request for hot-reload support.
+    Admin changes take effect immediately without server restart.
+    """
+    with QUESTIONS_PATH.open("r", encoding="utf-8") as f:
+        spec = json.load(f)
+    questions = spec.get("questions", [])
+    questions_by_id = {q["id"]: q for q in questions}
+    return questions, questions_by_id
+
+
+# Initial load (for backwards compatibility with any code that imports these)
+QUESTIONS, QUESTIONS_BY_ID = load_questions()
 
 
 
@@ -90,8 +95,13 @@ def determine_next_question(answers: Dict[str, Any]) -> Tuple[Optional[str], Opt
       - Skip questions that already have an answer in `answers`.
       - The first remaining eligible question is the "next question".
     - If none remain, return (None, None) to indicate completion.
+
+    Note: Uses hot-reload - reads fresh from JSON each time for admin changes.
     """
-    for q in QUESTIONS:
+    # Hot-reload: get fresh questions from JSON
+    questions, _ = load_questions()
+
+    for q in questions:
         qid = q["id"]
 
         # Skip if already answered

@@ -4,9 +4,11 @@ import './App.css';
 
 import { DashboardPage } from './pages/DashboardPage';
 import { PaymentMethodPage } from './pages/PaymentMethodPage';
-import { QuestionsConfigPage } from './pages/QuestionsConfigPage';
+// QuestionsConfigPage - commented out, route disabled (see TODO below)
+// import { QuestionsConfigPage } from './pages/QuestionsConfigPage';
 import { AccountPage } from './pages/AccountPage';
 import { PayrollAreaPage } from './pages/PayrollAreaPage';
+import { AIConfigPage } from './pages/AIConfigPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { AdminUsersPage } from './pages/AdminUsersPage';
 import { AdminSettingsPage } from './pages/AdminSettingsPage';
@@ -14,6 +16,9 @@ import { DataTerminalPage } from "./pages/DataTerminalPage.tsx";
 import { ConfigurationScopePage } from './pages/ConfigurationScopePage';
 import { AdminCategoriesPage } from './pages/AdminCategoriesPage';
 import { ExportCenterPage } from './pages/ExportCenterPage';
+import { PaymentMethodConfigPage } from './pages/admin/PaymentMethodConfigPage';
+import { PayrollAreaConfigPage } from './pages/admin/PayrollAreaConfigPage';
+import { ConfigurationManagementPage } from './pages/admin/ConfigurationManagementPage';
 import { AuthPage, ProtectedRoute } from './components/auth';
 import { useAuthStore } from './store/auth';
 import { getCurrentUser } from './api/auth';
@@ -78,6 +83,16 @@ function AppContent() {
         element={
           <ProtectedRoute requireClient>
             <PayrollAreaPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* AI Config - Hybrid AI-powered configuration */}
+      <Route
+        path="/ai-config"
+        element={
+          <ProtectedRoute requireClient>
+            <AIConfigPage />
           </ProtectedRoute>
         }
       />
@@ -159,6 +174,34 @@ function AppContent() {
         element={
           <ProtectedRoute requireAdmin>
             <DataTerminalPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Configuration Management (central hub) */}
+      <Route
+        path="/admin/config"
+        element={
+          <ProtectedRoute requireAdmin>
+            <ConfigurationManagementPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Module Configuration Pages (detail views) */}
+      <Route
+        path="/admin/modules/payment-method"
+        element={
+          <ProtectedRoute requireAdmin>
+            <PaymentMethodConfigPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/modules/payroll-area"
+        element={
+          <ProtectedRoute requireAdmin>
+            <PayrollAreaConfigPage />
           </ProtectedRoute>
         }
       />

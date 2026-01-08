@@ -459,7 +459,7 @@ export function ExportCenterPage() {
     });
 
     // Build Pay Periods folder with one file per calendar
-    const payPeriodsChildren: FileNode[] = Array.from(calendarMap.entries()).map(([calId, area]) => ({
+    const payPeriodsChildren: FileNode[] = Array.from(calendarMap.entries()).map(([calId, _area]) => ({
       id: `pay-period-${calId}`,
       name: `pay_period_${calId}.csv`,
       type: 'file',
@@ -470,7 +470,7 @@ export function ExportCenterPage() {
     }));
 
     // Build Pay Dates folder with one file per calendar
-    const payDatesChildren: FileNode[] = Array.from(calendarMap.entries()).map(([calId, area]) => ({
+    const payDatesChildren: FileNode[] = Array.from(calendarMap.entries()).map(([calId, _area]) => ({
       id: `pay-date-${calId}`,
       name: `pay_date_${calId}.csv`,
       type: 'file',

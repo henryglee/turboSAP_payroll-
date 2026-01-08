@@ -58,7 +58,7 @@ from fastapi.responses import HTMLResponse
 import os
 
 
-from .routes import data_terminal
+from .routes import data_terminal, ai_config, module_config
 
 ENV = os.getenv("APP_ENV", "development")
 
@@ -113,6 +113,8 @@ if ENV == "production":
 
 # Mount API routers that live in app.routes
 app.include_router(data_terminal.router)
+app.include_router(ai_config.router)
+app.include_router(module_config.router)
 
 # Serve uploaded logos (in both dev and production)
 uploads_dir = Path(__file__).parent.parent / "uploads"
