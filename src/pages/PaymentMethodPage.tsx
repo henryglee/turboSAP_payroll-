@@ -67,6 +67,11 @@ type PaymentDraft = {
   agreeNoPreNote: boolean | null;
   paymentResults: PaymentMethodConfig[] | null;
   showResults: boolean;
+
+  // NEW: persist editable export tables
+  editablePaymentMethods: EditablePaymentMethod[];
+  editableCheckRanges: EditableCheckRange[];
+  editablePreNotification: string;
 };
 
 function paymentSessionKey(userKey: string) {
@@ -172,29 +177,8 @@ export function PaymentMethodPage() {
   const [editableCheckRanges, setEditableCheckRanges] = useState<EditableCheckRange[]>([]);
   const [editablePreNotification, setEditablePreNotification] = useState<string>('No');
 
-useEffect(() => {
-  const draft = loadPaymentDraft(userKey);
 
-  if (draft) {
-    setSelectedMethods(draft.selectedMethods ?? []);
-    setHouseBanks(draft.houseBanks ?? '');
-    setAchSpec(draft.achSpec ?? '');
-    setCheckVolume(draft.checkVolume ?? '');
-    setSystemCheckBankAccount(draft.systemCheckBankAccount ?? '');
-    setSystemCheckRange(draft.systemCheckRange ?? '');
-    setManualCheckBankAccount(draft.manualCheckBankAccount ?? '');
-    setManualCheckRange(draft.manualCheckRange ?? '');
-    setAgreeNoPreNote(draft.agreeNoPreNote ?? null);
-    setPaymentResults(draft.paymentResults ?? null);
-    setShowResults(draft.showResults ?? false);
-  }
-
-  setHydrated(true);
-}, [userKey]);
-
-
-
-
+// persist draft to localStorage, save effect
 
 useEffect(() => {
   if (!hydrated) return;
@@ -211,6 +195,9 @@ useEffect(() => {
     agreeNoPreNote,
     paymentResults,
     showResults,
+    editablePaymentMethods,
+    editableCheckRanges,
+    editablePreNotification,
   };
 
   savePaymentDraft(userKey, draft);
@@ -222,7 +209,7 @@ useEffect(() => {
 
 }, [
   hydrated,
-   userKey,
+  userKey,
   selectedMethods,
   houseBanks,
   achSpec,
@@ -234,7 +221,37 @@ useEffect(() => {
   agreeNoPreNote,
   paymentResults,
   showResults,
+  editablePaymentMethods,
+  editableCheckRanges,
+  editablePreNotification,
+
 ]);
+
+
+// Hydrate from state on mount
+useEffect(() => {
+  const draft = loadPaymentDraft(userKey);
+
+  if (draft) {
+    setSelectedMethods(draft.selectedMethods ?? []);
+    setHouseBanks(draft.houseBanks ?? '');
+    setAchSpec(draft.achSpec ?? '');
+    setCheckVolume(draft.checkVolume ?? '');
+    setSystemCheckBankAccount(draft.systemCheckBankAccount ?? '');
+    setSystemCheckRange(draft.systemCheckRange ?? '');
+    setManualCheckBankAccount(draft.manualCheckBankAccount ?? '');
+    setManualCheckRange(draft.manualCheckRange ?? '');
+    setAgreeNoPreNote(draft.agreeNoPreNote ?? null);
+    setPaymentResults(draft.paymentResults ?? null);
+    setShowResults(draft.showResults ?? false);
+    setEditablePaymentMethods(draft.editablePaymentMethods ?? []);
+    setEditableCheckRanges(draft.editableCheckRanges ?? []);
+    setEditablePreNotification(draft.editablePreNotification ?? 'No');
+  }
+
+  setHydrated(true);
+}, [userKey]);
+
 
 
   const toggleSection = (section: keyof typeof expandedSections) => {

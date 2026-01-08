@@ -322,6 +322,7 @@ export const useConfigStore = create<ConfigurationStore>()(
         profile: state.profile,
         payrollAreas: state.payrollAreas,
         validation: state.validation,
+        paymentDataVersion: state.paymentDataVersion,
       }),
     }
   )
