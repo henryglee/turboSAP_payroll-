@@ -137,6 +137,15 @@ class LatestAllSessionsResponse(BaseModel):
     payroll: Optional[LatestSessionResponse] = None
     payment: Optional[LatestSessionResponse] = None
 
+class PersistPaymentRequest(BaseModel):
+    methods: List[Dict[str, Any]] = Field(default_factory=list)
+    checkRanges: List[Dict[str, Any]] = Field(default_factory=list)
+    preNotificationRequired: bool = False
+
+class PersistPayrollRequest(BaseModel):
+    payrollAreas: List[Dict[str, Any]] = Field(default_factory=list)
+
+
 
 # =========================
 # CSV helpers (match TS behavior)
@@ -148,7 +157,7 @@ SAP_DEFAULTS = {
     "DATE_TYPE": "01",
     "TIME_UNIT": "D",
     "CALENDAR_START_DATE": "19000101",
-    # Match your frontend exportUtils:
+    # Match frontend exportUtils:
     # If frontend uses a fixed anchor string like "2024-01-01", replicate here.
     "PERIOD_ANCHOR": "2024-01-01",
     "PAY_DATE_ANCHOR": "2024-01-01",
@@ -802,46 +811,4 @@ def download_file(session_id: str, file_id: str, download: bool = Query(True)):
         media_type="text/csv; charset=utf-8",
         headers=headers,
     )
-
-# @router.get("/sessions/{session_id}/debug-payment")
-# def debug_payment(session_id: str):
-#     sess = load_session(session_id)
-#     s = sess.config_state
-
-#     def _len(x):
-#         return len(x) if isinstance(x, list) else None
-
-#     answers = s.get("answers") if isinstance(s.get("answers"), dict) else {}
-
-#     return {
-#         "session_module": sess.module,
-#         "root_keys": list(s.keys()),
-
-#         # root
-#         "payment_methods_root_count": _len(s.get("payment_methods")),
-#         "payment_methods_root_sample": (s.get("payment_methods") or [None])[0] if isinstance(s.get("payment_methods"), list) else None,
-
-#         # answers.*
-#         "answers_keys": list(answers.keys()) if isinstance(answers, dict) else None,
-#         "answers_payment_methods_count": _len(answers.get("payment_methods")),
-#         "answers_paymentMethods_count": _len(answers.get("paymentMethods")),
-
-#         # nested objects people often use
-#         "payment_method_obj_keys": list(s.get("payment_method").keys()) if isinstance(s.get("payment_method"), dict) else None,
-#         "payment_method_obj_methods_count": _len(s.get("payment_method", {}).get("methods")) if isinstance(s.get("payment_method"), dict) else None,
-
-#         "paymentData_keys": list(s.get("paymentData").keys()) if isinstance(s.get("paymentData"), dict) else None,
-#         "paymentData_methods_count": _len(s.get("paymentData", {}).get("methods")) if isinstance(s.get("paymentData"), dict) else None,
-#     }
-
-class PersistPaymentRequest(BaseModel):
-    methods: List[Dict[str, Any]] = Field(default_factory=list)
-    checkRanges: List[Dict[str, Any]] = Field(default_factory=list)
-    preNotificationRequired: bool = False
-
-class PersistPayrollRequest(BaseModel):
-    payrollAreas: List[Dict[str, Any]] = Field(default_factory=list)
-
-
-
 
