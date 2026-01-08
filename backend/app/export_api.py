@@ -753,8 +753,8 @@ def patch_session_state(session_id: str, payload: Dict[str, Any] = Body(...)):
     return {"ok": True, "updated_keys": list(payload.keys())}
 
 
-@router.get("/latest", response_model=LatestSessionResponse | LatestAllSessionsResponse)
-def latest(module: str = Query(..., description="payroll | payment | all")):
+@router.get("/latest", response_model=LatestSessionResponse )
+def latest(module: str = Query(..., description="payroll | payment")):
 
     if module == "all":
         payroll = load_latest_session(MODULE_MAP["payroll"])
