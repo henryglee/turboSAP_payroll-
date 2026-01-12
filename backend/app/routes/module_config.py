@@ -21,6 +21,9 @@ from fastapi import APIRouter, Depends, HTTPException, Body
 
 from ..middleware import get_current_user, require_admin
 
+from datetime import datetime
+from typing import List, Dict, Any, Optional
+
 router = APIRouter(prefix="/api/config/modules", tags=["Module Config"])
 
 # Base paths
@@ -43,7 +46,6 @@ MODULE_FILES = {
         "original": CONFIG_DIR / "questions_original.json",
     },
 }
-
 
 def _load_modules_metadata() -> Dict[str, Any]:
     """Load module metadata from JSON file."""
@@ -147,15 +149,36 @@ def _validate_questions_schema(data: Dict[str, Any], module_slug: str) -> None:
                         )
 
 
-def _get_module_files(slug: str) -> Dict[str, Any]:
+def _get_module_files(slug: str) -> dict:
     """Get module file paths or raise 404."""
-    if slug not in MODULE_FILES:
-        available = ", ".join(MODULE_FILES.keys())
-        raise HTTPException(
-            status_code=404,
-            detail=f"Module '{slug}' not found. Available modules: {available}"
-        )
-    return MODULE_FILES[slug]
+    # First check if it's a pre-made module
+    if slug in MODULE_FILES:
+        return MODULE_FILES[slug]
+    
+    # If not in MODULE_FILES, check if it's a custom module in metadata
+    metadata = _load_modules_metadata()
+    if slug in metadata.get("modules", {}):
+        # Create file paths for custom module
+        module_dir = DATA_DIR / slug
+        module_dir.mkdir(exist_ok=True)
+        
+        # Define file paths for the custom module
+        files = {
+            "current": module_dir / "questions.json",
+            "backup": module_dir / "questions_backup.json",
+            "original": None
+        }
+        
+        # Add to MODULE_FILES for this session
+        MODULE_FILES[slug] = files
+        return files
+    
+    # If we get here, the module doesn't exist
+    available = ", ".join(MODULE_FILES.keys())
+    raise HTTPException(
+        status_code=404,
+        detail=f"Module '{slug}' not found. Available modules: {available}"
+    )
 
 
 def _read_json(path: Path) -> Dict[str, Any]:
@@ -180,12 +203,14 @@ def _write_json(path: Path, data: Dict[str, Any]) -> None:
 # Endpoints
 # ============================================
 
+''''
 @router.get("")
 async def list_modules(current_user: dict = Depends(get_current_user)):
     """
     List all available modules and their configuration status.
     Combines metadata from JSON with file status from registry.
     """
+    #try: 
     all_metadata = _load_modules_metadata()
     modules_data = all_metadata.get("modules", {})
 
@@ -211,6 +236,41 @@ async def list_modules(current_user: dict = Depends(get_current_user)):
         modules.append(module_info)
 
     return {"modules": modules}
+    #except Exception as e:
+        #raise HTTPException(status_code=500, detail=f"Error loading modules: {str(e)}")
+'''
+
+@router.get("", response_model=Dict[str, Any])
+async def list_modules(current_user: dict = Depends(get_current_user)):
+    """List all available modules and their configuration status."""
+    metadata = _load_modules_metadata()
+    modules_metadata = metadata.get("modules", {})
+    
+    result = {"modules": []}
+    all_module_slugs = set(MODULE_FILES.keys()).union(modules_metadata.keys())
+    
+    for slug in all_module_slugs:
+        try:
+            files = _get_module_files(slug)
+            module_info = {
+                "slug": slug,
+                "hasConfig": files["current"].exists() if files["current"] else False,
+                "hasBackup": files["backup"].exists() if files["backup"] else False,
+                "hasOriginal": files["original"].exists() if files["original"] else False,
+            }
+            
+            # Add metadata if available
+            if slug in modules_metadata:
+                module_info.update(modules_metadata[slug])
+                
+            result["modules"].append(module_info)
+        except HTTPException:
+            continue
+    
+    # Sort modules by order if available, otherwise by name
+    result["modules"].sort(key=lambda x: (x.get("order", 999), x.get("name", "")))
+    
+    return result
 
 
 @router.get("/{module_slug}", response_model=None)
@@ -439,3 +499,227 @@ async def get_module_original_questions(
         )
 
     return _read_json(files["original"])
+
+@router.post("", status_code=201)
+async def create_module(
+    payload: dict = Body(...),
+    current_user: dict = Depends(require_admin),
+):
+    """
+    Create a new module.
+    
+    Required fields:
+    - name: Display name of the module
+    - slug: URL-friendly identifier (auto-generated if not provided)
+    - description: Brief description of the module
+    - icon: Icon identifier for the module
+    - order: Display order (optional)
+    """
+    try:
+        # Load existing modules
+        modules_metadata = _load_modules_metadata()
+        
+        # Generate slug if not provided
+        slug = payload.get('slug', '').strip() or payload['name'].lower().replace(' ', '-')
+        
+        # Check if module with this slug already exists
+        if slug in modules_metadata.get("modules", {}):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Module with slug '{slug}' already exists"
+            )
+            
+        # Validate required fields
+        required_fields = ['name']
+        for field in required_fields:
+            if not payload.get(field):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Missing required field: {field}"
+                )
+        
+        # Add default values for optional fields
+        if 'description' not in payload:
+            payload['description'] = ''
+        if 'icon' not in payload:
+            payload['icon'] = 'default'
+        if 'order' not in payload:
+            # Set order to be after the last module
+            all_orders = [m.get('order', 0) for m in modules_metadata.get("modules", {}).values()]
+            payload['order'] = max(all_orders) + 1 if all_orders else 1
+        
+        # Create module directory
+        module_dir = DATA_DIR / slug
+        module_dir.mkdir(exist_ok=True, parents=True)
+        
+        # Create new module metadata
+        new_module = {
+            'slug': slug,
+            'name': payload['name'],
+            'description': payload['description'],
+            'icon': payload['icon'],
+            'order': payload['order'],
+            'createdAt': datetime.now().isoformat(),
+            'createdBy': current_user.get('email', 'system'),
+            'hasConfig': False,
+            'hasBackup': False,
+            'hasOriginal': False
+        }
+        
+        # Add to modules metadata
+        if "modules" not in modules_metadata:
+            modules_metadata["modules"] = {}
+        modules_metadata["modules"][slug] = new_module
+        _save_modules_metadata(modules_metadata)
+        
+        # Create default questions file
+        questions_path = module_dir / "questions.json"
+        default_questions = {
+            "version": "1.0",
+            "questions": [],
+            "metadata": {
+                "createdAt": datetime.now().isoformat(),
+                "createdBy": current_user.get('email', 'system'),
+                "lastModified": datetime.now().isoformat()
+            }
+        }
+        _write_json(questions_path, default_questions)
+        
+        # Update MODULE_FILES in memory
+        MODULE_FILES[slug] = {
+            "current": questions_path,
+            "backup": module_dir / "questions_backup.json",
+            "original": None
+        }
+        
+        return {
+            "success": True,
+            "module": new_module
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        # Clean up if there was an error
+        if 'module_dir' in locals() and module_dir.exists():
+            import shutil
+            shutil.rmtree(module_dir, ignore_errors=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to create module: {str(e)}"
+        )
+
+@router.delete("/{module_slug}", response_model=Dict[str, Any])
+async def delete_module(
+    module_slug: str,
+    current_user: dict = Depends(require_admin),
+):
+    """
+    Delete a module and its associated files.
+    """
+    try:
+        # Load metadata
+        metadata = _load_modules_metadata()
+        modules_metadata = metadata.get("modules", {})
+        
+        # Check if module exists
+        if module_slug not in modules_metadata:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Module '{module_slug}' not found"
+            )
+        
+        # Don't allow deleting pre-made modules
+        if module_slug in MODULE_FILES and module_slug in ["payment-method", "payroll-area"]:
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot delete pre-made modules"
+            )
+        
+        # Get module files
+        try:
+            files = _get_module_files(module_slug)
+            
+            # Remove module files
+            for file_type, file_path in files.items():
+                if file_path and file_path.exists():
+                    if file_path.is_file():
+                        file_path.unlink()
+                    elif file_path.is_dir():
+                        shutil.rmtree(file_path)
+            
+            # Remove from MODULE_FILES if it exists there
+            if module_slug in MODULE_FILES:
+                del MODULE_FILES[module_slug]
+                
+        except HTTPException:
+            # If files don't exist, just continue with metadata removal
+            pass
+        
+        # Remove from metadata
+        del modules_metadata[module_slug]
+        _save_modules_metadata(metadata)
+        
+        return {
+            "success": True,
+            "message": f"Module '{module_slug}' deleted successfully"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to delete module: {str(e)}"
+        )
+
+@router.put("/reorder/", response_model=Dict[str, Any])
+async def reorder_modules(
+    order_data: Dict[str, List[Dict[str, Any]]] = Body(...),
+    current_user: dict = Depends(require_admin),
+):
+    """
+    Reorder modules based on the provided order.
+    Expected payload: {"order": [{"slug": "module1", "order": 1}, ...]}
+    """
+    print("Reorder endpoint hit!")  # Debug log
+    print("Received data:", order_data)  # Debug log
+    
+    try:
+        metadata = _load_modules_metadata()
+        modules_metadata = metadata.get("modules", {})
+        
+        print("Current metadata:", modules_metadata)  # Debug log
+        
+        # Update order for each module
+        for item in order_data.get("order", []):
+            slug = item.get("slug")
+            if slug in modules_metadata:
+                modules_metadata[slug]["order"] = item.get("order", 0)
+        
+        _save_modules_metadata(metadata)
+        
+        print("Updated metadata:", modules_metadata)  # Debug log
+        
+        return {
+            "success": True,
+            "message": "Module order updated successfully"
+        }
+        
+    except Exception as e:
+        print("Error in reorder_modules:", str(e))  # Debug log
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to update module order: {str(e)}"
+        )
+
+@router.get("/debug/routes", include_in_schema=False)
+async def debug_routes():
+    routes = []
+    for route in router.routes:
+        routes.append({
+            "path": route.path,
+            "name": route.name,
+            "methods": list(route.methods) if hasattr(route, "methods") else []
+        })
+    return {"routes": routes}
