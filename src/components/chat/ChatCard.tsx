@@ -100,7 +100,6 @@ export function ChatCard({ onComplete }: ChatCardProps) {
         answers: draft.answers,
         isComplete: draft.isComplete,
         progress: draft.progress,
-        // If complete, no current question; otherwise last message might have one
         currentQuestion: draft.isComplete ? null : (draft.messages[draft.messages.length - 1]?.question || null),
       }));
     }
