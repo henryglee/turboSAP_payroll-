@@ -9,9 +9,11 @@ from dataclasses import dataclass
 from datetime import datetime, date, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
-from fastapi import APIRouter, HTTPException, Query, Body
+from fastapi import APIRouter, HTTPException, Query, Body, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
+
+from .middleware import get_current_user
 
 
 router = APIRouter(prefix="/api/export", tags=["Export"])
@@ -534,13 +536,13 @@ def generate_pre_notification_csv(required: bool) -> str:
 # (match your ExportCenterPage)
 # =========================
 
+# Static file definitions (non-calendar-specific)
 FILE_DEFS = [
-    # payroll
+    # payroll (static files)
     ("payroll-areas", "payroll_areas.csv", "payroll"),
     ("calendar-id", "calendar_id.csv", "payroll"),
     ("payroll-area-config", "payroll_area_config.csv", "payroll"),
-    ("pay-period", "pay_period.csv", "payroll"),
-    ("pay-date", "pay_date.csv", "payroll"),
+    # NOTE: pay-period and pay-date are now dynamic per-calendar, see build_files_for_session()
     # payment
     ("payment-method", "payment_method.csv", "payment"),
     ("check-range", "check_range.csv", "payment"),
@@ -548,8 +550,24 @@ FILE_DEFS = [
 ]
 
 
+def get_unique_calendars(payroll_areas: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    """
+    Get unique calendar IDs mapped to their representative payroll area.
+    Returns {calendar_id: area_dict} for the first area with each calendar.
+    """
+    calendar_map: Dict[str, Dict[str, Any]] = {}
+    for area in payroll_areas:
+        cal_id = str(area.get("calendarId") or "80")
+        if cal_id not in calendar_map:
+            calendar_map[cal_id] = area
+    return calendar_map
+
+
 def build_files_for_session(sess: SessionRecord) -> List[ExportFileInfo]:
-    # Determine availability and row counts
+    """
+    Build list of available export files for a session.
+    Now includes dynamic per-calendar pay-period and pay-date files.
+    """
     config = sess.config_state
     payroll_areas = extract_payroll_areas(config)
     payment = extract_payment_bundle(config)
@@ -557,7 +575,6 @@ def build_files_for_session(sess: SessionRecord) -> List[ExportFileInfo]:
     # precompute payment pieces
     payment_methods: List[Dict[str, Any]] = []
     payment_ranges: List[Dict[str, Any]] = []
-    pre_note_required: Optional[bool] = None
 
     if payment:
         pm = payment.get("methods")
@@ -566,11 +583,10 @@ def build_files_for_session(sess: SessionRecord) -> List[ExportFileInfo]:
         cr = payment.get("checkRanges")
         if isinstance(cr, list):
             payment_ranges = [x for x in cr if isinstance(x, dict)]
-        pnr = payment.get("preNotificationRequired")
-        if isinstance(pnr, bool):
-            pre_note_required = pnr
 
     infos: List[ExportFileInfo] = []
+
+    # Add static files from FILE_DEFS
     for file_id, filename, module in FILE_DEFS:
         row_count = 0
         if module == "payroll":
@@ -578,9 +594,6 @@ def build_files_for_session(sess: SessionRecord) -> List[ExportFileInfo]:
                 row_count = len(payroll_areas)
             elif file_id == "calendar-id":
                 row_count = len({str(a.get("calendarId") or "80") for a in payroll_areas})
-            elif file_id in ("pay-period", "pay-date"):
-                # this is per "first area" like your frontend
-                row_count = 52 if payroll_areas else 0
         else:
             if file_id == "payment-method":
                 row_count = len(payment_methods)
@@ -597,6 +610,41 @@ def build_files_for_session(sess: SessionRecord) -> List[ExportFileInfo]:
                 row_count=row_count,
             )
         )
+
+    # Add dynamic per-calendar pay-period and pay-date files
+    calendar_map = get_unique_calendars(payroll_areas)
+    for cal_id, area in calendar_map.items():
+        frequency = str(area.get("frequency") or "weekly").lower()
+
+        # Estimate row count based on frequency (1 year of periods)
+        freq_to_periods = {
+            "weekly": 52,
+            "biweekly": 26,
+            "semimonthly": 24,
+            "monthly": 12,
+        }
+        estimated_rows = freq_to_periods.get(frequency, 52)
+
+        # Add pay-period file for this calendar
+        infos.append(
+            ExportFileInfo(
+                file_id=f"pay-period-{cal_id}",
+                filename=f"pay_period_{cal_id}.csv",
+                module="payroll",
+                row_count=estimated_rows,
+            )
+        )
+
+        # Add pay-date file for this calendar
+        infos.append(
+            ExportFileInfo(
+                file_id=f"pay-date-{cal_id}",
+                filename=f"pay_date_{cal_id}.csv",
+                module="payroll",
+                row_count=estimated_rows,
+            )
+        )
+
     return infos
 
 
@@ -605,7 +653,7 @@ def generate_file_content(sess: SessionRecord, file_id: str) -> str:
     payroll_areas = extract_payroll_areas(config)
     payment = extract_payment_bundle(config)
 
-    # Payroll
+    # Payroll static files
     if file_id == "payroll-areas":
         return generate_payroll_areas_csv(payroll_areas)
 
@@ -615,6 +663,25 @@ def generate_file_content(sess: SessionRecord, file_id: str) -> str:
     if file_id == "payroll-area-config":
         return generate_payroll_area_config_csv(payroll_areas)
 
+    # Dynamic per-calendar pay-period files (e.g., pay-period-80, pay-period-81)
+    if file_id.startswith("pay-period-"):
+        calendar_id = file_id.replace("pay-period-", "")
+        calendar_map = get_unique_calendars(payroll_areas)
+        area = calendar_map.get(calendar_id)
+        if not area:
+            raise HTTPException(status_code=404, detail=f"No payroll area found with calendar ID: {calendar_id}")
+        return generate_pay_period_csv(area)
+
+    # Dynamic per-calendar pay-date files (e.g., pay-date-80, pay-date-81)
+    if file_id.startswith("pay-date-"):
+        calendar_id = file_id.replace("pay-date-", "")
+        calendar_map = get_unique_calendars(payroll_areas)
+        area = calendar_map.get(calendar_id)
+        if not area:
+            raise HTTPException(status_code=404, detail=f"No payroll area found with calendar ID: {calendar_id}")
+        return generate_pay_date_csv(area)
+
+    # Backward compatibility: legacy pay-period/pay-date (uses first area)
     if file_id == "pay-period":
         if not payroll_areas:
             return ""
@@ -655,9 +722,30 @@ def generate_file_content(sess: SessionRecord, file_id: str) -> str:
 
 
 def get_filename(file_id: str) -> str:
+    """
+    Get the filename for a given file_id.
+    Handles both static FILE_DEFS and dynamic per-calendar files.
+    """
+    # Check static file definitions first
     for fid, fname, _ in FILE_DEFS:
         if fid == file_id:
             return fname
+
+    # Handle dynamic per-calendar filenames
+    if file_id.startswith("pay-period-"):
+        calendar_id = file_id.replace("pay-period-", "")
+        return f"pay_period_{calendar_id}.csv"
+
+    if file_id.startswith("pay-date-"):
+        calendar_id = file_id.replace("pay-date-", "")
+        return f"pay_date_{calendar_id}.csv"
+
+    # Backward compatibility for legacy file IDs
+    if file_id == "pay-period":
+        return "pay_period.csv"
+    if file_id == "pay-date":
+        return "pay_date.csv"
+
     return f"{file_id}.csv"
 
 
@@ -696,8 +784,12 @@ def update_session_config_state(session_id: str, patch: Dict[str, Any]) -> None:
         )
 
 @router.post("/sessions/{session_id}/persist-payment")
-def persist_payment(session_id: str, req: PersistPaymentRequest):
-    # store in the exact keys your export reader expects
+def persist_payment(
+    session_id: str,
+    req: PersistPaymentRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """Persist payment configuration. Requires authentication."""
     update_session_config_state(
         session_id,
         {
@@ -709,8 +801,12 @@ def persist_payment(session_id: str, req: PersistPaymentRequest):
     return {"ok": True, "session_id": session_id, "payment_methods_count": len(req.methods)}
 
 @router.post("/sessions/{session_id}/persist-payroll")
-def persist_payroll(session_id: str, req: PersistPayrollRequest):
-    # store in the exact keys your extract_payroll_areas expects
+def persist_payroll(
+    session_id: str,
+    req: PersistPayrollRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """Persist payroll configuration. Requires authentication."""
     update_session_config_state(
         session_id,
         {
@@ -720,7 +816,12 @@ def persist_payroll(session_id: str, req: PersistPayrollRequest):
     return {"ok": True, "session_id": session_id, "payroll_areas_count": len(req.payrollAreas)}
 
 @router.patch("/sessions/{session_id}/state")
-def patch_session_state(session_id: str, payload: Dict[str, Any] = Body(...)):
+def patch_session_state(
+    session_id: str,
+    payload: Dict[str, Any] = Body(...),
+    current_user: dict = Depends(get_current_user),
+):
+    """Patch session state. Requires authentication."""
     if not isinstance(payload, dict):
         raise HTTPException(status_code=400, detail="payload must be a JSON object")
 
@@ -753,9 +854,28 @@ def patch_session_state(session_id: str, payload: Dict[str, Any] = Body(...)):
     return {"ok": True, "updated_keys": list(payload.keys())}
 
 
-@router.get("/latest", response_model=LatestSessionResponse )
-def latest(module: str = Query(..., description="payroll | payment")):
+@router.get("/sessions/{session_id}/files", response_model=ExportFilesResponse)
+def list_session_files(
+    session_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    List all available export files for a session.
+    Returns file IDs, filenames, modules, and row counts.
+    Useful for clients to discover available files before downloading.
+    Requires authentication.
+    """
+    sess = load_session(session_id)
+    files = build_files_for_session(sess)
+    return ExportFilesResponse(session_id=session_id, files=files)
 
+
+@router.get("/latest", response_model=LatestSessionResponse)
+def latest(
+    module: str = Query(..., description="payroll | payment"),
+    current_user: dict = Depends(get_current_user),
+):
+    """Get the latest session for a module. Requires authentication."""
     if module == "all":
         payroll = load_latest_session(MODULE_MAP["payroll"])
         payment = load_latest_session(MODULE_MAP["payment"])
@@ -793,7 +913,13 @@ def normalize_file_id(file_id: str) -> str:
     },
 )
 
-def download_file(session_id: str, file_id: str, download: bool = Query(True)):
+def download_file(
+    session_id: str,
+    file_id: str,
+    download: bool = Query(True),
+    current_user: dict = Depends(get_current_user),
+):
+    """Download a specific file from a session. Requires authentication."""
     sess = load_session(session_id)
 
     normalized_file_id = normalize_file_id(file_id)  
