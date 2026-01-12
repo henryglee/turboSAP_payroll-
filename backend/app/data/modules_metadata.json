@@ -6,14 +6,14 @@
       "description": "Configure payment method questions (ACH, checks, pay cards, etc.)",
       "icon": "credit-card",
       "status": "active",
-      "order": 1
+      "order": 2
     },
     "payroll-area": {
       "name": "Payroll Area",
       "description": "Configure payroll area questions (frequencies, patterns, etc.)",
       "icon": "calendar",
       "status": "active",
-      "order": 2
+      "order": 1
     }
   }
 }
