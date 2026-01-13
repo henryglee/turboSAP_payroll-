@@ -16,9 +16,11 @@ import { DataTerminalPage } from "./pages/DataTerminalPage.tsx";
 import { ConfigurationScopePage } from './pages/ConfigurationScopePage';
 import { AdminCategoriesPage } from './pages/AdminCategoriesPage';
 import { ExportCenterPage } from './pages/ExportCenterPage';
+import { CodebaseVizPage } from './pages/CodebaseVizPage';
 import { PaymentMethodConfigPage } from './pages/admin/PaymentMethodConfigPage';
 import { PayrollAreaConfigPage } from './pages/admin/PayrollAreaConfigPage';
 import { ConfigurationManagementPage } from './pages/admin/ConfigurationManagementPage';
+import { DocumentsPage } from './pages/admin/DocumentsPage';
 import { AuthPage, ProtectedRoute } from './components/auth';
 import { useAuthStore } from './store/auth';
 import { getCurrentUser } from './api/auth';
@@ -117,6 +119,16 @@ function AppContent() {
         }
       />
 
+      {/* Codebase Visualization - Architecture map */}
+      <Route
+        path="/viz"
+        element={
+          <ProtectedRoute requireClient>
+            <CodebaseVizPage />
+          </ProtectedRoute>
+        }
+      />
+
       {/* Payment Methods - uses DashboardLayout */}
       <Route
         path="/payment-methods"
@@ -184,6 +196,16 @@ function AppContent() {
         element={
           <ProtectedRoute requireAdmin>
             <ConfigurationManagementPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Documents - Upload/manage training docs for knowledge base */}
+      <Route
+        path="/admin/documents"
+        element={
+          <ProtectedRoute requireAdmin>
+            <DocumentsPage />
           </ProtectedRoute>
         }
       />
