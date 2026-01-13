@@ -22,5 +22,9 @@ cd payroll-area-config
 npm run dev
 ```
 
+## Deployment Link
+
+http://turbosap-py312-env.eba-5hg7r3id.us-east-2.elasticbeanstalk.com/login
+
 
 
