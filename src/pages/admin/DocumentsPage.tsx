@@ -3,7 +3,7 @@
  * Allows uploading documents (PPT, DOCX, XLSX) to S3 for future vector DB processing
  */
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useId } from 'react';
 import { AdminLayout } from '../../components/layout/AdminLayout';
 import {
   Upload,
@@ -31,6 +31,17 @@ const ALLOWED_TYPES = {
 };
 
 const ALLOWED_EXTENSIONS = ['.pptx', '.ppt', '.docx', '.doc', '.xlsx', '.xls', '.pdf'];
+const KB_COMPANY_NAME = 'default';
+const KB_COMPANY_CODE = 'default-code';
+const KB_CONTENT_TYPE_MAP: Record<string, 'ppt' | 'words' | 'docs' | 'xlxs'> = {
+  ppt: 'ppt',
+  pptx: 'ppt',
+  doc: 'words',
+  docx: 'words',
+  pdf: 'docs',
+  xlsx: 'xlxs',
+  xls: 'xlxs',
+};
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
 
 interface Document {
@@ -59,6 +70,7 @@ export function DocumentsPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileInputId = useId();
 
   // Format file size
   const formatSize = (bytes: number) => {
@@ -105,6 +117,46 @@ export function DocumentsPage() {
     return null;
   };
 
+  const resolveKnowledgebaseContentType = (filename: string): 'ppt' | 'words' | 'docs' | 'xlxs' => {
+    const ext = filename.split('.').pop()?.toLowerCase() || '';
+    return KB_CONTENT_TYPE_MAP[ext] || 'docs';
+  };
+
+  const requestPresignedUpload = async (
+    contentType: 'ppt' | 'words' | 'docs' | 'xlxs'
+  ) => {
+    return apiFetch<{ uploadUrl: string; rawResponse: Record<string, unknown> }>(
+      '/api/knowledgebase/presign',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          companyName: KB_COMPANY_NAME,
+          companyCode: KB_COMPANY_CODE,
+          contentType,
+        }),
+      }
+    );
+  };
+
+  const uploadToPresignedUrl = async (uploadUrl: string, file: File) => {
+    const response = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': file.type || 'application/octet-stream',
+      },
+      body: file,
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text().catch(() => '');
+      throw new Error(
+        `Upload failed (${response.status}): ${errorBody || response.statusText}`
+      );
+    }
+
+    return uploadUrl.split('?')[0];
+  };
+
   // Handle file upload
   const handleUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -122,18 +174,13 @@ export function DocumentsPage() {
     setUploading(true);
 
     try {
-      // TODO: Replace with actual API call when backend is ready
-      // const formData = new FormData();
-      // formData.append('file', file);
-      // const response = await apiFetch<Document>('/api/admin/documents/upload', {
-      //   method: 'POST',
-      //   body: formData,
-      //   headers: {}, // Let browser set Content-Type for FormData
-      // });
-      // setDocuments(prev => [response, ...prev]);
+      const kbContentType = resolveKnowledgebaseContentType(file.name);
+      const { uploadUrl } = await requestPresignedUpload(kbContentType);
+      if (!uploadUrl) {
+        throw new Error('Failed to obtain upload URL');
+      }
 
-      // Mock upload - simulates network delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const objectUrl = await uploadToPresignedUrl(uploadUrl, file);
 
       const newDoc: Document = {
         id: Date.now().toString(),
@@ -141,12 +188,14 @@ export function DocumentsPage() {
         fileType: file.name.split('.').pop()?.toLowerCase() || 'unknown',
         fileSize: file.size,
         uploadedAt: new Date().toISOString(),
+        s3Key: objectUrl,
       };
 
       setDocuments(prev => [newDoc, ...prev]);
       setMessage(`"${file.name}" uploaded successfully`);
-    } catch (err: any) {
-      setError(err.message || 'Failed to upload file');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to upload file';
+      setError(message);
     } finally {
       setUploading(false);
       if (fileInputRef.current) {
@@ -235,11 +284,12 @@ export function DocumentsPage() {
         onDrop={handleDrop}
       >
         <input
+          id={fileInputId}
           ref={fileInputRef}
           type="file"
           accept={ALLOWED_EXTENSIONS.join(',')}
           onChange={(e) => handleUpload(e.target.files)}
-          className="hidden"
+          className="sr-only"
           disabled={uploading}
         />
 
@@ -256,12 +306,16 @@ export function DocumentsPage() {
             <div>
               <p className="text-sm font-medium text-gray-900">
                 Drop files here or{' '}
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="text-amber-600 hover:text-amber-700 underline"
+                <label
+                  htmlFor={fileInputId}
+                  className={`text-amber-600 hover:text-amber-700 underline ${
+                    uploading
+                      ? 'opacity-50 cursor-not-allowed pointer-events-none'
+                      : 'cursor-pointer'
+                  }`}
                 >
                   browse
-                </button>
+                </label>
               </p>
               <p className="text-xs text-gray-500 mt-1">
                 PPT, DOCX, XLSX, PDF supported (max {formatSize(MAX_FILE_SIZE)})
