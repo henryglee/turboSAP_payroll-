@@ -5,9 +5,24 @@ import pytest
 from backend.app.data.ReachNettDataManager import ReachNettDataManager
 
 
+class FakeUploadService:
+    def __init__(self):
+        self.uploads = []
+        self.return_url = "https://example.com/mock-upload"
+
+    def upload_document(self, **kwargs):
+        self.uploads.append(kwargs)
+        return self.return_url
+
+
 @pytest.fixture
-def manager(tmp_path):
-    data_manager = ReachNettDataManager()
+def fake_upload_service():
+    return FakeUploadService()
+
+
+@pytest.fixture
+def manager(tmp_path, fake_upload_service):
+    data_manager = ReachNettDataManager(upload_service=fake_upload_service)
     data_manager.base_dir = tmp_path / "reachnett"
     return data_manager
 
@@ -69,12 +84,22 @@ def test_load_company_info_and_logo(company_assets):
     assert manager.load_company_logo_path("missing") is None
 
 
-def test_load_and_save_module_round_trip(manager, module_payload):
+def test_load_and_save_module_round_trip(manager, module_payload, fake_upload_service):
     assert manager.load_module("acme", "1000", "questions") == {}
 
-    manager.save_module("acme", "1000", "questions", module_payload)
+    uploaded_url = manager.save_module("acme", "1000", "questions", module_payload)
 
     module_path = manager.base_dir / "acme" / "1000" / "questions.json"
     assert module_path.exists()
     assert json.loads(module_path.read_text()) == module_payload
     assert manager.load_module("acme", "1000", "questions") == module_payload
+    assert uploaded_url == fake_upload_service.return_url
+    assert fake_upload_service.uploads == [
+        {
+            "company_code": "1000",
+            "company_name": "acme",
+            "content_type": "questions",
+            "document_bytes": json.dumps(module_payload, indent=2).encode("utf-8"),
+            "mime_type": "application/json",
+        }
+    ]

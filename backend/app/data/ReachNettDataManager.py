@@ -2,10 +2,13 @@ from pathlib import Path
 import json
 from typing import List, Optional
 
+from ..services.knowledgebase_upload import KnowledgebaseUploadService
+
 
 class ReachNettDataManager:
-    def __init__(self):
+    def __init__(self, upload_service: Optional[KnowledgebaseUploadService] = None):
         self.base_dir = (Path(__file__).resolve().parent /"reachnett").resolve()
+        self._upload_service = upload_service or KnowledgebaseUploadService()
 
     def root_dir(self) -> Path:
         return self.base_dir
@@ -63,7 +66,17 @@ class ReachNettDataManager:
             return {}
         return json.loads(path.read_text())
 
-    def save_module(self, customer: str, company_code: str, module: str, data: dict):
+    def save_module(self, customer: str, company_code: str, module: str, data: dict) -> str:
         path = self.module_file(customer, company_code, module)
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(data, indent=2))
+        payload = json.dumps(data, indent=2)
+        path.write_text(payload)
+
+        # Upload module JSON to ReachNett knowledgebase storage as a canonical copy.
+        return self._upload_service.upload_document(
+            company_code=company_code,
+            company_name=customer,
+            content_type=module,
+            document_bytes=payload.encode("utf-8"),
+            mime_type="application/json",
+        )
