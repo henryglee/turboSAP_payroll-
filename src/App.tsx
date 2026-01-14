@@ -8,6 +8,7 @@ import { PaymentMethodPage } from './pages/PaymentMethodPage';
 // import { QuestionsConfigPage } from './pages/QuestionsConfigPage';
 import { AccountPage } from './pages/AccountPage';
 import { PayrollAreaPage } from './pages/PayrollAreaPage';
+import { CompanyCodePage } from './pages/CompanyCodePage';
 import { AIConfigPage } from './pages/AIConfigPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { AdminUsersPage } from './pages/AdminUsersPage';
@@ -16,7 +17,8 @@ import { DataTerminalPage } from "./pages/DataTerminalPage.tsx";
 import { ConfigurationScopePage } from './pages/ConfigurationScopePage';
 import { AdminCategoriesPage } from './pages/AdminCategoriesPage';
 import { ExportCenterPage } from './pages/ExportCenterPage';
-import { CodebaseVizPage } from './pages/CodebaseVizPage';
+// CodebaseVizPage - temporarily disabled (untracked files)
+// import { CodebaseVizPage } from './pages/CodebaseVizPage';
 import { PaymentMethodConfigPage } from './pages/admin/PaymentMethodConfigPage';
 import { PayrollAreaConfigPage } from './pages/admin/PayrollAreaConfigPage';
 import { ConfigurationManagementPage } from './pages/admin/ConfigurationManagementPage';
@@ -119,7 +121,7 @@ function AppContent() {
         }
       />
 
-      {/* Codebase Visualization - Architecture map */}
+      {/* Codebase Visualization - temporarily disabled (untracked files)
       <Route
         path="/viz"
         element={
@@ -127,7 +129,7 @@ function AppContent() {
             <CodebaseVizPage />
           </ProtectedRoute>
         }
-      />
+      /> */}
 
       {/* Payment Methods - uses DashboardLayout */}
       <Route
@@ -135,6 +137,16 @@ function AppContent() {
         element={
           <ProtectedRoute requireClient>
             <PaymentMethodPage key={user?.username ?? 'anon'} />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Company Code - Spreadsheet-style enterprise structure config */}
+      <Route
+        path="/company-code"
+        element={
+          <ProtectedRoute requireClient>
+            <CompanyCodePage />
           </ProtectedRoute>
         }
       />

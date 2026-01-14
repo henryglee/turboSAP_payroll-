@@ -20,15 +20,18 @@ import {
   ChevronRight,
   Layers,
   Sparkles,
+  Building2,
 } from 'lucide-react';
 
 const navItems = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard', key: 'dashboard' },
   { icon: Sparkles, label: 'AI Config', href: '/ai-config', key: 'aiConfig', isNew: true },
+  { icon: Building2, label: 'Company Codes', href: '/company-code', key: 'companyCodes' },
   { icon: Calendar, label: 'Payroll Areas', href: '/payroll-area', key: 'payrollAreas' },
   { icon: CreditCard, label: 'Payment Methods', href: '/payment-methods', key: 'paymentMethods' },
   { icon: Layers, label: 'All Modules', href: '/scope', key: 'scope' },
   { icon: Download, label: 'Export Center', href: '/export', key: 'export' },
+  // { icon: Network, label: 'Codebase', href: '/viz', key: 'viz' }, // temporarily disabled
 ];
 
 interface SidebarProps {
@@ -42,7 +45,7 @@ export function Sidebar({ currentPath }: SidebarProps) {
   const { user, clearAuth } = useAuthStore();
 
   // Get live status from localStorage via useExportData hook
-  const { payrollStatus, paymentStatus } = useExportData();
+  const { payrollStatus, paymentStatus, companyCodeStatus } = useExportData();
 
   const handleSignOut = () => {
     clearAuth();
@@ -55,19 +58,18 @@ export function Sidebar({ currentPath }: SidebarProps) {
     }
     if (key === 'dashboard' || key === 'export' || key === 'scope' || key === 'aiConfig') return null;
 
-    // Map key to actual status from useExportData
-    let status: 'complete' | 'incomplete' | 'not-started' = 'not-started';
+    // Map key to actual status from useExportData (simplified: complete or not-started)
+    let status: 'complete' | 'not-started' = 'not-started';
     if (key === 'payrollAreas') {
       status = payrollStatus.status;
     } else if (key === 'paymentMethods') {
       status = paymentStatus.status;
+    } else if (key === 'companyCodes') {
+      status = companyCodeStatus.status;
     }
 
     if (status === 'complete') {
       return <CheckCircle2 className="h-3.5 w-3.5 text-success" />;
-    }
-    if (status === 'incomplete') {
-      return <Circle className="h-3.5 w-3.5 text-warning fill-warning" />;
     }
     return <Circle className="h-3.5 w-3.5 text-muted-foreground/40" />;
   };

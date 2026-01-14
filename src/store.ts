@@ -31,6 +31,10 @@ interface ConfigurationStore {
   paymentDataVersion: number;
   notifyPaymentDataChanged: () => void;
 
+  // Company code data sync - incremented when company code localStorage changes
+  companyCodeVersion: number;
+  notifyCompanyCodeChanged: () => void;
+
   // Actions
   updateCompanyName: (name: string) => void;
   updateTotalEmployees: (count: number) => void;
@@ -116,6 +120,12 @@ export const useConfigStore = create<ConfigurationStore>()(
       paymentDataVersion: 0,
       notifyPaymentDataChanged: () => set((state) => ({
         paymentDataVersion: state.paymentDataVersion + 1
+      })),
+
+      // Company code data sync
+      companyCodeVersion: 0,
+      notifyCompanyCodeChanged: () => set((state) => ({
+        companyCodeVersion: state.companyCodeVersion + 1
       })),
 
   updateCompanyName: (name) =>
@@ -323,6 +333,7 @@ export const useConfigStore = create<ConfigurationStore>()(
         payrollAreas: state.payrollAreas,
         validation: state.validation,
         paymentDataVersion: state.paymentDataVersion,
+        companyCodeVersion: state.companyCodeVersion,
       }),
     }
   )

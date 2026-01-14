@@ -4,7 +4,7 @@
  * Extracted from PayrollResultsCard and PaymentMethodPage
  */
 
-import type { PayrollArea } from '../types';
+import type { PayrollArea, CompanyCode } from '../types';
 import {
   toCSVWithLabels,
   formatDatePadded,
@@ -66,6 +66,25 @@ export interface CheckRangeRow {
 
 export interface PreNotificationRow {
   pre_notification_required: string;
+}
+
+export interface CompanyCodeRow {
+  company_code: string;
+  company_name: string;
+  short_name: string;
+  currency: string;
+  language: string;
+  street: string;
+  city: string;
+  state: string;
+  zip_code: string;
+  country: string;
+  po_box: string;
+  chart_of_accounts: string;
+  fiscal_year_variant: string;
+  vat_registration_number: string;
+  credit_control_area: string;
+  tax_jurisdiction_code: string;
 }
 
 export interface ExportFile {
@@ -533,6 +552,55 @@ export function generatePreNotificationCSV(required: boolean): string {
   ];
 
   return toCSVWithLabels([row], columns);
+}
+
+// ============================================
+// Company Code Generators
+// ============================================
+
+export function generateCompanyCodeCSV(codes: CompanyCode[]): string {
+  // Convert CompanyCode to CompanyCodeRow format
+  const rows: CompanyCodeRow[] = codes
+    .filter((c) => c.companyCode && c.companyName) // Only include valid rows
+    .map((c) => ({
+      company_code: c.companyCode || '',
+      company_name: c.companyName || '',
+      short_name: c.shortName || '',
+      currency: c.currency || '',
+      language: c.language || '',
+      street: c.street || '',
+      city: c.city || '',
+      state: c.state || '',
+      zip_code: c.zipCode || '',
+      country: c.country || '',
+      po_box: c.poBox || '',
+      chart_of_accounts: c.chartOfAccounts || '',
+      fiscal_year_variant: c.fiscalYearVariant || '',
+      vat_registration_number: c.vatRegistrationNumber || '',
+      credit_control_area: c.creditControlArea || '',
+      tax_jurisdiction_code: c.taxJurisdictionCode || '',
+    }));
+
+  const columns = [
+    { key: 'company_code' as const, label: 'Company_Code' },
+    { key: 'company_name' as const, label: 'Company_Name' },
+    { key: 'short_name' as const, label: 'Short_Name' },
+    { key: 'currency' as const, label: 'Currency' },
+    { key: 'language' as const, label: 'Language' },
+    { key: 'street' as const, label: 'Street' },
+    { key: 'city' as const, label: 'City' },
+    { key: 'state' as const, label: 'State' },
+    { key: 'zip_code' as const, label: 'Zip_Code' },
+    { key: 'country' as const, label: 'Country' },
+    { key: 'po_box' as const, label: 'PO_Box' },
+    { key: 'chart_of_accounts' as const, label: 'Chart_of_Accounts' },
+    { key: 'fiscal_year_variant' as const, label: 'Fiscal_Year_Variant' },
+    { key: 'vat_registration_number' as const, label: 'VAT_Registration_Number' },
+    { key: 'credit_control_area' as const, label: 'Credit_Control_Area' },
+    { key: 'tax_jurisdiction_code' as const, label: 'Tax_Jurisdiction_Code' },
+  ];
+
+  return toCSVWithLabels(rows, columns);
 }
 
 // ============================================

@@ -6,7 +6,7 @@
 import { useMemo, useEffect, useRef } from 'react';
 import { useConfigStore } from '../store';
 import { useAuthStore } from '../store/auth';
-import type { PayrollArea } from '../types';
+import type { PayrollArea, CompanyCode } from '../types';
 import type {
   PaymentMethodRow,
   CheckRangeRow,
@@ -37,7 +37,7 @@ export interface PaymentData {
 }
 
 export interface ModuleStatus {
-  status: 'complete' | 'incomplete' | 'not-started';
+  status: 'complete' | 'not-started';
   itemCount: number;
 }
 
@@ -50,6 +50,10 @@ export interface ExportDataResult {
   paymentData: PaymentData | null;
   paymentStatus: ModuleStatus;
 
+  // Company code data
+  companyCodes: CompanyCode[];
+  companyCodeStatus: ModuleStatus;
+
   // User info
   userKey: string;
 }
@@ -60,6 +64,19 @@ export interface ExportDataResult {
 
 function paymentDraftKey(userKey: string) {
   return `turbosap.payment_method.draft.v1.${userKey}`;
+}
+
+function companyCodeDraftKey(userKey: string) {
+  return `turbosap.company_code.draft.v1.${userKey}`;
+}
+
+function loadCompanyCodeDraft(userKey: string): CompanyCode[] {
+  try {
+    const raw = localStorage.getItem(companyCodeDraftKey(userKey));
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
 }
 
 interface PaymentDraft {
@@ -114,6 +131,9 @@ export function useExportData(): ExportDataResult {
 
   // Subscribe to payment data version to trigger re-computation when localStorage changes
   const paymentDataVersion = useConfigStore((state) => state.paymentDataVersion);
+
+  // Subscribe to company code version to trigger re-computation when localStorage changes
+  const companyCodeVersion = useConfigStore((state) => state.companyCodeVersion);
 
   
   const paymentData = useMemo((): PaymentData | null => {
@@ -191,18 +211,18 @@ export function useExportData(): ExportDataResult {
 }, [userKey, paymentDataVersion]);
 
 
-  // Calculate payroll status
+  // Calculate payroll status (simplified: complete or not-started)
   const payrollStatus = useMemo((): ModuleStatus => {
-    if (payrollAreas.length === 0) {
-      return { status: 'not-started', itemCount: 0 };
-    }
     // Check if any areas have meaningful data (not just default template)
-    const hasData = payrollAreas.some(
+    const validAreas = payrollAreas.filter(
       (a) => a.employeeCount > 0 || a.description !== ''
     );
+    if (validAreas.length === 0) {
+      return { status: 'not-started', itemCount: 0 };
+    }
     return {
-      status: hasData ? 'complete' : 'incomplete',
-      itemCount: payrollAreas.length,
+      status: 'complete',
+      itemCount: validAreas.length,
     };
   }, [payrollAreas]);
 
@@ -249,17 +269,49 @@ useEffect(() => {
 }, [payrollAreas]);
 
 
-  // Calculate payment status
+  // Calculate payment status (simplified: complete or not-started)
   const paymentStatus = useMemo((): ModuleStatus => {
     if (!paymentData) {
       return { status: 'not-started', itemCount: 0 };
     }
     const methodCount = paymentData.methods.filter((m) => m.used === 'X').length;
+    if (methodCount === 0) {
+      return { status: 'not-started', itemCount: 0 };
+    }
     return {
-      status: methodCount > 0 ? 'complete' : 'incomplete',
+      status: 'complete',
       itemCount: methodCount,
     };
   }, [paymentData]);
+
+  // Load company codes from localStorage
+  const companyCodes = useMemo((): CompanyCode[] => {
+    return loadCompanyCodeDraft(userKey);
+  }, [userKey, companyCodeVersion]);
+
+  // Calculate company code status (simplified: complete or not-started)
+  // A row is complete only if ALL required fields are filled
+  const companyCodeStatus = useMemo((): ModuleStatus => {
+    const REQUIRED_KEYS: (keyof CompanyCode)[] = [
+      'companyCode', 'companyName', 'currency',
+      'street', 'city', 'state', 'zipCode', 'country',
+    ];
+
+    const completeCodes = companyCodes.filter((c) =>
+      REQUIRED_KEYS.every((key) => {
+        const val = c[key];
+        return typeof val === 'string' ? val.trim() !== '' : Boolean(val);
+      })
+    );
+
+    if (completeCodes.length === 0) {
+      return { status: 'not-started', itemCount: 0 };
+    }
+    return {
+      status: 'complete',
+      itemCount: completeCodes.length,
+    };
+  }, [companyCodes]);
 
  const didPersistPayment = useRef(false);
 
@@ -309,6 +361,8 @@ useEffect(() => {
     payrollStatus,
     paymentData,
     paymentStatus,
+    companyCodes,
+    companyCodeStatus,
     userKey,
   };
 }

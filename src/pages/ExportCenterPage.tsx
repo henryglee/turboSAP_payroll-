@@ -7,7 +7,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { DashboardLayout } from '../components/layout/DashboardLayout';
 import { useExportData } from '../hooks/useExportData';
-import type { PayrollArea } from '../types';
+import type { PayrollArea, CompanyCode } from '../types';
 import {
   FolderOpen,
   Folder,
@@ -18,7 +18,6 @@ import {
   ChevronDown,
   CheckCircle2,
   AlertCircle,
-  Clock,
   Edit3,
   Save,
   X,
@@ -33,6 +32,7 @@ import {
   generatePaymentMethodCSV,
   generateCheckRangeCSV,
   generatePreNotificationCSV,
+  generateCompanyCodeCSV,
 } from '../utils/fileGenerators';
 import { downloadCSV, downloadAsZip } from '../utils/exportUtils';
 
@@ -44,7 +44,7 @@ interface FileNode {
   id: string;
   name: string;
   type: 'folder' | 'file';
-  module: 'payroll' | 'payment';
+  module: 'payroll' | 'payment' | 'company-code';
   children?: FileNode[];
   generator?: string; // Key into FILE_GENERATORS
   disabled?: boolean;
@@ -69,6 +69,7 @@ const EMPTY_CSVS: Record<string, string> = {
   'payment-method': 'Payment_Method,Description,Used',
   'check-range': 'Company_Code,Bank_Account,Check_Number_Range',
   'pre-notification': 'Pre_Notification_Required',
+  'company-code': 'Company_Code,Company_Name,Short_Name,Currency,Language,Street,City,State,Zip_Code,Country,PO_Box,Chart_of_Accounts,Fiscal_Year_Variant,VAT_Registration_Number,Credit_Control_Area,Tax_Jurisdiction_Code',
 };
 
 // ============================================
@@ -128,17 +129,12 @@ function serializeCSV(data: ParsedCSV): string {
 // Components
 // ============================================
 
-function StatusBadge({ status }: { status: 'complete' | 'incomplete' | 'not-started' }) {
+function StatusBadge({ status }: { status: 'complete' | 'not-started' }) {
   const config = {
     complete: {
       icon: CheckCircle2,
       text: 'Ready',
       className: 'bg-success/10 text-success border-success/30',
-    },
-    incomplete: {
-      icon: Clock,
-      text: 'Incomplete',
-      className: 'bg-warning/10 text-warning border-warning/30',
     },
     'not-started': {
       icon: AlertCircle,
@@ -438,9 +434,9 @@ function PreviewPanel({ fileId, content, onContentChange, onDownload, fileName, 
 // ============================================
 
 export function ExportCenterPage() {
-  const { payrollAreas, payrollStatus, paymentData, paymentStatus } = useExportData();
+  const { payrollAreas, payrollStatus, paymentData, paymentStatus, companyCodes, companyCodeStatus } = useExportData();
 
-  const [expanded, setExpanded] = useState<Set<string>>(new Set(['payroll', 'payment']));
+  const [expanded, setExpanded] = useState<Set<string>>(new Set(['payroll', 'payment', 'company-code']));
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [editedContents, setEditedContents] = useState<Record<string, string>>({});
 
@@ -448,6 +444,8 @@ export function ExportCenterPage() {
   const fileTree = useMemo((): FileNode[] => {
     const payrollDisabled = payrollStatus.status === 'not-started';
     const paymentDisabled = paymentStatus.status === 'not-started';
+    const companyCodeDisabled = companyCodeStatus.status === 'not-started';
+    const validCompanyCodes = companyCodes.filter((c) => c.companyCode && c.companyName);
 
     // Get unique calendars and group areas by calendar
     const calendarMap = new Map<string, PayrollArea>();
@@ -569,8 +567,26 @@ export function ExportCenterPage() {
           },
         ],
       },
+      {
+        id: 'company-code',
+        name: 'Company Code Configuration',
+        type: 'folder',
+        module: 'company-code',
+        disabled: companyCodeDisabled,
+        children: [
+          {
+            id: 'company-code-file',
+            name: 'company_code.csv',
+            type: 'file',
+            module: 'company-code',
+            generator: 'company-code',
+            disabled: companyCodeDisabled,
+            rowCount: validCompanyCodes.length,
+          },
+        ],
+      },
     ];
-  }, [payrollAreas, payrollStatus, paymentData, paymentStatus]);
+  }, [payrollAreas, payrollStatus, paymentData, paymentStatus, companyCodes, companyCodeStatus]);
 
   // Generate file content
   const generateContent = useCallback(
@@ -615,11 +631,13 @@ export function ExportCenterPage() {
           return getEmptyOrGenerated(!!paymentData?.checkRanges.length, () => generateCheckRangeCSV(paymentData!.checkRanges));
         case 'pre-notification':
           return getEmptyOrGenerated(!!paymentData, () => generatePreNotificationCSV(paymentData!.preNotificationRequired));
+        case 'company-code-file':
+          return getEmptyOrGenerated(companyCodes.length > 0, () => generateCompanyCodeCSV(companyCodes), 'company-code');
         default:
           return EMPTY_CSVS[fileId] || '';
       }
     },
-    [payrollAreas, paymentData, editedContents]
+    [payrollAreas, paymentData, companyCodes, editedContents]
   );
 
   // Get file name from ID
@@ -641,6 +659,7 @@ export function ExportCenterPage() {
       'payment-method': 'payment_method.csv',
       'check-range': 'check_range.csv',
       'pre-notification': 'pre_notification.csv',
+      'company-code-file': 'company_code.csv',
     };
     return fileMap[fileId] || `${fileId}.csv`;
   };
@@ -705,6 +724,11 @@ export function ExportCenterPage() {
       files.push({ name: 'pre_notification.csv', content: generateContent('pre-notification') });
     }
 
+    // Collect company code files
+    if (companyCodeStatus.status !== 'not-started') {
+      files.push({ name: 'company_code.csv', content: generateContent('company-code-file') });
+    }
+
     if (files.length > 0) {
       await downloadAsZip(files, 'sap_configuration');
     }
@@ -720,7 +744,7 @@ export function ExportCenterPage() {
           <button
             type="button"
             onClick={handleDownloadAll}
-            disabled={payrollStatus.status === 'not-started' && paymentStatus.status === 'not-started'}
+            disabled={payrollStatus.status === 'not-started' && paymentStatus.status === 'not-started' && companyCodeStatus.status === 'not-started'}
             className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <Archive className="w-4 h-4" />
@@ -729,7 +753,7 @@ export function ExportCenterPage() {
         </div>
 
         {/* Module Status Summary */}
-        <div className="shrink-0 grid grid-cols-2 gap-4">
+        <div className="shrink-0 grid grid-cols-3 gap-4">
           <div className="flex items-center gap-3 p-4 bg-card rounded-lg border border-border">
             <div className="p-2 bg-secondary rounded-lg">
               <FolderOpen className="w-5 h-5 text-indigo-600" />
@@ -755,6 +779,20 @@ export function ExportCenterPage() {
               </div>
               <p className="text-sm text-muted-foreground">
                 {paymentStatus.itemCount} payment method{paymentStatus.itemCount !== 1 ? 's' : ''} enabled
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 p-4 bg-card rounded-lg border border-border">
+            <div className="p-2 bg-secondary rounded-lg">
+              <FolderOpen className="w-5 h-5 text-amber-600" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-foreground">Company Codes</span>
+                <StatusBadge status={companyCodeStatus.status} />
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {companyCodeStatus.itemCount} company code{companyCodeStatus.itemCount !== 1 ? 's' : ''} configured
               </p>
             </div>
           </div>
@@ -793,7 +831,9 @@ export function ExportCenterPage() {
               selectedFile
                 ? selectedFile.startsWith('pay-period-') || selectedFile.startsWith('pay-date-') || ['payroll-areas', 'calendar-id', 'payroll-area-config'].includes(selectedFile)
                   ? payrollAreas.length > 0
-                  : !!paymentData?.methods.length
+                  : selectedFile === 'company-code-file'
+                    ? companyCodes.filter((c) => c.companyCode && c.companyName).length > 0
+                    : !!paymentData?.methods.length
                 : false
             }
           />
