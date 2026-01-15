@@ -33,14 +33,15 @@ const ALLOWED_TYPES = {
 const ALLOWED_EXTENSIONS = ['.pptx', '.ppt', '.docx', '.doc', '.xlsx', '.xls', '.pdf'];
 const KB_COMPANY_NAME = 'default';
 const KB_COMPANY_CODE = 'default-code';
-const KB_CONTENT_TYPE_MAP: Record<string, 'ppt' | 'words' | 'docs' | 'xlxs'> = {
-  ppt: 'ppt',
-  pptx: 'ppt',
-  doc: 'words',
-  docx: 'words',
-  pdf: 'docs',
-  xlsx: 'xlxs',
-  xls: 'xlxs',
+// Map file extensions to full MIME types (required by ReachNett API)
+const KB_CONTENT_TYPE_MAP: Record<string, string> = {
+  ppt: 'application/vnd.ms-powerpoint',
+  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  doc: 'application/msword',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  pdf: 'application/pdf',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  xls: 'application/vnd.ms-excel',
 };
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
 
@@ -53,15 +54,8 @@ interface Document {
   s3Key?: string;
 }
 
-// Mock data - remove when API is ready
-const MOCK_DOCUMENTS: Document[] = [
-  { id: '1', name: 'SAP_Training_Guide.pptx', fileType: 'pptx', fileSize: 24500000, uploadedAt: '2025-01-10T14:30:00Z' },
-  { id: '2', name: 'Payroll_Policies.docx', fileType: 'docx', fileSize: 890000, uploadedAt: '2025-01-08T09:15:00Z' },
-  { id: '3', name: 'Employee_Data_Template.xlsx', fileType: 'xlsx', fileSize: 1200000, uploadedAt: '2025-01-05T16:45:00Z' },
-];
-
 export function DocumentsPage() {
-  const [documents, setDocuments] = useState<Document[]>(MOCK_DOCUMENTS);
+  const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -117,13 +111,13 @@ export function DocumentsPage() {
     return null;
   };
 
-  const resolveKnowledgebaseContentType = (filename: string): 'ppt' | 'words' | 'docs' | 'xlxs' => {
+  const resolveKnowledgebaseContentType = (filename: string): string => {
     const ext = filename.split('.').pop()?.toLowerCase() || '';
-    return KB_CONTENT_TYPE_MAP[ext] || 'docs';
+    return KB_CONTENT_TYPE_MAP[ext] || 'application/octet-stream';
   };
 
   const requestPresignedUpload = async (
-    contentType: 'ppt' | 'words' | 'docs' | 'xlxs'
+    contentType: string
   ) => {
     return apiFetch<{ uploadUrl: string; rawResponse: Record<string, unknown> }>(
       '/api/knowledgebase/presign',
@@ -326,7 +320,7 @@ export function DocumentsPage() {
         )}
       </div>
 
-      {/* Documents Table */}
+      {/* Documents Table - commented out until backend persistence is implemented
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -411,6 +405,7 @@ export function DocumentsPage() {
           </table>
         </div>
       </div>
+      */}
 
       {/* Footer note */}
       <p className="mt-4 text-xs text-gray-400 text-center">

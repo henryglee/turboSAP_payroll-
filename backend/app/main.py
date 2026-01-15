@@ -59,7 +59,7 @@ from fastapi.responses import HTMLResponse
 import os
 
 
-from .routes import data_terminal, ai_config, module_config, knowledgebase
+from .routes import data_terminal, ai_config, module_config, knowledgebase, hierarchy
 
 ENV = os.getenv("APP_ENV", "development")
 
@@ -94,6 +94,26 @@ async def lifespan(app: FastAPI):
         else:
             print(f"[Seeding] User already exists: {u['username']}")
 
+    # Seed hierarchy (categories & tasks) if empty
+    from .database import count_categories, create_category, create_task
+    if count_categories() == 0:
+        print("[Seeding] Creating initial hierarchy...")
+        # Categories
+        create_category("enterprise-structure", "Enterprise Structure", display_order=10)
+        create_category("banking", "Banking", display_order=20)
+        create_category("personnel-admin", "Personnel Administration", display_order=30)
+        # Tasks under Enterprise Structure (matching existing module slugs)
+        create_task("payroll-area", "Payroll Area", "enterprise-structure", display_order=10)
+        create_task("company-code", "Company Code", "enterprise-structure", display_order=20)
+        create_task("personnel-area", "Personnel Area", "enterprise-structure", display_order=30)
+        create_task("employee-group", "Employee Group", "enterprise-structure", display_order=40)
+        create_task("employee-subgroup", "Employee Subgroup", "enterprise-structure", display_order=50)
+        # Tasks under Banking
+        create_task("payment-method", "Payment Method", "banking", display_order=10)
+        print("[Seeding] Hierarchy created successfully")
+    else:
+        print("[Seeding] Hierarchy already exists, skipping")
+
     yield
     # Shutdown logic (if any)
 
@@ -118,6 +138,7 @@ app.include_router(data_terminal.router)
 app.include_router(ai_config.router)
 app.include_router(module_config.router)
 app.include_router(knowledgebase.router)
+app.include_router(hierarchy.router)
 
 # Serve uploaded logos (in both dev and production)
 uploads_dir = Path(__file__).parent.parent / "uploads"

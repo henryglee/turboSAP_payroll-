@@ -6,14 +6,26 @@
       "description": "Configure payment method questions (ACH, checks, pay cards, etc.)",
       "icon": "credit-card",
       "status": "active",
-      "order": 2
+      "order": 3
     },
     "payroll-area": {
       "name": "Payroll Area",
       "description": "Configure payroll area questions (frequencies, patterns, etc.)",
       "icon": "calendar",
       "status": "active",
-      "order": 1
+      "order": 2
+    },
+    "ggg": {
+      "slug": "ggg",
+      "name": "ggg",
+      "description": "",
+      "icon": "credit-card",
+      "order": 1,
+      "createdAt": "2026-01-15T13:51:11.859523",
+      "createdBy": "system",
+      "hasConfig": false,
+      "hasBackup": false,
+      "hasOriginal": false
     }
   }
 }
