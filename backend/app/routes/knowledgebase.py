@@ -26,16 +26,16 @@ class PresignRequest(BaseModel):
 @router.post("/presign")
 def request_presigned_upload(
     payload: PresignRequest,
-    _user: dict = Depends(get_current_user),
+    user: dict = Depends(get_current_user),
 ) -> dict:
     """Return a presigned URL a client can use to upload a knowledgebase document."""
-
     try:
         presigned = _upload_service.request_presigned_upload(
             company_code=payload.companyCode,
             company_name=payload.companyName,
             content_type=payload.contentType,
         )
+        print(f"presigned = {presigned}")
     except KnowledgebaseUploadError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
