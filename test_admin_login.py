@@ -22,7 +22,7 @@ def test_admin_login():
     # Step 1: Login
     print("\n1. Logging in as admin...")
     login_data = {
-        "username": "admin",
+        "username": "admin123",
         "password": "admin123"
     }
     

@@ -73,6 +73,7 @@ class KnowledgebaseUploadService:
         except json.JSONDecodeError as exc:  # pragma: no cover - defensive
             raise KnowledgebaseUploadError("Presign endpoint returned invalid JSON") from exc
 
+        print(f"parsed:== {parsed}")
         upload_url = self._extract_upload_url(parsed)
         return PresignedUpload(upload_url=upload_url, raw_response=parsed)
 
@@ -120,7 +121,7 @@ class KnowledgebaseUploadService:
 
     @staticmethod
     def _extract_upload_url(payload: Dict[str, Any]) -> str:
-        for key in ("uploadUrl", "url", "presignedUrl", "signedUrl"):
+        for key in ("uploadURL", "url", "presignedUrl", "signedUrl"):
             url = payload.get(key)
             if isinstance(url, str) and url:
                 return url

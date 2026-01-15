@@ -179,6 +179,7 @@ export function DocumentsPage() {
       if (!uploadUrl) {
         throw new Error('Failed to obtain upload URL');
       }
+      console.log(`upload URL: ${uploadUrl}`)
 
       const objectUrl = await uploadToPresignedUrl(uploadUrl, file);
 
