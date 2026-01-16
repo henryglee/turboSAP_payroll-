@@ -49,13 +49,23 @@ MODULE_FILES = {
 
 def _load_modules_metadata() -> Dict[str, Any]:
     """Load module metadata from JSON file."""
+    base = {"version": "1.0", "modules": {}, "categories": {}}
     if not MODULES_METADATA_PATH.exists():
-        return {"version": "1.0", "modules": {}}
+        return base
     try:
         with MODULES_METADATA_PATH.open() as f:
-            return json.load(f)
+            data = json.load(f)
     except json.JSONDecodeError:
-        return {"version": "1.0", "modules": {}}
+        return base
+
+    # Ensure expected top-level keys exist
+    if "modules" not in data:
+        data["modules"] = {}
+    if "categories" not in data:
+        data["categories"] = {}
+    if "version" not in data:
+        data["version"] = "1.0"
+    return data
 
 
 def _save_modules_metadata(data: Dict[str, Any]) -> None:
@@ -332,6 +342,24 @@ async def update_module_metadata(
     if "order" in payload:
         current["order"] = int(payload["order"])
 
+    if "categorySlug" in payload:
+        # Optional: validate against categories
+        all_metadata = _load_modules_metadata()
+        categories = all_metadata.get("categories", {})
+        cat = str(payload["categorySlug"]).strip()
+        if not cat:
+            raise HTTPException(
+                status_code=400,
+                detail="categorySlug is required and cannot be empty"
+            )
+        if cat not in categories:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid categorySlug '{cat}'"
+            )
+
+    current["categorySlug"] = cat
+
     # Save
     all_metadata["modules"][module_slug] = current
     _save_modules_metadata(all_metadata)
@@ -518,12 +546,15 @@ async def create_module(
     try:
         # Load existing modules
         modules_metadata = _load_modules_metadata()
+        all_modules = modules_metadata.get("modules", {})
+        all_categories = modules_metadata.get("categories", {})
+        
         
         # Generate slug if not provided
         slug = payload.get('slug', '').strip() or payload['name'].lower().replace(' ', '-')
         
         # Check if module with this slug already exists
-        if slug in modules_metadata.get("modules", {}):
+        if slug in all_modules:
             raise HTTPException(
                 status_code=400,
                 detail=f"Module with slug '{slug}' already exists"
@@ -538,6 +569,17 @@ async def create_module(
                     detail=f"Missing required field: {field}"
                 )
         
+        # Validate categorySlug
+        category_slug = payload.get("categorySlug")
+        if category_slug not in all_categories:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Invalid categorySlug '{category_slug}'. "
+                    f"Valid categories: {', '.join(all_categories.keys()) or 'none defined'}"
+                )
+            )  
+
         # Add default values for optional fields
         if 'description' not in payload:
             payload['description'] = ''
@@ -545,7 +587,7 @@ async def create_module(
             payload['icon'] = 'default'
         if 'order' not in payload:
             # Set order to be after the last module
-            all_orders = [m.get('order', 0) for m in modules_metadata.get("modules", {}).values()]
+            all_orders = [m.get('order', 0) for m in all_modules.values()]
             payload['order'] = max(all_orders) + 1 if all_orders else 1
         
         # Create module directory
@@ -559,6 +601,7 @@ async def create_module(
             'description': payload['description'],
             'icon': payload['icon'],
             'order': payload['order'],
+            'categorySlug': category_slug,
             'createdAt': datetime.now().isoformat(),
             'createdBy': current_user.get('email', 'system'),
             'hasConfig': False,
