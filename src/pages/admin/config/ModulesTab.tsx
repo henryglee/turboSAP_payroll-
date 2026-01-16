@@ -96,6 +96,7 @@ export interface ModuleInfo {
   hasConfig: boolean;
   hasBackup: boolean;
   hasOriginal: boolean;
+  categorySlug?: string;
 }
 
 export interface ModulesTabProps {
@@ -126,6 +127,7 @@ const moduleFormSchema = z.object({
   icon: z.string().optional(),
   order: z.number().int().min(0, 'Order must be a positive number'),
   slug: z.string().optional(), 
+  categorySlug: z.string().min(1, 'Category is required'),
 });
 
 type ModuleFormData = z.infer<typeof moduleFormSchema>;
@@ -147,6 +149,38 @@ export function getModuleIcon(slug: string, icon?: string): React.ElementType {
   return MODULE_ICONS[slug] || MODULE_ICONS.default;
 }
 
+type ModuleCategorySlug = 'enterprise-structure' | 'banking';
+
+interface ModuleCategory {
+  slug: ModuleCategorySlug;
+  name: string;
+  description: string;
+  order: number;
+}
+
+// Static categories for now; aligned with backend/app/data/modules_metadata.json
+const MODULE_CATEGORIES: ModuleCategory[] = [
+  {
+    slug: 'enterprise-structure',
+    name: 'Enterprise Structure',
+    description: 'Configuration for organizational structure elements',
+    order: 1,
+  },
+  {
+    slug: 'banking',
+    name: 'Banking',
+    description: 'Banking and payment related configurations',
+    order: 2,
+  },
+];
+
+// Map module slug → category slug
+const MODULE_CATEGORY_MAP: Record<string, ModuleCategorySlug> = {
+  'payroll-area': 'enterprise-structure',
+  'payment-method': 'banking',
+};
+
+
 // ============================================
 // Component
 // ============================================
@@ -155,6 +189,20 @@ export function ModulesTab({ modules, loading, error, onRefresh: _onRefresh }: M
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  const [selectedCategory, setSelectedCategory] = useState<ModuleCategory | null>(null);
+
+  const [moduleCategoryOverrides, setModuleCategoryOverrides] = useState<Record<string, ModuleCategorySlug>>({});
+
+  const getCategoryForModule = (module: ModuleInfo): ModuleCategorySlug | undefined => {
+    // Prefer backend-provided categorySlug if present
+    if (module.categorySlug) {
+      return module.categorySlug as ModuleCategorySlug;
+    }
+
+    // Fallback for legacy modules without categorySlug
+    return MODULE_CATEGORY_MAP[module.slug];
+  };
 
   const {
     register,
@@ -170,11 +218,13 @@ export function ModulesTab({ modules, loading, error, onRefresh: _onRefresh }: M
       description: '',
       icon: undefined,
       order: modules.length > 0 ? Math.max(...modules.map(m => m.order || 0)) + 1 : 1,
+      categorySlug: '',
     },
   });
 
   const watchedName = watch('name');
   const watchedIcon = watch('icon');
+  const watchedCategorySlug = watch('categorySlug');
 
   // Auto-generate slug from name
   useEffect(() => {
@@ -201,12 +251,23 @@ export function ModulesTab({ modules, loading, error, onRefresh: _onRefresh }: M
           name: data.name,
           description: data.description,
           icon: data.icon,
-          order: data.order
+          order: data.order,
+          // @ts-ignore - categorySlug is not in the type but is needed for the API
+          categorySlug: data.categorySlug,
         }),
       });
 
       // If we get here, the request was successful
       if (_onRefresh) _onRefresh();
+
+      // Remember this module's category in UI so it appears under that category
+      if (data.slug && data.categorySlug) {
+        setModuleCategoryOverrides((prev) => ({
+          ...prev,
+          [data.slug!]: data.categorySlug as ModuleCategorySlug,
+        }));
+      }
+
       setIsAddDialogOpen(false);
       reset();
       toast.success('Module added successfully');
@@ -218,16 +279,22 @@ export function ModulesTab({ modules, loading, error, onRefresh: _onRefresh }: M
     }
   };
 
-  // Filter modules based on search
-  const filteredModules = modules.filter((module) => {
-    if (!searchQuery.trim()) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      module.name.toLowerCase().includes(query) ||
-      module.slug.toLowerCase().includes(query) ||
-      (module.description && module.description.toLowerCase().includes(query))
-    );
-  });
+  // Filter modules based on selected category and search
+  const filteredModules = modules
+    .filter((module) => {
+      if (!selectedCategory) return true;
+      const categorySlug = getCategoryForModule(module);
+      return categorySlug === selectedCategory.slug;
+    })
+    .filter((module) => {
+      if (!searchQuery.trim()) return true;
+      const query = searchQuery.toLowerCase();
+      return (
+        module.name.toLowerCase().includes(query) ||
+        module.slug.toLowerCase().includes(query) ||
+        (module.description && module.description.toLowerCase().includes(query))
+      );
+  }); 
 
   const handleDeleteModule = async (slug: string) => {
     if (!window.confirm(`Are you sure you want to delete the module "${slug}"? This action cannot be undone.`)) {
@@ -330,41 +397,72 @@ export function ModulesTab({ modules, loading, error, onRefresh: _onRefresh }: M
         <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 py-4 border-b border-gray-100">
-            <h2 className="text-lg font-semibold text-gray-900">
-              SAP Modules
-              <span className="ml-2 text-sm font-normal text-gray-500">
-                ({filteredModules.length}
-                {searchQuery ? ` of ${modules.length}` : ""})
-              </span>
-            </h2>
-            <div className="flex items-center gap-3">
-              {/* Search */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search modules..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 pr-8 py-2 w-64 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500"
-                />
-                {searchQuery && (
+            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              {selectedCategory ? (
+                <>
                   <button
-                    onClick={() => setSearchQuery("")}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
+                    type="button"
+                    onClick={() => {
+                      setSelectedCategory(null);
+                      setSearchQuery('');
+                    }}
+                    className="text-sm text-gray-500 hover:text-gray-700 mr-2"
                   >
-                    <X className="h-3 w-3" />
+                    ← Back to Categories
                   </button>
-                )}
+                  <span>{selectedCategory.name} Modules</span>
+                  <span className="ml-2 text-sm font-normal text-gray-500">
+                    ({filteredModules.length}
+                    {searchQuery ? ` of ${modules.length}` : ""})
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span>Configuration Categories</span>
+                  <span className="ml-2 text-sm font-normal text-gray-500">
+                    ({MODULE_CATEGORIES.length})
+                  </span>
+                </>
+              )}
+            </h2>
+
+            {selectedCategory && (
+              <div className="flex items-center gap-3">
+                {/* Search */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search modules..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9 pr-8 py-2 w-64 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+                <button
+                  onClick={() => {
+                    if (selectedCategory) {
+                      setValue('categorySlug', selectedCategory.slug);
+                    } else {
+                      setValue('categorySlug', '');
+                    }
+                    setIsAddDialogOpen(true);
+                  }}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-lg transition-colors"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Module
+                </button>
               </div>
-              <button
-                onClick={() => setIsAddDialogOpen(true)}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-lg transition-colors"
-              >
-                <Plus className="h-4 w-4" />
-                Add Module
-              </button>
-            </div>
+            )}          
           </div>
 
           {/* Add Module Dialog */}
@@ -383,6 +481,33 @@ export function ModulesTab({ modules, loading, error, onRefresh: _onRefresh }: M
                     onSubmit={handleSubmit(handleAddModule)}
                     className="space-y-4"
                   >
+                    <div>
+                      <Label.Root htmlFor="category">Category *</Label.Root>
+                      <Select
+                        id="category"
+                        value={watchedCategorySlug || selectedCategory?.slug || ''}
+                        onChange={(e) => setValue('categorySlug', e.target.value)}
+                        className={errors.categorySlug ? "w-full border-red-500" : "w-full"}
+                      >
+                        <option value="" disabled>
+                          Select a category
+                        </option>
+                        {MODULE_CATEGORIES
+                          .slice()
+                          .sort((a, b) => a.order - b.order)
+                          .map((category) => (
+                            <option key={category.slug} value={category.slug}>
+                              {category.name}
+                            </option>
+                          ))}
+                      </Select>
+                      {errors.categorySlug && (
+                        <p className="text-sm text-red-500 mt-1">
+                          {errors.categorySlug.message}
+                        </p>
+                      )}
+                    </div>
+
                     <div>
                       <Label.Root htmlFor="name">Module Name *</Label.Root>
                       <Input
@@ -488,6 +613,40 @@ export function ModulesTab({ modules, loading, error, onRefresh: _onRefresh }: M
               <span className="ml-3 text-gray-600">Loading modules...</span>
             </div>
           )}
+
+          {/* Category List (shown before selecting a category) */}
+          {!loading && !error && !selectedCategory && (
+            <div className="px-6 py-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {MODULE_CATEGORIES
+                  .slice()
+                  .sort((a, b) => a.order - b.order)
+                  .map((category) => (
+                    <button
+                      key={category.slug}
+                      type="button"
+                      onClick={() => {
+                        setSelectedCategory(category);
+                        setSearchQuery('');
+                      }}
+                      className="flex items-start justify-between w-full p-4 border border-gray-200 rounded-xl bg-white hover:border-amber-400 hover:shadow-sm transition-colors text-left"
+                    >
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">
+                          {category.name}
+                        </p>
+                        <p className="mt-1 text-xs text-gray-500">
+                          {category.description}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
+              </div>
+            </div>
+          )}
+
+          {selectedCategory && (
+            <>
 
           {/* Table Header */}
           <div className="grid grid-cols-12 gap-4 px-6 py-3 bg-gray-50 border-b border-gray-100">
@@ -636,6 +795,8 @@ export function ModulesTab({ modules, loading, error, onRefresh: _onRefresh }: M
               </table>
             </div>
           )}
+        </>
+      )}
         </div>
       </SortableContext>
     </DndContext>
