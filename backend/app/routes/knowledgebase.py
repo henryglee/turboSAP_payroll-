@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from ..middleware import get_current_user
-from ..services.knowledgebase_upload import (
+from ..services.knowledgebase import (
     KnowledgebaseUploadError,
     KnowledgebaseUploadService,
 )
