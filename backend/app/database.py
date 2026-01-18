@@ -613,3 +613,24 @@ def record_knowledgebase_upload(
             (object_key, company_name, content_type),
         )
         return cursor.lastrowid
+
+
+def get_latest_knowledgebase_upload(
+    *, company_name: str, content_type: str
+) -> Optional[Dict[str, Any]]:
+    """Return the newest metadata row for a company/content pair."""
+
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT object_key, company_name, content_type, created_at
+            FROM knowledgebase_uploads
+            WHERE company_name = ? AND content_type = ?
+            ORDER BY datetime(created_at) DESC
+            LIMIT 1
+            """,
+            (company_name, content_type),
+        )
+        row = cursor.fetchone()
+        return dict(row) if row else None
