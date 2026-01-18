@@ -12,20 +12,30 @@ route the upload to the proper bucket.
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 from urllib import error, request
+from urllib.parse import quote
 
-from ..database import record_knowledgebase_upload
+from ..database import (
+    get_latest_knowledgebase_upload,
+    record_knowledgebase_upload,
+)
 
 
 DEFAULT_PRESIGN_ENDPOINT = (
     "https://idsn7cy3rf.execute-api.us-east-1.amazonaws.com/default/getPresignedURL"
 )
+DEFAULT_DOWNLOAD_BASE_URL = os.environ.get("REACHNETT_KB_DOWNLOAD_BASE")
 
 
 class KnowledgebaseUploadError(RuntimeError):
     """Raised when the document upload flow fails."""
+
+
+class KnowledgebaseDownloadError(RuntimeError):
+    """Raised when downloading or parsing knowledgebase data fails."""
 
 
 @dataclass
@@ -75,7 +85,6 @@ class KnowledgebaseUploadService:
         except json.JSONDecodeError as exc:  # pragma: no cover - defensive
             raise KnowledgebaseUploadError("Presign endpoint returned invalid JSON") from exc
 
-        print(f"parsed:== {parsed}")
         upload_url = self._extract_upload_url(parsed)
         return PresignedUpload(upload_url=upload_url, raw_response=parsed)
 
@@ -162,8 +171,82 @@ class KnowledgebaseUploadService:
             "Knowledgebase document upload did not contain an object key"
         )
 
+
+class KnowledgebaseDownloadService:
+    """Service for downloading and parsing knowledgebase JSON payloads."""
+
+    def __init__(
+        self,
+        *,
+        download_base_url: Optional[str] = DEFAULT_DOWNLOAD_BASE_URL,
+        timeout: int = 30,
+    ):
+        self.download_base_url = download_base_url
+        self.timeout = timeout
+
+    def fetch_latest_json(self, *, company_name: str, content_type: str) -> Dict[str, Any]:
+        """Return the newest JSON payload for the given company/module."""
+
+        metadata = get_latest_knowledgebase_upload(
+            company_name=company_name,
+            content_type=content_type,
+        )
+        if not metadata:
+            raise KnowledgebaseDownloadError(
+                f"No knowledgebase uploads recorded for {company_name}/{content_type}"
+            )
+
+        object_key = metadata.get("object_key")
+        if not object_key:
+            raise KnowledgebaseDownloadError("Knowledgebase metadata missing object key")
+
+        return self.fetch_json_by_object_key(object_key)
+
+    def fetch_json_by_object_key(self, object_key: str) -> Dict[str, Any]:
+        """Download and parse a JSON payload using the provided object key."""
+
+        payload = self._download_bytes(object_key)
+        return self._parse_json(payload)
+
+    def _download_bytes(self, object_key: str) -> bytes:
+        url = self._build_download_url(object_key)
+        req = request.Request(url, method="GET")
+        try:
+            with request.urlopen(req, timeout=self.timeout) as resp:
+                return resp.read()
+        except error.URLError as exc:  # pragma: no cover - runtime safety
+            raise KnowledgebaseDownloadError(
+                f"Unable to download knowledgebase object: {object_key}"
+            ) from exc
+
+    def _build_download_url(self, object_key: str) -> str:
+        if object_key.startswith(("http://", "https://")):
+            return object_key
+
+        if not self.download_base_url:
+            raise KnowledgebaseDownloadError(
+                "Download base URL is not configured for relative object keys"
+            )
+
+        encoded_key = quote(object_key.lstrip("/"))
+        return f"{self.download_base_url.rstrip('/')}/{encoded_key}"
+
+    @staticmethod
+    def _parse_json(payload: bytes) -> Dict[str, Any]:
+        try:
+            text = payload.decode("utf-8")
+        except UnicodeDecodeError as exc:  # pragma: no cover - defensive
+            raise KnowledgebaseDownloadError("Downloaded payload is not UTF-8") from exc
+
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError as exc:  # pragma: no cover - defensive
+            raise KnowledgebaseDownloadError("Downloaded payload is not valid JSON") from exc
+
 __all__ = [
     "KnowledgebaseUploadError",
     "KnowledgebaseUploadService",
     "PresignedUpload",
+    "KnowledgebaseDownloadError",
+    "KnowledgebaseDownloadService",
 ]
