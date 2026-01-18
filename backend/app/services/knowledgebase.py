@@ -13,8 +13,10 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from urllib import error, request
+
+from ..database import record_knowledgebase_upload
 
 
 DEFAULT_PRESIGN_ENDPOINT = (
@@ -77,6 +79,25 @@ class KnowledgebaseUploadService:
         upload_url = self._extract_upload_url(parsed)
         return PresignedUpload(upload_url=upload_url, raw_response=parsed)
 
+    def record_upload_metadata(self, presigned: PresignedUpload) -> Optional[int]:
+        """Persist the metadata returned from the presign request."""
+
+        if not isinstance(presigned, PresignedUpload):
+            raise TypeError("presigned must be a PresignedUpload instance")
+
+        object_key = presigned.raw_response.get("key")
+        company_name = presigned.raw_response.get("company")
+        content_type = presigned.raw_response.get("contentType")
+
+        if not (object_key and company_name and content_type):
+            return None
+
+        return record_knowledgebase_upload(
+            object_key=str(object_key),
+            company_name=str(company_name),
+            content_type=str(content_type),
+        )
+
     def upload_bytes(self, *, upload_url: str, payload: bytes, mime_type: str) -> str:
         """Upload bytes to S3 using a presigned URL."""
 
@@ -113,6 +134,8 @@ class KnowledgebaseUploadService:
             company_name=company_name,
             content_type=content_type,
         )
+        self.record_upload_metadata(presigned)
+
         return self.upload_bytes(
             upload_url=presigned.upload_url,
             payload=document_bytes,
@@ -128,11 +151,19 @@ class KnowledgebaseUploadService:
         raise KnowledgebaseUploadError(
             "Presign endpoint response did not contain an upload URL"
         )
+    @staticmethod
+    def _extract_object_key(payload: Dict[str, Any]) -> str:
+        key = payload.get("raw_response", {}).get("key")
 
+        if isinstance(key, str) and key:
+            return key
+
+        raise KnowledgebaseUploadError(
+            "Knowledgebase document upload did not contain an object key"
+        )
 
 __all__ = [
     "KnowledgebaseUploadError",
     "KnowledgebaseUploadService",
     "PresignedUpload",
 ]
-

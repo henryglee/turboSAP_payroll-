@@ -9,6 +9,7 @@ Architecture: Single-Instance, Single-Customer
 Database schema:
 - users: User accounts with authentication (instance-specific)
 - sessions: User configuration sessions (instance-specific)
+- knowledgebase_uploads: Metadata for files sent to the ReachNett knowledgebase
 
 Note: company_name field is for display purposes only, not for tenant isolation.
 """
@@ -110,6 +111,17 @@ def init_database():
         cursor.execute("""
             CREATE INDEX IF NOT EXISTS idx_tasks_category_id
             ON tasks(category_id)
+        """)
+
+        # Create table to track knowledgebase uploads
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS knowledgebase_uploads (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                object_key TEXT NOT NULL,
+                company_name TEXT NOT NULL,
+                content_type TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
         """)
 
         conn.commit()
@@ -580,3 +592,24 @@ def get_full_hierarchy() -> List[Dict[str, Any]]:
     for cat in categories:
         cat["tasks"] = get_tasks_by_category(cat["id"])
     return categories
+
+
+# ============================================
+# Knowledgebase Upload Metadata Operations
+# ============================================
+
+def record_knowledgebase_upload(
+    *, object_key: str, company_name: str, content_type: str
+) -> int:
+    """Persist metadata for a knowledgebase file upload."""
+
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO knowledgebase_uploads (object_key, company_name, content_type)
+            VALUES (?, ?, ?)
+            """,
+            (object_key, company_name, content_type),
+        )
+        return cursor.lastrowid
