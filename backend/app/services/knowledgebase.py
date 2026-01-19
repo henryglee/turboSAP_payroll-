@@ -24,6 +24,7 @@ from ..database import (
     record_knowledgebase_upload,
 )
 
+
 DEFAULT_PRESIGN_ENDPOINT = (
     "https://idsn7cy3rf.execute-api.us-east-1.amazonaws.com/default/getPresignedURL"
 )
