@@ -36,6 +36,9 @@ def request_presigned_upload(
             content_type=payload.contentType,
         )
         print(f"presigned = {presigned}")
+        _upload_service.record_upload_metadata(presigned,task_name="pending_knowledge")
+        print(f"Recorded knowledge upload metadata.")
+
     except KnowledgebaseUploadError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
