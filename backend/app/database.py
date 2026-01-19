@@ -24,7 +24,6 @@ from contextlib import contextmanager
 # Database file path
 DB_PATH = Path(__file__).parent.parent / "turbosap.db"
 
-
 @contextmanager
 def get_db_connection():
     """Context manager for database connections."""
@@ -115,21 +114,17 @@ def init_database():
 
         # Create table to track knowledgebase uploads
         cursor.execute("""
-            CREATE TABLE IF NOT EXISTS knowledgebase_uploads (
+            CREATE TABLE IF NOT EXISTS KnowledgeBaseMetaData (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 object_key TEXT NOT NULL,
                 company_name TEXT NOT NULL,
                 content_type TEXT NOT NULL,
+                task_name TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
 
         conn.commit()
-
-
-# Initialize database on module import
-init_database()
-
 
 # ============================================
 # User Operations
@@ -599,24 +594,23 @@ def get_full_hierarchy() -> List[Dict[str, Any]]:
 # ============================================
 
 def record_knowledgebase_upload(
-    *, object_key: str, company_name: str, content_type: str
+    *, object_key: str, company_name: str, content_type: str, task_name: Optional[str]
 ) -> int:
     """Persist metadata for a knowledgebase file upload."""
-
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(
             """
-            INSERT INTO knowledgebase_uploads (object_key, company_name, content_type)
-            VALUES (?, ?, ?)
+            INSERT INTO KnowledgeBaseMetaData (object_key, company_name, content_type,task_name)
+            VALUES (?, ?, ?, ?)
             """,
-            (object_key, company_name, content_type),
+            (object_key, company_name, content_type,task_name),
         )
         return cursor.lastrowid
 
 
 def get_latest_knowledgebase_upload(
-    *, company_name: str, content_type: str
+    *, company_name: str, task_name: str
 ) -> Optional[Dict[str, Any]]:
     """Return the newest metadata row for a company/content pair."""
 
@@ -624,13 +618,13 @@ def get_latest_knowledgebase_upload(
         cursor = conn.cursor()
         cursor.execute(
             """
-            SELECT object_key, company_name, content_type, created_at
-            FROM knowledgebase_uploads
-            WHERE company_name = ? AND content_type = ?
+            SELECT object_key, company_name, content_type, task_name, created_at
+            FROM KnowledgeBaseMetaData
+            WHERE company_name = ? AND task_name = ?
             ORDER BY datetime(created_at) DESC
             LIMIT 1
             """,
-            (company_name, content_type),
+            (company_name, task_name),
         )
         row = cursor.fetchone()
         return dict(row) if row else None

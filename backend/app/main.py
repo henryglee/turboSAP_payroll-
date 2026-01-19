@@ -40,7 +40,7 @@ from .database import (
     create_session as db_create_session,
     get_session as db_get_session,
     get_user_sessions,
-    delete_session as db_delete_session,
+    delete_session as db_delete_session, init_database,
 )
 from .auth import hash_password, verify_password, create_token
 from .middleware import get_current_user, get_optional_user, require_admin
@@ -71,6 +71,8 @@ from contextlib import asynccontextmanager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    init_database()
+
     # Startup: Initialize database and seed users
     users_to_seed = [
         {"username": "admin123", "password": "admin123", "role": "admin", "company_name": "Admin Corp"},
@@ -123,7 +125,6 @@ app = FastAPI(
     version="default_code.0.0",
     lifespan=lifespan
 )
-
 app.include_router(export_router)
 
 # ====== frontend static files ======
