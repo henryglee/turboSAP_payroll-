@@ -6,6 +6,8 @@ from moto import mock_aws
 import boto3
 
 from backend.app.data.ReachNettDataManager import ReachNettDataManager
+from backend.app.services.knowledgebase import MimeType
+
 
 @pytest.fixture
 def sqlite_db(tmp_path, monkeypatch):
@@ -43,7 +45,7 @@ def test_save_then_load_real_services(monkeypatch, sqlite_db):
     payload = {"module": "questions", "items": [1, 2]}
 
     # real upload_document + real DB insert (no monkeypatch)
-    uri = manager.save_task("Acme", "US01", "questions", payload)
+    uri = manager.save_task("Acme", "US01", "questions", payload,MimeType.JSON)
     assert uri
 
     # real load_task: reads latest from DB + downloads JSON from moto-S3

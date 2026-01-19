@@ -7,7 +7,7 @@ from ..database import get_latest_knowledgebase_upload
 from ..services.knowledgebase import (
     KnowledgebaseDownloadError,
     KnowledgebaseDownloadService,
-    KnowledgebaseUploadService,
+    KnowledgebaseUploadService, MimeType,
 )
 
 
@@ -54,7 +54,7 @@ class ReachNettDataManager:
 
         content_type = metadata.get("content_type")
         match content_type:
-            case "application/json":
+            case MimeType.JSON:
                 try:
                     return self._download_service.fetch_json_by_object_key(object_key)
                 except KnowledgebaseDownloadError:
@@ -109,7 +109,7 @@ class ReachNettDataManager:
         sanitized_company = self._sanitize_company_name(company_name)
         return self._task_file(sanitized_company, company_code, task_name)
 
-    def save_task(self, company_name: str, company_code: str, task_name: str, data: dict) -> str:
+    def save_task(self, company_name: str, company_code: str, task_name: str, data: dict, mime_type=MimeType.JSON) -> str:
         """LTS AWS s3 storage file saver"""
         payload = json.dumps(data, indent=2).encode("utf-8")
 
@@ -118,6 +118,6 @@ class ReachNettDataManager:
             company_name=company_name,
             company_code=company_code,
             document_bytes=payload,
-            mime_type="application/json",
+            mime_type=mime_type,
             task_name=task_name,
         )
