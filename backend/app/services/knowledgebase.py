@@ -14,7 +14,8 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from enum import Enum
+from typing import Any, Dict, Optional, Union
 from urllib import error, request
 from urllib.parse import quote
 
@@ -23,10 +24,21 @@ from ..database import (
     record_knowledgebase_upload,
 )
 
-
 DEFAULT_PRESIGN_ENDPOINT = (
     "https://idsn7cy3rf.execute-api.us-east-1.amazonaws.com/default/getPresignedURL"
 )
+class MimeType(str, Enum):
+    PDF = "application/pdf"
+    MS_WORD = "application/msword"
+    MS_WORD_OPENXML = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    MS_EXCEL = "application/vnd.ms-excel"
+    MS_EXCEL_OPENXML = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    MS_POWERPOINT = "application/vnd.ms-powerpoint"
+    MS_POWERPOINT_OPENXML = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+    JSON = "application/json"
+    JPEG = "image/jpeg"
+    PNG = "image/png"
+
 
 class KnowledgebaseUploadError(RuntimeError):
     """Raised when the document upload flow fails."""
