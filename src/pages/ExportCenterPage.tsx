@@ -434,11 +434,35 @@ function PreviewPanel({ fileId, content, onContentChange, onDownload, fileName, 
 // ============================================
 
 export function ExportCenterPage() {
-  const { payrollAreas, payrollStatus, paymentData, paymentStatus, companyCodes, companyCodeStatus } = useExportData();
+  const { payrollAreas, payrollStatus, paymentData, paymentStatus, companyCodes, companyCodeStatus, publishToS3 } = useExportData();
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set(['payroll', 'payment', 'company-code']));
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [editedContents, setEditedContents] = useState<Record<string, string>>({});
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [showConnectionInfo, setShowConnectionInfo] = useState(false);
+  
+  const handlePublish = async () => {
+    // Determine the primary company for naming/pathing
+    const primary = companyCodes.find(c => c.companyCode && c.companyName);
+
+    if (!primary) {
+      alert("Please complete at least one Company Code configuration before publishing.");
+      return;
+    }
+
+    try {
+      setIsPublishing(true);
+      await publishToS3(primary.companyName, primary.companyCode);
+      // You might want to use a toast notification here
+      alert("Successfully published configuration to S3 for SAP retrieval!");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to publish to S3.");
+    } finally {
+      setIsPublishing(false);
+    }
+  };
 
   // Build file tree structure
   const fileTree = useMemo((): FileNode[] => {
@@ -740,17 +764,52 @@ export function ExportCenterPage() {
     <DashboardLayout title="Export Center" description="Preview, edit, and download SAP configuration files">
       <div className="flex flex-col h-[calc(100vh-64px)] p-6 gap-6">
         {/* Header Actions */}
-        <div className="shrink-0 flex items-center justify-end">
-          <button
-            type="button"
-            onClick={handleDownloadAll}
-            disabled={payrollStatus.status === 'not-started' && paymentStatus.status === 'not-started' && companyCodeStatus.status === 'not-started'}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            <Archive className="w-4 h-4" />
-            Download All (ZIP)
-          </button>
+        <div className="shrink-0 flex items-center justify-between bg-indigo-50 p-4 rounded-xl border border-indigo-100 mb-2">
+           <div className="flex items-center gap-3">
+             <div className="p-2 bg-indigo-600 rounded-lg">
+               <Archive className="w-5 h-5 text-white" />
+             </div>
+             <div>
+               <h3 className="text-sm font-semibold text-indigo-900">Publish Configuration</h3>
+               <p className="text-xs text-indigo-700">Push the latest configuration to S3 for SAP API access.</p>
+             </div>
         </div>
+
+        <div className="flex items-center gap-3">
+          <button
+             type="button"
+             onClick={handleDownloadAll}
+             className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-indigo-700 bg-white border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors"
+          >
+             <Download className="w-4 h-4" />
+             Local ZIP
+          </button>
+    
+            <button
+             type="button"
+             onClick={handlePublish}
+             disabled={isPublishing || (payrollStatus.status === 'not-started' && paymentStatus.status === 'not-started')}
+             className={cn(
+                  "flex items-center gap-2 px-6 py-2 text-sm font-bold rounded-lg shadow-sm transition-all",
+                  isPublishing 
+                     ? "bg-gray-400 text-white cursor-not-allowed" 
+                     : "bg-indigo-600 text-white hover:bg-indigo-700 active:scale-95"
+              )}
+            >
+              {isPublishing ? (
+                <>
+                     <span className="animate-spin mr-2">◌</span>
+                     Publishing...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4" />
+                  Publish to SAP
+                </>
+              )}
+            </button>
+        </div>
+     </div>
 
         {/* Module Status Summary */}
         <div className="shrink-0 grid grid-cols-3 gap-4">
