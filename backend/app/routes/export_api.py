@@ -20,7 +20,6 @@ router = APIRouter(prefix="/api/export", tags=["Export"])
 
 dataManager = ReachNettDataManager()
 
-# DB_PATH = "turbosap.db"  # backend runs from turbosap.db location
 API_KEY_NAME = "EXPORT-TURBOSAP-KEY"
 VALID_API_KEY = "ts_live_9a72b841fc0246ba91d2977e"
 
@@ -689,11 +688,11 @@ async def publish_configuration(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"S3 Upload Failed: {str(e)}")
 
-@router.get("/download/{company_name}/{company_code}/{file_id}")
+@router.get("/download/")
 def download_published_file(
-    company_name: str,
-    company_code: str,
-    file_id: str,
+    company_name: str = Query(..., alias="company_name"),
+    company_code: str = Query(..., alias="company_code"),
+    file_id: str = Query(..., alias="file_id"),
     api_key: str = Depends(verify_turbosap_key)
 ):
     """
