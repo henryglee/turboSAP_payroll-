@@ -9,107 +9,42 @@ from dataclasses import dataclass
 from datetime import datetime, date, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
-from fastapi import APIRouter, HTTPException, Query, Body, Depends
+from fastapi import APIRouter, HTTPException, Header, Query, Body, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
+from ..data.ReachNettDataManager import ReachNettDataManager
 
-from .middleware import get_current_user
 
 
 router = APIRouter(prefix="/api/export", tags=["Export"])
 
+dataManager = ReachNettDataManager()
 
-DB_PATH = "turbosap.db"  # backend runs from turbosap.db location
+API_KEY_NAME = "EXPORT-TURBOSAP-KEY"
+VALID_API_KEY = "ts_live_9a72b841fc0246ba91d2977e"
 
 
-def get_conn() -> sqlite3.Connection:
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+# def get_conn() -> sqlite3.Connection:
+#     conn = sqlite3.connect(DB_PATH)
+#     conn.row_factory = sqlite3.Row
+#     return conn
+
+
+def verify_turbosap_key(api_key: str = Header(None, alias=API_KEY_NAME)):
+    """Verifies the custom TurboSAP header against the hardcoded service token."""
+    if api_key != VALID_API_KEY:
+        raise HTTPException(
+            status_code=403, 
+            detail="TurboSAP Unauthorized: Invalid EXPORT-TURBOSAP-KEY"
+        )
+    return api_key
 
 
 @dataclass(frozen=True)
 class SessionRecord:
     session_id: str
-    user_id: int
-    module: str
-    updated_at: datetime
     config_state: Dict[str, Any]
-
-
-def _parse_sqlite_ts(value: Any) -> datetime:
-    if value is None:
-        return datetime.utcnow()
-    if isinstance(value, datetime):
-        return value
-    s = str(value)
-    try:
-        return datetime.strptime(s, "%Y-%m-%d %H:%M:%S")
-    except Exception:
-        pass
-    # ISO fallback
-    try:
-        return datetime.fromisoformat(s.replace("Z", "+00:00"))
-    except Exception:
-        return datetime.utcnow()
-
-
-def load_session(session_id: str) -> SessionRecord:
-    with get_conn() as conn:
-        row = conn.execute(
-            "SELECT id, user_id, module, updated_at, config_state FROM sessions WHERE id=?",
-            (session_id,),
-        ).fetchone()
-
-    if not row:
-        raise HTTPException(status_code=404, detail="Session not found")
-
-    try:
-        config_state = json.loads(row["config_state"])
-        if not isinstance(config_state, dict):
-            raise ValueError("config_state must be a JSON object")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Invalid config_state JSON: {e}")
-
-    return SessionRecord(
-        session_id=row["id"],
-        user_id=int(row["user_id"]),
-        module=str(row["module"]),
-        updated_at=_parse_sqlite_ts(row["updated_at"]),
-        config_state=config_state,
-    )
-
-
-def load_latest_session(module: str) -> Optional[SessionRecord]:
-    with get_conn() as conn:
-        row = conn.execute(
-            """
-            SELECT id, user_id, module, updated_at, config_state
-            FROM sessions
-            WHERE module=?
-            ORDER BY updated_at DESC
-            LIMIT 1
-            """,
-            (module,),
-        ).fetchone()
-
-    if not row:
-        return None
-
-    try:
-        config_state = json.loads(row["config_state"])
-        if not isinstance(config_state, dict):
-            config_state = {}
-    except Exception:
-        config_state = {}
-
-    return SessionRecord(
-        session_id=row["id"],
-        user_id=int(row["user_id"]),
-        module=str(row["module"]),
-        updated_at=_parse_sqlite_ts(row["updated_at"]),
-        config_state=config_state,
-    )
+    updated_at: datetime
 
 
 # =========================
@@ -128,16 +63,6 @@ class ExportFilesResponse(BaseModel):
     session_id: str
     files: List[ExportFileInfo]
 
-
-class LatestSessionResponse(BaseModel):
-    module: str
-    session_id: str
-    updated_at: datetime
-
-
-class LatestAllSessionsResponse(BaseModel):
-    payroll: Optional[LatestSessionResponse] = None
-    payment: Optional[LatestSessionResponse] = None
 
 class PersistPaymentRequest(BaseModel):
     methods: List[Dict[str, Any]] = Field(default_factory=list)
@@ -201,37 +126,19 @@ def to_csv_with_labels(rows: List[Dict[str, Any]], columns: List[Tuple[str, str]
 # =========================
 
 def extract_payroll_areas(config_state: Dict[str, Any]) -> List[Dict[str, Any]]:
-    # NEW: combined session shape
-    if isinstance(config_state.get("payroll_area"), dict):
-        pa = config_state["payroll_area"]
-        areas = pa.get("payrollAreas")
-        if isinstance(areas, list):
-            return [a for a in areas if isinstance(a, dict)]
-
-    # Backward compatible: old root shape
-    areas = config_state.get("payrollAreas")
-    if isinstance(areas, list):
-        return [a for a in areas if isinstance(a, dict)]
-
-    return []
+    # Tries nested or flat structure
+    pa = config_state.get("payroll_area", config_state)
+    areas = pa.get("payrollAreas", [])
+    return [a for a in areas if isinstance(a, dict)]
 
 
 
-def extract_payment_bundle(config_state: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    pm_list = config_state.get("payment_methods")
-    cr_list = config_state.get("check_ranges")
-    pre = config_state.get("pre_notification_required")
-
-    if isinstance(pm_list, list) or isinstance(cr_list, list) or isinstance(pre, bool):
-        return {
-            "methods": [x for x in (pm_list or []) if isinstance(x, dict)],
-            "checkRanges": [x for x in (cr_list or []) if isinstance(x, dict)],
-            "preNotificationRequired": pre if isinstance(pre, bool) else False,
-        }
-
-    # keep your other fallbacks if you want...
-    return None
-
+def extract_payment_bundle(config_state: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "methods": config_state.get("payment_methods", []),
+        "checkRanges": config_state.get("check_ranges", []),
+        "preNotificationRequired": config_state.get("pre_notification_required", False),
+    }
 
 def build_payment_methods_from_answers(config_state: Dict[str, Any]) -> List[Dict[str, Any]]:
     answers = config_state.get("answers")
@@ -758,183 +665,64 @@ MODULE_MAP = {
     "payment": "payment method",
 }
 
-def update_session_config_state(session_id: str, patch: Dict[str, Any]) -> None:
-    with get_conn() as conn:
-        row = conn.execute(
-            "SELECT config_state FROM sessions WHERE id=?",
-            (session_id,),
-        ).fetchone()
-
-        if not row:
-            raise HTTPException(status_code=404, detail="Session not found")
-
-        try:
-            state = json.loads(row["config_state"]) if row["config_state"] else {}
-            if not isinstance(state, dict):
-                state = {}
-        except Exception:
-            state = {}
-
-        # merge patch
-        state.update(patch)
-
-        conn.execute(
-            "UPDATE sessions SET config_state=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
-            (json.dumps(state), session_id),
-        )
-
-@router.post("/sessions/{session_id}/persist-payment")
-def persist_payment(
-    session_id: str,
-    req: PersistPaymentRequest,
-    current_user: dict = Depends(get_current_user),
-):
-    """Persist payment configuration. Requires authentication."""
-    update_session_config_state(
-        session_id,
-        {
-            "payment_methods": req.methods,
-            "check_ranges": req.checkRanges,
-            "pre_notification_required": req.preNotificationRequired,
-        },
-    )
-    return {"ok": True, "session_id": session_id, "payment_methods_count": len(req.methods)}
-
-@router.post("/sessions/{session_id}/persist-payroll")
-def persist_payroll(
-    session_id: str,
-    req: PersistPayrollRequest,
-    current_user: dict = Depends(get_current_user),
-):
-    """Persist payroll configuration. Requires authentication."""
-    update_session_config_state(
-        session_id,
-        {
-            "payrollAreas": req.payrollAreas,  
-        },
-    )
-    return {"ok": True, "session_id": session_id, "payroll_areas_count": len(req.payrollAreas)}
-
-@router.patch("/sessions/{session_id}/state")
-def patch_session_state(
-    session_id: str,
-    payload: Dict[str, Any] = Body(...),
-    current_user: dict = Depends(get_current_user),
-):
-    """Patch session state. Requires authentication."""
-    if not isinstance(payload, dict):
-        raise HTTPException(status_code=400, detail="payload must be a JSON object")
-
-    with get_conn() as conn:
-        row = conn.execute(
-            "SELECT config_state FROM sessions WHERE id=?",
-            (session_id,),
-        ).fetchone()
-
-        if not row:
-            raise HTTPException(status_code=404, detail="Session not found")
-
-        state_raw = row["config_state"] or "{}"
-        try:
-            state = json.loads(state_raw)
-        except Exception:
-            state = {}
-
-        if not isinstance(state, dict):
-            state = {}
-
-        # merge keys
-        state.update(payload)
-
-        conn.execute(
-            "UPDATE sessions SET config_state=?, updated_at=datetime('now') WHERE id=?",
-            (json.dumps(state), session_id),
-        )
-
-    return {"ok": True, "updated_keys": list(payload.keys())}
-
-
-@router.get("/sessions/{session_id}/files", response_model=ExportFilesResponse)
-def list_session_files(
-    session_id: str,
-    current_user: dict = Depends(get_current_user),
-):
-    """
-    List all available export files for a session.
-    Returns file IDs, filenames, modules, and row counts.
-    Useful for clients to discover available files before downloading.
-    Requires authentication.
-    """
-    sess = load_session(session_id)
-    files = build_files_for_session(sess)
-    return ExportFilesResponse(session_id=session_id, files=files)
-
-
-@router.get("/latest", response_model=LatestSessionResponse)
-def latest(
-    module: str = Query(..., description="payroll | payment"),
-    current_user: dict = Depends(get_current_user),
-):
-    """Get the latest session for a module. Requires authentication."""
-    if module == "all":
-        payroll = load_latest_session(MODULE_MAP["payroll"])
-        payment = load_latest_session(MODULE_MAP["payment"])
-        return LatestAllSessionsResponse(
-            payroll=LatestSessionResponse(module="payroll", session_id=payroll.session_id, updated_at=payroll.updated_at) if payroll else None,
-            payment=LatestSessionResponse(module="payment", session_id=payment.session_id, updated_at=payment.updated_at) if payment else None,
-        )
-
-    if module not in ("payroll", "payment"):
-        raise HTTPException(status_code=400, detail="module must be payroll, payment, or all")
-
-    db_module = MODULE_MAP[module]
-    sess = load_latest_session(db_module)
-    if not sess:
-        raise HTTPException(status_code=404, detail="No sessions found for module")
-
-    return LatestSessionResponse(module=module, session_id=sess.session_id, updated_at=sess.updated_at)
-
 def normalize_file_id(file_id: str) -> str:
     return file_id.replace("_", "-").strip().lower()
 
-@router.get(
-    "/sessions/{session_id}/files/{file_id}",
-    response_class=StreamingResponse,
-    responses={
-        200: {
-            "description": "CSV file",
-            "content": {
-                "text/csv": {
-                    "schema": {"type": "string", "format": "binary"}
-                }
-            },
-        },
-        404: {"description": "Not Found"},
-    },
-)
-
-def download_file(
-    session_id: str,
-    file_id: str,
-    download: bool = Query(True),
-    current_user: dict = Depends(get_current_user),
+@router.post("/publish/{company_name}/{company_code}")
+async def publish_configuration(
+    company_name: str,
+    company_code: str,
+    payload: Dict[str, Any] = Body(...),
+    api_key: str = Depends(verify_turbosap_key)
 ):
-    """Download a specific file from a session. Requires authentication."""
-    sess = load_session(session_id)
+    """Saves the combined frontend state into S3 as the canonical 'export_config'."""
+    try:
+        # dataManager uses KnowledgebaseUploadService under the hood
+        object_key = dataManager.save_task(
+            company_name=company_name,
+            company_code=company_code,
+            task_name="export_config",
+            data=payload
+        )
+        return {"status": "success", "published_to": object_key}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"S3 Upload Failed: {str(e)}")
 
+@router.get("/download/")
+def download_published_file(
+    company_name: str = Query(..., alias="company_name"),
+    company_code: str = Query(..., alias="company_code"),
+    file_id: str = Query(..., alias="file_id"),
+    api_key: str = Depends(verify_turbosap_key)
+):
+    """
+    Uses DataManager to load the 'export_config' task from S3,
+    then generates the CSV on-the-fly.
+    """
+    TASK_NAME = "export_config"
+    
+    # 1. Load the latest JSON task from S3
+    config_state = dataManager.load_task(company_name, company_code, TASK_NAME)    
+    if not config_state:
+        raise HTTPException(
+            status_code=404, 
+            detail=f"No published configuration found for {company_name}"
+        )
+
+    # 2. Wrap the state in a SessionRecord for your existing generators
+    sess = SessionRecord(
+        session_id=f"{company_name}_{company_code}",
+        updated_at=datetime.utcnow(),
+        config_state=config_state
+    )
+
+    # 3. Generate content using your existing formatting logic
     normalized_file_id = normalize_file_id(file_id)  
     content = generate_file_content(sess, normalized_file_id)
     filename = get_filename(normalized_file_id)
 
-    headers = {
-        "Content-Disposition": f'attachment; filename="{filename}"'
-        if download
-        else f'inline; filename="{filename}"'
-    }
-
     return StreamingResponse(
         io.BytesIO(content.encode("utf-8")),
-        media_type="text/csv; charset=utf-8",
-        headers=headers,
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
     )
-

@@ -3,7 +3,7 @@
  * Used by ExportCenterPage to gather data from both Payroll and Payment modules
  */
 
-import { useMemo, useEffect, useRef } from 'react';
+import { useMemo} from 'react';
 import { useConfigStore } from '../store';
 import { useAuthStore } from '../store/auth';
 import type { PayrollArea, CompanyCode } from '../types';
@@ -56,6 +56,8 @@ export interface ExportDataResult {
 
   // User info
   userKey: string;
+
+  publishToS3: (companyName: string, companyCode: string) => Promise<{ status: string; key: string }>;
 }
 
 // ============================================
@@ -226,49 +228,6 @@ export function useExportData(): ExportDataResult {
     };
   }, [payrollAreas]);
 
-  const didPersistPayroll = useRef(false);
-
-useEffect(() => {
-  if (!payrollAreas || payrollAreas.length === 0) return;
-
-  // only persist when "complete" (same logic you used for payrollStatus)
-  const hasData = payrollAreas.some(
-    (a) => a.employeeCount > 0 || a.description !== ''
-  );
-  if (!hasData) return;
-
-  if (didPersistPayroll.current) return;
-  didPersistPayroll.current = true;
-
-  (async () => {
-    try {
-      // get latest payroll session_id
-      const latestResp = await fetch('/api/export/latest?module=payroll');
-      if (!latestResp.ok) throw new Error('failed to fetch latest payroll session');
-      const latest = await latestResp.json();
-
-      const sessionId = latest.session_id as string;
-      if (!sessionId) throw new Error('missing session_id from /api/export/latest');
-
-      // persist payroll data
-      const persistResp = await fetch(`/api/export/sessions/${sessionId}/persist-payroll`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ payrollAreas }),
-      });
-
-      if (!persistResp.ok) {
-        const text = await persistResp.text();
-        throw new Error(`persist-payroll failed: ${text}`);
-      }
-    } catch (e) {
-      console.error(e);
-      didPersistPayroll.current = false; // allow retry
-    }
-  })();
-}, [payrollAreas]);
-
-
   // Calculate payment status (simplified: complete or not-started)
   const paymentStatus = useMemo((): ModuleStatus => {
     if (!paymentData) {
@@ -313,48 +272,39 @@ useEffect(() => {
     };
   }, [companyCodes]);
 
- const didPersistPayment = useRef(false);
+ /**
+   * NEW: Explicit Publish Function
+   * Gathers all state and pushes to the new S3-backed endpoint
+   */
+  const publishToS3 = async (companyName: string, companyCode: string) => {
+    // 1. Prepare the unified payload
+    const payload = {
+      payroll_area: { payrollAreas },
+      payment_methods: paymentData?.methods || [],
+      check_ranges: paymentData?.checkRanges || [],
+      pre_notification_required: paymentData?.preNotificationRequired || false,
+      company_codes: companyCodes,
+      published_at: new Date().toISOString(),
+      published_by: userKey
+    };
 
-useEffect(() => {
-  if (!paymentData) return;
+    // 2. Call the new S3 API
+    const response = await fetch(`/api/export/publish/${companyName}/${companyCode}`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'EXPORT-TURBOSAP-KEY': 'ts_live_9a72b841fc0246ba91d2977e' 
+      },
+      body: JSON.stringify(payload),
+    });
 
-  // only persist when complete
-  const methodCount = paymentData.methods.filter((m) => m.used === 'X').length;
-  if (methodCount <= 0) return;
-
-  // avoid spamming backend on re-render
-  if (didPersistPayment.current) return;
-  didPersistPayment.current = true;
-
-  (async () => {
-    try {
-      // 1) get latest payment session_id from backend (since DB is keyed by session_id)
-      const latestResp = await fetch('/api/export/latest?module=payment');
-      if (!latestResp.ok) throw new Error('failed to fetch latest payment session');
-      const latest = await latestResp.json();
-
-      const sessionId = latest.session_id as string;
-      if (!sessionId) throw new Error('missing session_id from /api/export/latest');
-
-      // 2) persist payment data into SQLite config_state
-      const persistResp = await fetch(`/api/export/sessions/${sessionId}/persist-payment`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(paymentData),
-      });
-
-      if (!persistResp.ok) {
-        const text = await persistResp.text();
-        throw new Error(`persist-payment failed: ${text}`);
-      }
-    } catch (e) {
-      console.error(e);
-      // allow retry later
-      didPersistPayment.current = false;
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Publish failed: ${errorText}`);
     }
-  })();
-}, [paymentData]);
 
+    return await response.json();
+  };
 
   return {
     payrollAreas,
@@ -364,6 +314,7 @@ useEffect(() => {
     companyCodes,
     companyCodeStatus,
     userKey,
+    publishToS3,
   };
 }
 

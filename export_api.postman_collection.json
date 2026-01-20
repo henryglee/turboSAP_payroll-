@@ -1,0 +1,164 @@
+{
+	"info": {
+		"_postman_id": "c155df6d-bd03-4ee4-ad42-9a65cca8ba7c",
+		"name": "export_api",
+		"description": "Export API Overview:\n\nworkflow:\n\n1. Login → get JWT\n    \n\nCall login API: POST {{baseURL}}/api/auth/login.\n\nProvide your username/password in the request body:\n\n{  \n\"username\": \"xxx\",  \n\"password\": \"xxx\"  \n}\n\n2\\. copy the value of JWT token into collection variable\n\n3\\. Call export APIs → get `session_id`\n\nGET {{baseURL}}/api/export/latest?module=payroll\n\nGET {{baseURL}}/api/export/latest?module=payment\n\n4\\. Use `session_id` + `file_name` → download CSV\n\nin the collection variables:\n\nsession_id = the copied session_id  \nfile_name = the file name want to download\n\nPayroll:\n\npayroll-areas  \ncalendar-id  \npayroll-area-config  \npay-period  \npay-date\n\nPayment:\n\npayment-method  \ncheck-range  \npre-notification",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "42349558"
+	},
+	"item": [
+		{
+			"name": "login to get the token",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"username\": \"admin123\",\n    \"password\": \"admin123\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseURL}}/api/auth/login",
+					"host": [
+						"{{baseURL}}"
+					],
+					"path": [
+						"api",
+						"auth",
+						"login"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "get the session_id for payroll",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseURL}}/api/export/latest?module=payroll",
+					"host": [
+						"{{baseURL}}"
+					],
+					"path": [
+						"api",
+						"export",
+						"latest"
+					],
+					"query": [
+						{
+							"key": "module",
+							"value": "payroll"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "get the session_id for payment",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseURL}}/api/export/latest?module=payment",
+					"host": [
+						"{{baseURL}}"
+					],
+					"path": [
+						"api",
+						"export",
+						"latest"
+					],
+					"query": [
+						{
+							"key": "module",
+							"value": "payment"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "download the csv file",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseURL}}/api/export/sessions/{{session_id}}/files/{{file_name}}",
+					"host": [
+						"{{baseURL}}"
+					],
+					"path": [
+						"api",
+						"export",
+						"sessions",
+						"{{session_id}}",
+						"files",
+						"{{file_name}}"
+					]
+				},
+				"description": "file_name:\n\nPayroll:\n\npayroll-areas  \ncalendar-id  \npayroll-area-config  \npay-periods  \npay-dates\n\nPayment:\n\npayment-method  \ncheck-range  \npre-notification"
+			},
+			"response": []
+		}
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{jwt_token}}",
+				"type": "string"
+			}
+		]
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"requests": {},
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"requests": {},
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "baseURL",
+			"value": ""
+		},
+		{
+			"key": "jwt_token",
+			"value": ""
+		},
+		{
+			"key": "session_id",
+			"value": ""
+		},
+		{
+			"key": "file_name",
+			"value": ""
+		}
+	]
+}
