@@ -13,6 +13,7 @@ from fastapi import APIRouter, HTTPException, Header, Query, Body, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from ..data.ReachNettDataManager import ReachNettDataManager
+from datetime import datetime, date, timedelta
 
 
 
@@ -24,12 +25,6 @@ API_KEY_NAME = "EXPORT-TURBOSAP-KEY"
 VALID_API_KEY = "ts_live_9a72b841fc0246ba91d2977e"
 
 
-# def get_conn() -> sqlite3.Connection:
-#     conn = sqlite3.connect(DB_PATH)
-#     conn.row_factory = sqlite3.Row
-#     return conn
-
-
 def verify_turbosap_key(api_key: str = Header(None, alias=API_KEY_NAME)):
     """Verifies the custom TurboSAP header against the hardcoded service token."""
     if api_key != VALID_API_KEY:
@@ -38,6 +33,7 @@ def verify_turbosap_key(api_key: str = Header(None, alias=API_KEY_NAME)):
             detail="TurboSAP Unauthorized: Invalid EXPORT-TURBOSAP-KEY"
         )
     return api_key
+
 
 
 @dataclass(frozen=True)
@@ -75,26 +71,24 @@ class PersistPayrollRequest(BaseModel):
 
 
 # =========================
-# CSV helpers (match TS behavior)
+# # Helper Utilities
 # =========================
 
 SAP_DEFAULTS = {
-    "MOLGA": "10",
-    "DATE_MODIFIER": "01",
-    "DATE_TYPE": "01",
-    "TIME_UNIT": "D",
-    "CALENDAR_START_DATE": "19000101",
-    # Match frontend exportUtils:
-    # If frontend uses a fixed anchor string like "2024-01-01", replicate here.
-    "PERIOD_ANCHOR": "2024-01-01",
-    "PAY_DATE_ANCHOR": "2024-01-01",
-    "PAYROLL_AREA_TEXT": "Payroll Area",
+    "PAYROLL_AREA_TEXT": "McCarthy",
     "RUN_PAYROLL": "X",
+    "DATE_MODIFIER": "0",
+    "TIME_UNIT": "03",
+    "CALENDAR_START_DATE": "1/1/1990",
+    "MOLGA": "10",
+    "DATE_TYPE": "01",
+    "PAY_DATE_ANCHOR": "2025-01-03", # Jan 3, 2025
+    "PERIOD_ANCHOR": "2024-12-23",   # Dec 23, 2024
 }
 
 PAYDAY_TO_WEEKDAY = {
-    "sunday": 0,
-    "monday": 1,
+    "sunday": 0,    
+    "monday": 1,    
     "tuesday": 2,
     "wednesday": 3,
     "thursday": 4,
@@ -106,6 +100,20 @@ PAYDAY_TO_WEEKDAY = {
 def format_date_padded(d: date) -> str:
     # matches frontend formatDatePadded -> "YYYYMMDD"
     return d.strftime("%Y%m%d")
+
+def _parse_anchor(anchor_str: str) -> date:
+    """
+    Parses date strings from JSON into Python date objects.
+    Handles ISO strings like '2025-01-10T00:00:00Z' or simple '2025-01-10'.
+    """
+    if not anchor_str:
+        return date(2025, 1, 1) # Safe default if UI field was empty
+    try:
+        # Take only the YYYY-MM-DD portion
+        return datetime.strptime(anchor_str[:10], "%Y-%m-%d").date()
+    except Exception:
+        return date.fromisoformat(anchor_str[:10])
+
 
 
 def to_csv_with_labels(rows: List[Dict[str, Any]], columns: List[Tuple[str, str]]) -> str:
@@ -120,6 +128,29 @@ def to_csv_with_labels(rows: List[Dict[str, Any]], columns: List[Tuple[str, str]
         writer.writerow([r.get(key, "") for key, _ in columns])
     return buf.getvalue()
 
+def find_closest_weekday(base: date, weekday_name: str) -> date:
+    """
+    Finds the closest date to 'base' that falls on 'weekday_name'.
+    Matches the Sunday=0 convention of the React frontend.
+    """
+    target = PAYDAY_TO_WEEKDAY.get(weekday_name.lower())
+    
+    if target is None:
+        return base
+
+    # Python's base.weekday() is Monday=0, Tuesday=1 ... Sunday=6
+    # We convert it to Sunday=0, Monday=1 ... Saturday=6
+    base_dow_sun0 = (base.weekday() + 1) % 7
+
+    # Calculate distance forward and backward
+    forward = (target - base_dow_sun0 + 7) % 7
+    backward = (base_dow_sun0 - target + 7) % 7
+
+    # If the distance forward is less than or equal to backward, go forward.
+    # Otherwise, go backward.
+    offset = forward if forward <= backward else -backward
+
+    return base + timedelta(days=offset)
 
 # =========================
 # Extractors: adapt to your config_state structure
@@ -161,11 +192,6 @@ def build_payment_methods_from_answers(config_state: Dict[str, Any]) -> List[Dic
 # =========================
 # Payroll generators (ported from your TS)
 # =========================
-
-def _parse_anchor(s: str) -> date:
-    # accept "YYYY-MM-DD"
-    y, m, d = s.split("-")
-    return date(int(y), int(m), int(d))
 
 
 def generate_payroll_areas_csv(areas: List[Dict[str, Any]]) -> str:
@@ -228,6 +254,7 @@ def generate_payroll_area_config_csv(areas: List[Dict[str, Any]]) -> str:
         rows.append(
             {
                 "payroll_area": a.get("region") or a.get("code") or "",
+                # FIX: Use the 'description' from the payload instead of SAP_DEFAULTS
                 "payroll_area_text": SAP_DEFAULTS["PAYROLL_AREA_TEXT"],
                 "period_parameters": str(a.get("calendarId") or "80"),
                 "run_payroll": SAP_DEFAULTS["RUN_PAYROLL"],
@@ -245,7 +272,8 @@ def generate_payroll_area_config_csv(areas: List[Dict[str, Any]]) -> str:
 
 
 def generate_pay_period_csv(area: Dict[str, Any], num_years: int = 1) -> str:
-    anchor = _parse_anchor(SAP_DEFAULTS["PERIOD_ANCHOR"])
+    raw_anchor = area.get("periodAnchor") or SAP_DEFAULTS["PERIOD_ANCHOR"]
+    anchor = _parse_anchor(raw_anchor)
     frequency = str(area.get("frequency") or "weekly")
     cal_id = str(area.get("calendarId") or "80")
 
@@ -338,76 +366,150 @@ def generate_pay_period_csv(area: Dict[str, Any], num_years: int = 1) -> str:
     return to_csv_with_labels(rows, cols)
 
 
+# def generate_pay_date_csv(area: Dict[str, Any], num_years: int = 1) -> str:
+#     raw_anchor = area.get("payDateAnchor") or area.get("periodAnchor") or SAP_DEFAULTS["PAY_DATE_ANCHOR"]
+#     anchor = _parse_anchor(raw_anchor)
+
+#     frequency = str(area.get("frequency") or "weekly")
+#     cal_id = str(area.get("calendarId") or "80")
+#     pay_day = str(area.get("payDay") or "friday").lower()
+
+
+#     rows: List[Dict[str, Any]] = []
+
+#     if frequency in ("weekly", "biweekly"):
+#         step = 7 if frequency == "weekly" else 14
+#         total = (52 if step == 7 else 26) * num_years
+#         first = find_closest_weekday(anchor, pay_day)
+#         current = first
+
+#         current_year: Optional[int] = None
+#         period_counter = 0
+
+#         for _ in range(total):
+#             y = current.year
+#             if current_year is None or current_year != y:
+#                 current_year = y
+#                 period_counter = 1
+#             else:
+#                 period_counter += 1
+
+#             rows.append(
+#                 {
+#                     "molga": SAP_DEFAULTS["MOLGA"],
+#                     "date_modifier": SAP_DEFAULTS["DATE_MODIFIER"],
+#                     "period_parameters": cal_id,
+#                     "payroll_year": str(y),
+#                     "payroll_period": str(period_counter).zfill(2),
+#                     "date_type": SAP_DEFAULTS["DATE_TYPE"],
+#                     "date": format_date_padded(current),
+#                 }
+#             )
+#             current = current + timedelta(days=step)
+
+#     else:
+#         # To keep parity with your TS semi/monthly logic, you can port those
+#         # helper functions too. For now, most clients using weekly/biweekly will work.
+#         raise HTTPException(
+#             status_code=400,
+#             detail="pay-date generation currently implemented for weekly/biweekly only. Port semi/monthly if needed.",
+#         )
+
+#     cols = [
+#         ("molga", "molga"),
+#         ("date_modifier", "date_modifier"),
+#         ("period_parameters", "period_parameters"),
+#         ("payroll_year", "payroll_year"),
+#         ("payroll_period", "payroll_period"),
+#         ("date_type", "date_type"),
+#         ("date", "date"),
+#     ]
+#     return to_csv_with_labels(rows, cols)
+
 def generate_pay_date_csv(area: Dict[str, Any], num_years: int = 1) -> str:
-    anchor = _parse_anchor(SAP_DEFAULTS["PAY_DATE_ANCHOR"])
-    frequency = str(area.get("frequency") or "weekly")
+    """
+    Generates Payroll Date Configuration CSV.
+    Matches the logic in PayrollResultCard.tsx handleExportPayDateConfigCSV.
+    """
+    # 1. Extraction from Payload
+    raw_anchor = area.get("payDateAnchor") or SAP_DEFAULTS["PAY_DATE_ANCHOR"]
+    anchor = _parse_anchor(raw_anchor)
+    
+    frequency = str(area.get("frequency") or "weekly").lower()
     cal_id = str(area.get("calendarId") or "80")
-    pay_day = str(area.get("payDay") or "friday").lower()
+    pay_day_input = str(area.get("payDay") or "friday").lower()
 
-    def find_closest_weekday(base: date, weekday_name: str) -> date:
-        target = PAYDAY_TO_WEEKDAY.get(weekday_name)
-        if target is None:
-            return base
-        base_dow = base.weekday()  # Monday=0..Sunday=6
-        # Our mapping is Sunday=0..Saturday=6; convert:
-        # convert base.weekday() to Sunday=0..Saturday=6
-        base_dow_sun0 = (base_dow + 1) % 7
+    rows = []
+    current_date = None
+    num_rows = 0
+    step_days = 7
+    use_simple_step = False
 
-        forward = (target - base_dow_sun0 + 7) % 7
-        backward = (base_dow_sun0 - target + 7) % 7
-        offset = forward if forward <= backward else -backward
-        return base + timedelta(days=offset)
-
-    rows: List[Dict[str, Any]] = []
-
+    # 2. Determine Initial Date and Iteration Count (Matching React logic)
     if frequency in ("weekly", "biweekly"):
-        step = 7 if frequency == "weekly" else 14
-        total = (52 if step == 7 else 26) * num_years
-        first = find_closest_weekday(anchor, pay_day)
-        current = first
-
-        current_year: Optional[int] = None
-        period_counter = 0
-
-        for _ in range(total):
-            y = current.year
-            if current_year is None or current_year != y:
-                current_year = y
-                period_counter = 1
-            else:
-                period_counter += 1
-
-            rows.append(
-                {
-                    "molga": SAP_DEFAULTS["MOLGA"],
-                    "date_modifier": SAP_DEFAULTS["DATE_MODIFIER"],
-                    "period_parameters": cal_id,
-                    "payroll_year": str(y),
-                    "payroll_period": str(period_counter).zfill(2),
-                    "date_type": SAP_DEFAULTS["DATE_TYPE"],
-                    "date": format_date_padded(current),
-                }
-            )
-            current = current + timedelta(days=step)
-
+        first_pay_date = find_closest_weekday(anchor, pay_day_input)
+        current_date = first_pay_date
+        use_simple_step = True
+        if frequency == "weekly":
+            step_days = 7
+            num_rows = 52 * num_years
+        else:
+            step_days = 14
+            num_rows = 26 * num_years
+            
+    elif frequency == "semimonthly":
+        # Note: If implementing Semi-monthly/Monthly, follow the logic 
+        # from getFirstSemiMonthlyPayDate in your React file.
+        # Fallback to simple logic for now or raise 400.
+        num_rows = 24 * num_years
+        current_date = anchor # Simplified fallback
+        
     else:
-        # To keep parity with your TS semi/monthly logic, you can port those
-        # helper functions too. For now, most clients using weekly/biweekly will work.
-        raise HTTPException(
-            status_code=400,
-            detail="pay-date generation currently implemented for weekly/biweekly only. Port semi/monthly if needed.",
-        )
+        # Fallback to weekly
+        current_date = find_closest_weekday(anchor, "friday")
+        use_simple_step = True
+        step_days = 7
+        num_rows = 52 * num_years
 
-    cols = [
-        ("molga", "molga"),
-        ("date_modifier", "date_modifier"),
-        ("period_parameters", "period_parameters"),
-        ("payroll_year", "payroll_year"),
-        ("payroll_period", "payroll_period"),
-        ("date_type", "date_type"),
-        ("date", "date"),
-    ]
-    return to_csv_with_labels(rows, cols)
+    # 3. Generation Loop
+    current_year_tracker = None
+    payroll_period_counter = 0
+
+    for _ in range(num_rows):
+        y = current_date.year
+        
+        # Reset period counter when year changes
+        if current_year_tracker is None or current_year_tracker != y:
+            current_year_tracker = y
+            payroll_period_counter = 1
+        else:
+            payroll_period_counter += 1
+
+        rows.append({
+            "molga": SAP_DEFAULTS["MOLGA"],
+            "date_modifier": SAP_DEFAULTS["DATE_MODIFIER"],
+            "period_parameters": cal_id,
+            "payroll_year": str(y),
+            "payroll_period": str(payroll_period_counter).zfill(2),
+            "date_type": SAP_DEFAULTS["DATE_TYPE"],
+            "date": format_date_padded(current_date),
+        })
+
+        if use_simple_step:
+            current_date += timedelta(days=step_days)
+        else:
+            # Placeholder for Semi-monthly logic increment
+            current_date += timedelta(days=15) 
+
+    # 4. CSV Formatting
+    output = io.StringIO()
+    # Write headers exactly as they appear in the UI
+    headers = ["molga", "date_modifier", "period_parameters", "payroll_year", "payroll_period", "date_type", "date"]
+    writer = csv.DictWriter(output, fieldnames=headers)
+    writer.writeheader()
+    writer.writerows(rows)
+    
+    return output.getvalue()
 
 
 # =========================
@@ -436,6 +538,50 @@ def generate_pre_notification_csv(required: bool) -> str:
     cols = [("pre_notification_required", "Pre_Notification_Required")]
     row = {"pre_notification_required": "Yes" if required else "No"}
     return to_csv_with_labels([row], cols)
+
+# =========================
+# company code generators 
+# =========================
+
+def generate_company_code_csv(codes: list) -> str:
+    """
+    Generates CSV content for Company Codes.
+    Matches the schema defined in the TypeScript CompanyCodeRow interface.
+    """
+    # Define headers exactly as they appear in your TS Export logic
+    headers = [
+        "Company_Code", "Company_Name", "Short_Name", "Currency", "Language",
+        "Street", "City", "State", "Zip_Code", "Country", "PO_Box",
+        "Chart_of_Accounts", "Fiscal_Year_Variant", "VAT_Registration_Number",
+        "Credit_Control_Area", "Tax_Jurisdiction_Code"
+    ]
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(headers)
+
+    for c in codes:
+        # We use .get() to avoid KeyErrors if a field is missing in the JSON
+        writer.writerow([
+            c.get("companyCode", ""),
+            c.get("companyName", ""),
+            c.get("shortName", ""),
+            c.get("currency", ""),
+            c.get("language", ""),
+            c.get("street", ""),
+            c.get("city", ""),
+            c.get("state", ""),
+            c.get("zipCode", ""),
+            c.get("country", ""),
+            c.get("poBox", ""),
+            c.get("chartOfAccounts", ""),
+            c.get("fiscalYearVariant", ""),
+            c.get("vatRegistrationNumber", ""),
+            c.get("creditControlArea", ""),
+            c.get("taxJurisdictionCode", "")
+        ])
+
+    return output.getvalue()
 
 
 # =========================
@@ -557,7 +703,11 @@ def build_files_for_session(sess: SessionRecord) -> List[ExportFileInfo]:
 
 def generate_file_content(sess: SessionRecord, file_id: str) -> str:
     config = sess.config_state
-    payroll_areas = extract_payroll_areas(config)
+    # payroll_areas = config.get("payroll_areas") or extract_payroll_areas(config)
+    payroll_areas = config.get("payroll_areas", [])
+    if not payroll_areas and "payroll_area" in config:
+        payroll_areas = config["payroll_area"].get("payrollAreas", [])
+
     payment = extract_payment_bundle(config)
 
     # Payroll static files
@@ -569,6 +719,8 @@ def generate_file_content(sess: SessionRecord, file_id: str) -> str:
 
     if file_id == "payroll-area-config":
         return generate_payroll_area_config_csv(payroll_areas)
+    
+    print(11111111)
 
     # Dynamic per-calendar pay-period files (e.g., pay-period-80, pay-period-81)
     if file_id.startswith("pay-period-"):
@@ -581,6 +733,7 @@ def generate_file_content(sess: SessionRecord, file_id: str) -> str:
 
     # Dynamic per-calendar pay-date files (e.g., pay-date-80, pay-date-81)
     if file_id.startswith("pay-date-"):
+        print(222222222)
         calendar_id = file_id.replace("pay-date-", "")
         calendar_map = get_unique_calendars(payroll_areas)
         area = calendar_map.get(calendar_id)
@@ -624,6 +777,17 @@ def generate_file_content(sess: SessionRecord, file_id: str) -> str:
         if not isinstance(required, bool):
             required = True
         return generate_pre_notification_csv(required)
+
+
+    # Company code config
+    if file_id == "company-code":
+        # Look for the 'company_codes' key you defined in useExportData.ts
+        company_codes = config.get("company_codes", [])
+        if not company_codes:
+            # Fallback check for the singular version if needed
+            company_codes = config.get("company_code", [])
+        return generate_company_code_csv(company_codes)
+
 
     raise HTTPException(status_code=404, detail="Unknown file_id")
 
@@ -684,6 +848,8 @@ async def publish_configuration(
             task_name="export_config",
             data=payload
         )
+
+        
         return {"status": "success", "published_to": object_key}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"S3 Upload Failed: {str(e)}")
@@ -709,7 +875,7 @@ def download_published_file(
             detail=f"No published configuration found for {company_name}"
         )
 
-    # 2. Wrap the state in a SessionRecord for your existing generators
+        # 2. Wrap the state in a SessionRecord for your existing generators
     sess = SessionRecord(
         session_id=f"{company_name}_{company_code}",
         updated_at=datetime.utcnow(),

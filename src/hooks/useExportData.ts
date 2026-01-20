@@ -279,7 +279,7 @@ export function useExportData(): ExportDataResult {
   const publishToS3 = async (companyName: string, companyCode: string) => {
     // 1. Prepare the unified payload
     const payload = {
-      payroll_area: { payrollAreas },
+      payroll_areas: payrollAreas,
       payment_methods: paymentData?.methods || [],
       check_ranges: paymentData?.checkRanges || [],
       pre_notification_required: paymentData?.preNotificationRequired || false,
