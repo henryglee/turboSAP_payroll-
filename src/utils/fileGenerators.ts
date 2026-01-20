@@ -702,4 +702,14 @@ export const FILE_GENERATORS: Record<string, FileGeneratorConfig> = {
       return { content: generatePreNotificationCSV(required), rowCount: 1 };
     },
   },
+  'company-code-config': {
+    id: 'company-code-config',
+    name: 'Company Code Config',
+    description: 'Company code organizational data',
+    module: 'payroll',
+    generate: (data) => {
+      const codes = data as CompanyCode[];
+      return { content: generateCompanyCodeCSV(codes), rowCount: codes.length };
+    },
+  },
 };
