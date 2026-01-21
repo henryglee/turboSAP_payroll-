@@ -1,0 +1,750 @@
+{
+  "total_categories": 29,
+  "total_tasks": 95,
+  "categories": [
+    {
+      "id": "C001",
+      "name": "RIG Initial Setting",
+      "tasks": [
+        {
+          "id": "C001-T001",
+          "original_id": "18000014",
+          "name": "Initialize RIG Number Ranges",
+          "step_ids": []
+        }
+      ]
+    },
+    {
+      "id": "C002",
+      "name": "Setting Up the Point-to-Point Integration",
+      "tasks": [
+        {
+          "id": "C002-T001",
+          "original_id": "18001003",
+          "name": "Configuring the Point-to-Point Replication from EC to ECP",
+          "step_ids": []
+        },
+        {
+          "id": "C002-T002",
+          "original_id": "18001018",
+          "name": "Create Point Mapping",
+          "step_ids": []
+        }
+      ]
+    },
+    {
+      "id": "C003",
+      "name": "Enterprise Structure",
+      "tasks": [
+        {
+          "id": "C003-T001",
+          "original_id": "18000000",
+          "name": "Company Code",
+          "step_ids": []
+        },
+        {
+          "id": "C003-T002",
+          "original_id": "18000003",
+          "name": "Payroll Calendar",
+          "step_ids": []
+        },
+        {
+          "id": "C003-T003",
+          "original_id": "18000004",
+          "name": "Payroll Area",
+          "step_ids": []
+        },
+        {
+          "id": "C003-T004",
+          "original_id": "18000006",
+          "name": "Personnel Area",
+          "step_ids": []
+        },
+        {
+          "id": "C003-T005",
+          "original_id": "18000007",
+          "name": "Personnel Subarea",
+          "step_ids": []
+        },
+        {
+          "id": "C003-T006",
+          "original_id": "18000008",
+          "name": "Employee Group",
+          "step_ids": []
+        },
+        {
+          "id": "C003-T007",
+          "original_id": "18000009",
+          "name": "Employee Subgroup",
+          "step_ids": []
+        }
+      ]
+    },
+    {
+      "id": "C004",
+      "name": "Personnel Administration Configuration",
+      "tasks": [
+        {
+          "id": "C004-T001",
+          "original_id": "18003007",
+          "name": "PA Basic Settings",
+          "step_ids": []
+        },
+        {
+          "id": "C004-T002",
+          "original_id": "18000012",
+          "name": "Basic Pay Configuration",
+          "step_ids": []
+        },
+        {
+          "id": "C004-T003",
+          "original_id": "18000013",
+          "name": "Work Schedule Configuration",
+          "step_ids": []
+        },
+        {
+          "id": "C004-T004",
+          "original_id": "18001013",
+          "name": "Configure Date Types",
+          "step_ids": []
+        },
+        {
+          "id": "C004-T005",
+          "original_id": "18000010",
+          "name": "Personnel Action",
+          "step_ids": []
+        }
+      ]
+    },
+    {
+      "id": "C005",
+      "name": "Pay Statement Settings",
+      "tasks": [
+        {
+          "id": "C005-T001",
+          "original_id": "18004000",
+          "name": "Create Payslip HRFORMS",
+          "step_ids": []
+        },
+        {
+          "id": "C005-T002",
+          "original_id": "18000103",
+          "name": "Pay Statement Form Settings",
+          "step_ids": []
+        }
+      ]
+    },
+    {
+      "id": "C006",
+      "name": "Tax Configuration",
+      "tasks": [
+        {
+          "id": "C006-T001",
+          "original_id": "18000101",
+          "name": "BSI Configuration",
+          "step_ids": []
+        },
+        {
+          "id": "C006-T002",
+          "original_id": "18000102",
+          "name": "Tax ID Configuration",
+          "step_ids": []
+        },
+        {
+          "id": "C006-T003",
+          "original_id": "18001005",
+          "name": "Update Tax Model for CA",
+          "step_ids": []
+        },
+        {
+          "id": "C006-T004",
+          "original_id": "18004005",
+          "name": "Update Tax Model for CO",
+          "step_ids": []
+        },
+        {
+          "id": "C006-T005",
+          "original_id": "18004006",
+          "name": "Update Tax Model for DC",
+          "step_ids": []
+        },
+        {
+          "id": "C006-T006",
+          "original_id": "18004007",
+          "name": "Update Tax Model for MA",
+          "step_ids": []
+        },
+        {
+          "id": "C006-T007",
+          "original_id": "18004010",
+          "name": "Update Tax Model for ME",
+          "step_ids": []
+        },
+        {
+          "id": "C006-T008",
+          "original_id": "18004008",
+          "name": "Update Tax Model for NY",
+          "step_ids": []
+        },
+        {
+          "id": "C006-T009",
+          "original_id": "18004011",
+          "name": "Update Tax Model for OR",
+          "step_ids": []
+        },
+        {
+          "id": "C006-T010",
+          "original_id": "18004012",
+          "name": "Update Tax Model for WA",
+          "step_ids": []
+        },
+        {
+          "id": "C006-T011",
+          "original_id": "18004014",
+          "name": "Activate Tax Area Override BADI",
+          "step_ids": []
+        },
+        {
+          "id": "C006-T012",
+          "original_id": "18004015",
+          "name": "Activate Tax Locator BADI",
+          "step_ids": []
+        },
+        {
+          "id": "C006-T013",
+          "original_id": "18001020",
+          "name": "BSI TAX Location Configuration",
+          "step_ids": []
+        },
+        {
+          "id": "C006-T014",
+          "original_id": "18001022",
+          "name": "Unemployment Insurance",
+          "step_ids": []
+        },
+        {
+          "id": "C006-T015",
+          "original_id": "18001023",
+          "name": "Tax Reciprocity",
+          "step_ids": []
+        },
+        {
+          "id": "C006-T016",
+          "original_id": "18000016",
+          "name": "Assign Tax Company Code to PSA",
+          "step_ids": []
+        }
+      ]
+    },
+    {
+      "id": "C007",
+      "name": "Time Management",
+      "tasks": [
+        {
+          "id": "C007-T001",
+          "original_id": "18000104",
+          "name": "Create Time Wage Type",
+          "step_ids": []
+        },
+        {
+          "id": "C007-T002",
+          "original_id": "18001008",
+          "name": "Configure External System for Time",
+          "step_ids": []
+        },
+        {
+          "id": "C007-T003",
+          "original_id": "18001010",
+          "name": "Configure Allow Override Tax Area",
+          "step_ids": []
+        }
+      ]
+    },
+    {
+      "id": "C008",
+      "name": "Payroll Schema",
+      "tasks": [
+        {
+          "id": "C008-T001",
+          "original_id": "18001004",
+          "name": "US Main Schema",
+          "step_ids": []
+        }
+      ]
+    },
+    {
+      "id": "C009",
+      "name": "Banking",
+      "tasks": [
+        {
+          "id": "C009-T001",
+          "original_id": "18000105",
+          "name": "Payment Method Configuration",
+          "step_ids": []
+        },
+        {
+          "id": "C009-T002",
+          "original_id": "18000106",
+          "name": "Configure House Bank",
+          "step_ids": []
+        },
+        {
+          "id": "C009-T003",
+          "original_id": "18001011",
+          "name": "Payment Media Work Bench Variant",
+          "step_ids": []
+        }
+      ]
+    },
+    {
+      "id": "C010",
+      "name": "Benefit",
+      "tasks": [
+        {
+          "id": "C010-T001",
+          "original_id": "18000107",
+          "name": "Create Benefit Plan Wage Types",
+          "step_ids": []
+        },
+        {
+          "id": "C010-T002",
+          "original_id": "18000113",
+          "name": "Create Benefit Area and Grouping",
+          "step_ids": []
+        },
+        {
+          "id": "C010-T003",
+          "original_id": "18000114",
+          "name": "Create Savings Plan Wage Types",
+          "step_ids": []
+        },
+        {
+          "id": "C010-T004",
+          "original_id": "18000110",
+          "name": "Savings Plans - the 1st plan create",
+          "step_ids": []
+        },
+        {
+          "id": "C010-T005",
+          "original_id": "18000112",
+          "name": "Savings Plans - other plans create",
+          "step_ids": []
+        }
+      ]
+    },
+    {
+      "id": "C011",
+      "name": "Craft Pay Initial Setting",
+      "tasks": [
+        {
+          "id": "C011-T001",
+          "original_id": "18003015",
+          "name": "CraftPay Transport Setup",
+          "step_ids": []
+        },
+        {
+          "id": "C011-T002",
+          "original_id": "18002021",
+          "name": "Meta Data Set up",
+          "step_ids": []
+        },
+        {
+          "id": "C011-T003",
+          "original_id": "18002022",
+          "name": "Set Up Number Range for Pointer",
+          "step_ids": []
+        },
+        {
+          "id": "C011-T004",
+          "original_id": "18002023",
+          "name": "Define Union Rate Type",
+          "step_ids": []
+        }
+      ]
+    },
+    {
+      "id": "C012",
+      "name": "Bonus",
+      "tasks": [
+        {
+          "id": "C012-T001",
+          "original_id": "18000115",
+          "name": "Bonus with Supplemental Tax",
+          "step_ids": []
+        },
+        {
+          "id": "C012-T002",
+          "original_id": "18000116",
+          "name": "Gross-up Bonus",
+          "step_ids": []
+        }
+      ]
+    },
+    {
+      "id": "C013",
+      "name": "Configuration - Remove",
+      "tasks": [
+        {
+          "id": "C013-T001",
+          "original_id": "18001006",
+          "name": "Create a new Company Code",
+          "step_ids": []
+        }
+      ]
+    },
+    {
+      "id": "C014",
+      "name": "Deductions",
+      "tasks": [
+        {
+          "id": "C014-T001",
+          "original_id": "18000126",
+          "name": "Create Deduction WT with Balance",
+          "step_ids": []
+        }
+      ]
+    },
+    {
+      "id": "C015",
+      "name": "Garnishment",
+      "tasks": [
+        {
+          "id": "C015-T001",
+          "original_id": "18000120",
+          "name": "Garnishment Configuration",
+          "step_ids": []
+        }
+      ]
+    },
+    {
+      "id": "C016",
+      "name": "CraftPay Set up",
+      "tasks": [
+        {
+          "id": "C016-T001",
+          "original_id": "18000503",
+          "name": "Create Union Fringe Base Wage Types",
+          "step_ids": []
+        },
+        {
+          "id": "C016-T002",
+          "original_id": "18000504",
+          "name": "Craft Pay PCL and EVCL Configuration",
+          "step_ids": []
+        },
+        {
+          "id": "C016-T003",
+          "original_id": "18001009",
+          "name": "Assign Wage Types in TVARVC Table",
+          "step_ids": []
+        },
+        {
+          "id": "C016-T004",
+          "original_id": "18001019",
+          "name": "Davis Bacon Configuration",
+          "step_ids": []
+        },
+        {
+          "id": "C016-T005",
+          "original_id": "18003021",
+          "name": "Create Union Fringe Liability Wage Types",
+          "step_ids": []
+        },
+        {
+          "id": "C016-T006",
+          "original_id": "18003022",
+          "name": "Create Union Fringe Deduction Wage Types",
+          "step_ids": []
+        },
+        {
+          "id": "C016-T007",
+          "original_id": "18003023",
+          "name": "Create Union Fringe Taxable Wage Types",
+          "step_ids": []
+        },
+        {
+          "id": "C016-T008",
+          "original_id": "18004016",
+          "name": "Create Worker's Comp Base Wage Types",
+          "step_ids": []
+        },
+        {
+          "id": "C016-T009",
+          "original_id": "18004017",
+          "name": "Create Worker's Comp Wage Types",
+          "step_ids": []
+        }
+      ]
+    },
+    {
+      "id": "C017",
+      "name": "Off-Cycle Configuration",
+      "tasks": [
+        {
+          "id": "C017-T001",
+          "original_id": "18000505",
+          "name": "Adjustment",
+          "step_ids": []
+        },
+        {
+          "id": "C017-T002",
+          "original_id": "18001014",
+          "name": "Additional Payment",
+          "step_ids": []
+        },
+        {
+          "id": "C017-T003",
+          "original_id": "18001015",
+          "name": "Regular Period On-Demand",
+          "step_ids": []
+        },
+        {
+          "id": "C017-T004",
+          "original_id": "18001016",
+          "name": "Payroll Result Adjustment",
+          "step_ids": []
+        },
+        {
+          "id": "C017-T005",
+          "original_id": "18001017",
+          "name": "Delete SAP Sample Enteries",
+          "step_ids": []
+        }
+      ]
+    },
+    {
+      "id": "C018",
+      "name": "FICO Basic Configuration",
+      "tasks": [
+        {
+          "id": "C018-T001",
+          "original_id": "18000127",
+          "name": "Controlling Area Configuration",
+          "step_ids": []
+        }
+      ]
+    },
+    {
+      "id": "C019",
+      "name": "Posting Setup",
+      "tasks": [
+        {
+          "id": "C019-T001",
+          "original_id": "18001024",
+          "name": "Wage Type Symbolic Account SetUp",
+          "step_ids": []
+        }
+      ]
+    },
+    {
+      "id": "C020",
+      "name": "QA100 Cut Over",
+      "tasks": [
+        {
+          "id": "C020-T001",
+          "original_id": "18002501",
+          "name": "System Readiness",
+          "step_ids": []
+        },
+        {
+          "id": "C020-T002",
+          "original_id": "18004021",
+          "name": "Dependency Check",
+          "step_ids": []
+        },
+        {
+          "id": "C020-T003",
+          "original_id": "18004022",
+          "name": "Objects Activation",
+          "step_ids": []
+        },
+        {
+          "id": "C020-T004",
+          "original_id": "18004023",
+          "name": "Cut over actions",
+          "step_ids": []
+        },
+        {
+          "id": "C020-T005",
+          "original_id": "18004024",
+          "name": "BSI TPF Cut over",
+          "step_ids": []
+        }
+      ]
+    },
+    {
+      "id": "C021",
+      "name": "Interface Development",
+      "tasks": [
+        {
+          "id": "C021-T001",
+          "original_id": "18003000",
+          "name": "Empower Inbound",
+          "step_ids": []
+        },
+        {
+          "id": "C021-T002",
+          "original_id": "18003002",
+          "name": "Empower Outbound",
+          "step_ids": []
+        }
+      ]
+    },
+    {
+      "id": "C022",
+      "name": "Delete ABAP Object",
+      "tasks": [
+        {
+          "id": "C022-T001",
+          "original_id": "18003003",
+          "name": "Delete ABAP Object",
+          "step_ids": []
+        }
+      ]
+    },
+    {
+      "id": "C023",
+      "name": "Create Employee Master Data",
+      "tasks": [
+        {
+          "id": "C023-T001",
+          "original_id": "18003008",
+          "name": "Hire New Employee",
+          "step_ids": []
+        },
+        {
+          "id": "C023-T002",
+          "original_id": "18004025",
+          "name": "Update Infotype Data",
+          "step_ids": []
+        }
+      ]
+    },
+    {
+      "id": "C024",
+      "name": "EC to ECP Replication Configuration",
+      "tasks": [
+        {
+          "id": "C024-T001",
+          "original_id": "18003009",
+          "name": "Code Value Mapping",
+          "step_ids": []
+        },
+        {
+          "id": "C024-T002",
+          "original_id": "18003012",
+          "name": "Maintain Date Type Mapping",
+          "step_ids": []
+        },
+        {
+          "id": "C024-T003",
+          "original_id": "18004003",
+          "name": "Set up connection between EC and ECP",
+          "step_ids": []
+        }
+      ]
+    },
+    {
+      "id": "C025",
+      "name": "MD:CraftPay Setup Load",
+      "tasks": [
+        {
+          "id": "C025-T001",
+          "original_id": "18003020",
+          "name": "Union Setup Load",
+          "step_ids": []
+        }
+      ]
+    },
+    {
+      "id": "C026",
+      "name": "Payroll Control Center and ESS Configuration",
+      "tasks": [
+        {
+          "id": "C026-T001",
+          "original_id": "18004001",
+          "name": "Using OAuth 2.0 to Integrate Employee Central and",
+          "step_ids": []
+        },
+        {
+          "id": "C026-T002",
+          "original_id": "18004018",
+          "name": "Activate the SICF service of HRSFEC*",
+          "step_ids": []
+        },
+        {
+          "id": "C026-T003",
+          "original_id": "18004019",
+          "name": "Activate Odata service",
+          "step_ids": []
+        }
+      ]
+    },
+    {
+      "id": "C027",
+      "name": "ALE Setup",
+      "tasks": [
+        {
+          "id": "C027-T001",
+          "original_id": "18004004",
+          "name": "ALE Setup in ECP",
+          "step_ids": []
+        }
+      ]
+    },
+    {
+      "id": "C028",
+      "name": "Gross Up Wage Type Set Up",
+      "tasks": [
+        {
+          "id": "C028-T001",
+          "original_id": "18004026",
+          "name": "Create Gross Up Wage Type",
+          "step_ids": []
+        },
+        {
+          "id": "C028-T002",
+          "original_id": "18004027",
+          "name": "Create Net Wage Type",
+          "step_ids": []
+        },
+        {
+          "id": "C028-T003",
+          "original_id": "18004028",
+          "name": "Create Gross Up Tax Wage Type",
+          "step_ids": []
+        },
+        {
+          "id": "C028-T004",
+          "original_id": "18004029",
+          "name": "set up wage type link V_512W_B",
+          "step_ids": []
+        }
+      ]
+    },
+    {
+      "id": "C029",
+      "name": "Extra Earning Set Up",
+      "tasks": [
+        {
+          "id": "C029-T001",
+          "original_id": "18004031",
+          "name": "Create new process class for extra earning",
+          "step_ids": []
+        },
+        {
+          "id": "C029-T002",
+          "original_id": "18004034",
+          "name": "Create Earning Wage Type",
+          "step_ids": []
+        },
+        {
+          "id": "C029-T003",
+          "original_id": "18004035",
+          "name": "Create Rate Wage Type",
+          "step_ids": []
+        }
+      ]
+    }
+  ]
+}
