@@ -7,28 +7,12 @@ import { useState, useRef, useCallback, useId } from 'react';
 import { AdminLayout } from '../../components/layout/AdminLayout';
 import {
   Upload,
-  FileText,
-  FileSpreadsheet,
-  Presentation,
-  Trash2,
   AlertCircle,
   CheckCircle2,
   X,
   Loader2,
-  File,
 } from 'lucide-react';
 import { apiFetch } from '../../api/utils';
-
-// File type config
-const ALLOWED_TYPES = {
-  'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'pptx',
-  'application/vnd.ms-powerpoint': 'ppt',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
-  'application/msword': 'doc',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
-  'application/vnd.ms-excel': 'xls',
-  'application/pdf': 'pdf',
-};
 
 const ALLOWED_EXTENSIONS = ['.pptx', '.ppt', '.docx', '.doc', '.xlsx', '.xls', '.pdf'];
 const KB_COMPANY_NAME = 'default';
@@ -55,13 +39,11 @@ interface Document {
 }
 
 export function DocumentsPage() {
-  const [documents, setDocuments] = useState<Document[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [, setDocuments] = useState<Document[]>([]);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fileInputId = useId();
@@ -71,32 +53,6 @@ export function DocumentsPage() {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
-
-  // Format date
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  };
-
-  // Get icon for file type
-  const getFileIcon = (fileType: string) => {
-    if (['pptx', 'ppt'].includes(fileType)) {
-      return <Presentation className="h-5 w-5 text-orange-500" />;
-    }
-    if (['docx', 'doc'].includes(fileType)) {
-      return <FileText className="h-5 w-5 text-blue-500" />;
-    }
-    if (['xlsx', 'xls'].includes(fileType)) {
-      return <FileSpreadsheet className="h-5 w-5 text-green-500" />;
-    }
-    if (fileType === 'pdf') {
-      return <File className="h-5 w-5 text-red-500" />;
-    }
-    return <FileText className="h-5 w-5 text-gray-500" />;
   };
 
   // Validate file
@@ -196,29 +152,6 @@ export function DocumentsPage() {
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
-    }
-  };
-
-  // Handle delete
-  const handleDelete = async (docId: string) => {
-    const doc = documents.find(d => d.id === docId);
-    if (!doc) return;
-
-    setError(null);
-    setMessage(null);
-
-    try {
-      // TODO: Replace with actual API call when backend is ready
-      // await apiFetch(`/api/admin/documents/${docId}`, { method: 'DELETE' });
-
-      // Mock delete
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      setDocuments(prev => prev.filter(d => d.id !== docId));
-      setMessage(`"${doc.name}" deleted successfully`);
-      setDeleteConfirm(null);
-    } catch (err: any) {
-      setError(err.message || 'Failed to delete file');
     }
   };
 

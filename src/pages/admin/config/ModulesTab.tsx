@@ -76,7 +76,6 @@ import {
   useSortable
 } from '@dnd-kit/sortable';
 
-import { CSS } from '@dnd-kit/utilities';
 import type { Transform } from '@dnd-kit/utilities';
 
 import { SortableItem } from './SortableItem.tsx';
@@ -192,7 +191,7 @@ export function ModulesTab({ modules, loading, error, onRefresh: _onRefresh }: M
 
   const [selectedCategory, setSelectedCategory] = useState<ModuleCategory | null>(null);
 
-  const [moduleCategoryOverrides, setModuleCategoryOverrides] = useState<Record<string, ModuleCategorySlug>>({});
+  const [, setModuleCategoryOverrides] = useState<Record<string, ModuleCategorySlug>>({});
 
   const getCategoryForModule = (module: ModuleInfo): ModuleCategorySlug | undefined => {
     // Prefer backend-provided categorySlug if present
@@ -245,7 +244,7 @@ export function ModulesTab({ modules, loading, error, onRefresh: _onRefresh }: M
       console.log('Auth data from localStorage:', localStorage.getItem('turbosap-auth'));
       
 
-      const response = await apiFetch<{ modules: ModuleInfo[] }>('/api/config/modules', {
+      await apiFetch<{ modules: ModuleInfo[] }>('/api/config/modules', {
         method: 'POST',
         body: JSON.stringify({
           name: data.name,
@@ -544,7 +543,7 @@ export function ModulesTab({ modules, loading, error, onRefresh: _onRefresh }: M
                         <option value="" disabled>
                           Select an icon
                         </option>
-                        {Object.entries(MODULE_ICONS).map(([key, Icon]) => (
+                        {Object.entries(MODULE_ICONS).map(([key]) => (
                           <option key={key} value={key}>
                             {key.charAt(0).toUpperCase() +
                               key.slice(1).replace("-", " ")}

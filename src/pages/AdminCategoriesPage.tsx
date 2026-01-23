@@ -40,7 +40,7 @@ export function AdminCategoriesPage() {
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ type: 'category' | 'task'; id: string; name: string } | null>(null);
-  const [targetCategoryId, setTargetCategoryId] = useState<string | null>(null);
+  const [, setTargetCategoryId] = useState<string | null>(null);
 
   // Form states
   const [formId, setFormId] = useState('');

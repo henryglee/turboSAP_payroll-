@@ -20,8 +20,6 @@ import {
   CheckCircle2,
   Table,
   MessageSquare,
-  Settings,
-  Info
 } from 'lucide-react';
 import type { PayrollArea, PayFrequencyType } from '../types';
 

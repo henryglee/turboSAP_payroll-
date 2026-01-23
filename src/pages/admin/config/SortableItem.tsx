@@ -1,8 +1,6 @@
 import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
-import type { UseSortableArguments } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import type { Active, Over } from '@dnd-kit/core';
 import type { Transform } from '@dnd-kit/utilities';
 
 interface SortableItemProps {
