@@ -10,8 +10,11 @@ import { useState, useEffect } from 'react';
 import { DashboardLayout } from '../components/layout/DashboardLayout.tsx';
 import { startSession, submitAnswer } from '../api/langgraph.ts';
 import type { PaymentMethodConfig } from '../types/chat';
-import { CheckCircle2, AlertCircle, ChevronDown, ChevronRight, AlertTriangle, Download, Plus, Trash2 } from 'lucide-react';
+import { CheckCircle2, AlertCircle, ChevronDown, ChevronRight, AlertTriangle, Download, Plus, Trash2, RotateCcw } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useAuthStore } from '../store/auth';
+import { useConfigStore } from '../store';
+
 
 // Validation helper functions
 function validateAchRouting(value: string): { valid: boolean; message?: string } {
@@ -51,21 +54,6 @@ function checkRangesOverlap(range1: string, range2: string): boolean {
   return !(r1.end < r2.start || r2.end < r1.start);
 }
 
-const PAYMENT_SESSION_KEY = 'turbosap.payment_method.sessionId';
-
-function getSavedPaymentSessionId() {
-  return localStorage.getItem(PAYMENT_SESSION_KEY) || '';
-}
-
-function savePaymentSessionId(id: string) {
-  localStorage.setItem(PAYMENT_SESSION_KEY, id);
-}
-
-function clearPaymentSessionId() {
-  localStorage.removeItem(PAYMENT_SESSION_KEY);
-}
-
-const PAYMENT_DRAFT_KEY = 'turbosap.payment_method.draft.v1';
 
 type PaymentDraft = {
   selectedMethods: string[];
@@ -79,24 +67,50 @@ type PaymentDraft = {
   agreeNoPreNote: boolean | null;
   paymentResults: PaymentMethodConfig[] | null;
   showResults: boolean;
+
+  // NEW: persist editable export tables
+  editablePaymentMethods: EditablePaymentMethod[];
+  editableCheckRanges: EditableCheckRange[];
+  editablePreNotification: string;
 };
 
-function loadPaymentDraft(): PaymentDraft | null {
+function paymentSessionKey(userKey: string) {
+  return `turbosap.payment_method.sessionId.${userKey}`;
+}
+
+function paymentDraftKey(userKey: string) {
+  return `turbosap.payment_method.draft.v1.${userKey}`;
+}
+
+export function getSavedPaymentSessionId(userKey: string) {
+  return localStorage.getItem(paymentSessionKey(userKey)) || '';
+}
+
+function savePaymentSessionId(userKey: string, id: string) {
+  localStorage.setItem(paymentSessionKey(userKey), id);
+}
+
+export function clearPaymentSessionId(userKey: string) {
+  localStorage.removeItem(paymentSessionKey(userKey));
+}
+
+function loadPaymentDraft(userKey: string): PaymentDraft | null {
   try {
-    const raw = localStorage.getItem(PAYMENT_DRAFT_KEY);
+    const raw = localStorage.getItem(paymentDraftKey(userKey));
     return raw ? (JSON.parse(raw) as PaymentDraft) : null;
   } catch {
     return null;
   }
 }
 
-function savePaymentDraft(draft: PaymentDraft) {
-  localStorage.setItem(PAYMENT_DRAFT_KEY, JSON.stringify(draft));
+function savePaymentDraft(userKey: string, draft: PaymentDraft) {
+  localStorage.setItem(paymentDraftKey(userKey), JSON.stringify(draft));
 }
 
-function clearPaymentDraft() {
-  localStorage.removeItem(PAYMENT_DRAFT_KEY);
+export function clearPaymentDraft(userKey: string) {
+  localStorage.removeItem(paymentDraftKey(userKey));
 }
+
 
 
 // Types for editable CSV data
@@ -149,6 +163,13 @@ export function PaymentMethodPage() {
     prenotification: true,
   });
   const [hydrated, setHydrated] = useState(false);
+  
+  const { user } = useAuthStore();
+  const userKey = user?.userId
+    ? String(user.userId)
+    : 'anonymous';
+
+
 
 
   // Editable CSV data state
@@ -156,30 +177,8 @@ export function PaymentMethodPage() {
   const [editableCheckRanges, setEditableCheckRanges] = useState<EditableCheckRange[]>([]);
   const [editablePreNotification, setEditablePreNotification] = useState<string>('No');
 
-useEffect(() => {
-  const draft = loadPaymentDraft();
 
-  if (draft) {
-    // Restore UI state
-    setSelectedMethods(draft.selectedMethods ?? []);
-    setHouseBanks(draft.houseBanks ?? '');
-    setAchSpec(draft.achSpec ?? '');
-    setCheckVolume(draft.checkVolume ?? '');
-    setSystemCheckBankAccount(draft.systemCheckBankAccount ?? '');
-    setSystemCheckRange(draft.systemCheckRange ?? '');
-    setManualCheckBankAccount(draft.manualCheckBankAccount ?? '');
-    setManualCheckRange(draft.manualCheckRange ?? '');
-    setAgreeNoPreNote(draft.agreeNoPreNote ?? null);
-    setPaymentResults(draft.paymentResults ?? null);
-    setShowResults(draft.showResults ?? false);
-  }
-
-  // ✅ IMPORTANT: mark hydration complete AFTER restore
-  setHydrated(true);
-}, []);
-
-
-
+// persist draft to localStorage, save effect
 
 useEffect(() => {
   if (!hydrated) return;
@@ -196,11 +195,21 @@ useEffect(() => {
     agreeNoPreNote,
     paymentResults,
     showResults,
+    editablePaymentMethods,
+    editableCheckRanges,
+    editablePreNotification,
   };
 
-  savePaymentDraft(draft);
+  savePaymentDraft(userKey, draft);
+
+  // Notify sidebar to update when we have results
+  if (paymentResults && paymentResults.length > 0) {
+    useConfigStore.getState().notifyPaymentDataChanged();
+  }
+
 }, [
   hydrated,
+  userKey,
   selectedMethods,
   houseBanks,
   achSpec,
@@ -212,7 +221,37 @@ useEffect(() => {
   agreeNoPreNote,
   paymentResults,
   showResults,
+  editablePaymentMethods,
+  editableCheckRanges,
+  editablePreNotification,
+
 ]);
+
+
+// Hydrate from state on mount
+useEffect(() => {
+  const draft = loadPaymentDraft(userKey);
+
+  if (draft) {
+    setSelectedMethods(draft.selectedMethods ?? []);
+    setHouseBanks(draft.houseBanks ?? '');
+    setAchSpec(draft.achSpec ?? '');
+    setCheckVolume(draft.checkVolume ?? '');
+    setSystemCheckBankAccount(draft.systemCheckBankAccount ?? '');
+    setSystemCheckRange(draft.systemCheckRange ?? '');
+    setManualCheckBankAccount(draft.manualCheckBankAccount ?? '');
+    setManualCheckRange(draft.manualCheckRange ?? '');
+    setAgreeNoPreNote(draft.agreeNoPreNote ?? null);
+    setPaymentResults(draft.paymentResults ?? null);
+    setShowResults(draft.showResults ?? false);
+    setEditablePaymentMethods(draft.editablePaymentMethods ?? []);
+    setEditableCheckRanges(draft.editableCheckRanges ?? []);
+    setEditablePreNotification(draft.editablePreNotification ?? 'No');
+  }
+
+  setHydrated(true);
+}, [userKey]);
+
 
 
   const toggleSection = (section: keyof typeof expandedSections) => {
@@ -329,14 +368,13 @@ useEffect(() => {
     setShowResults(false);
 
     try {
-      // Step 1: Start session for payment_method module
-      let sessionId = getSavedPaymentSessionId();
+      // Step 1: ALWAYS start a fresh session for payment_method module
+      // Clear any stale session ID to prevent reusing corrupted/wrong-module state
+      clearPaymentSessionId(userKey);
 
-      if (!sessionId) {
-        const start = await startSession('payment_method');
-        sessionId = start.sessionId;
-        savePaymentSessionId(sessionId);
-      }
+      const start = await startSession('payment_method');
+      const sessionId = start.sessionId;
+      savePaymentSessionId(userKey, sessionId);
 
 
       // Step 2: Answer Q1 - Payment method P (ACH)?
@@ -418,10 +456,12 @@ useEffect(() => {
       });
 
       // Check if we got results
+      console.log('Final response:', JSON.stringify(response, null, 2));
       if (response.done && response.paymentMethods) {
         setPaymentResults(response.paymentMethods);
         setShowResults(true);
       } else {
+        console.warn('Missing done or paymentMethods:', { done: response.done, hasPaymentMethods: !!response.paymentMethods });
         setError('Configuration incomplete - please check all required fields');
       }
     } catch (err) {
@@ -430,6 +470,44 @@ useEffect(() => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  /**
+   * Reset the form to initial state
+   * Clears all form fields, results, and saved session
+   */
+  const handleStartOver = () => {
+    // Clear form state
+    setSelectedMethods([]);
+    setHouseBanks('');
+    setAchSpec('');
+    setCheckVolume('');
+    setSystemCheckBankAccount('');
+    setSystemCheckRange('');
+    setManualCheckBankAccount('');
+    setManualCheckRange('');
+    setAgreeNoPreNote(null);
+
+    // Clear validation state
+    setFieldErrors({});
+    setFieldWarnings({});
+
+    // Clear results
+    setPaymentResults(null);
+    setShowResults(false);
+    setError(null);
+
+    // Clear editable CSV data
+    setEditablePaymentMethods([]);
+    setEditableCheckRanges([]);
+    setEditablePreNotification('No');
+
+    // Clear saved session and draft from localStorage
+    clearPaymentSessionId(userKey);
+    clearPaymentDraft(userKey);
+
+    // Notify Zustand store so sidebar updates immediately
+    useConfigStore.getState().notifyPaymentDataChanged();
   };
 
   // Parse paymentResults into editable CSV format when results are generated
@@ -579,7 +657,7 @@ useEffect(() => {
       description="Configure payment methods for payroll processing"
       currentPath="/payment-methods"
     >
-      <div className="max-w-4xl space-y-6">
+      <div className="space-y-6">
         {/* Error Display */}
         {error && (
           <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4">
@@ -1043,8 +1121,22 @@ useEffect(() => {
           )}
         </div>
 
-        {/* Generate Button */}
+        {/* Action Buttons */}
         <div className="flex justify-end gap-3">
+          <button
+            onClick={handleStartOver}
+            disabled={isLoading}
+            className={cn(
+              'px-4 py-2.5 rounded-lg font-medium transition-all duration-200',
+              'focus:outline-none focus:ring-2 focus:ring-secondary focus:ring-offset-2',
+              'border border-border bg-background text-foreground hover:bg-secondary/50',
+              'flex items-center gap-2',
+              isLoading && 'opacity-50 cursor-not-allowed'
+            )}
+          >
+            <RotateCcw className="h-4 w-4" />
+            Start Over
+          </button>
           <button
             onClick={handleGenerateConfig}
             disabled={isLoading}
@@ -1220,46 +1312,40 @@ useEffect(() => {
                   </div>
                 </div>
 
-                {/* Check Ranges Table */}
-                <div className="rounded-lg border border-border bg-background">
-                  <div className="flex items-center justify-between p-4 border-b border-border bg-secondary/30">
-                    <h4 className="font-medium text-card-foreground">Check Ranges</h4>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={handleAddCheckRange}
-                        className="px-3 py-1.5 text-sm bg-secondary text-card-foreground rounded hover:bg-secondary/80 transition-colors flex items-center gap-1"
-                      >
-                        <Plus className="h-3.5 w-3.5" />
-                        Add Row
-                      </button>
-                      <button
-                        onClick={handleExportCheckRanges}
-                        className="px-3 py-1.5 text-sm bg-accent/10 text-accent rounded hover:bg-accent/20 transition-colors flex items-center gap-1"
-                      >
-                        <Download className="h-3.5 w-3.5" />
-                        Export CSV
-                      </button>
+                {/* Check Ranges Table - Only show if there are check ranges */}
+                {editableCheckRanges.length > 0 && (
+                  <div className="rounded-lg border border-border bg-background">
+                    <div className="flex items-center justify-between p-4 border-b border-border bg-secondary/30">
+                      <h4 className="font-medium text-card-foreground">Check Ranges</h4>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleAddCheckRange}
+                          className="px-3 py-1.5 text-sm bg-secondary text-card-foreground rounded hover:bg-secondary/80 transition-colors flex items-center gap-1"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                          Add Row
+                        </button>
+                        <button
+                          onClick={handleExportCheckRanges}
+                          className="px-3 py-1.5 text-sm bg-accent/10 text-accent rounded hover:bg-accent/20 transition-colors flex items-center gap-1"
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                          Export CSV
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead className="bg-secondary/50 border-b border-border">
-                        <tr>
-                          <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Company Code</th>
-                          <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Bank Account</th>
-                          <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Check Number Range</th>
-                          <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground w-16">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {editableCheckRanges.length === 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead className="bg-secondary/50 border-b border-border">
                           <tr>
-                            <td colSpan={4} className="px-4 py-8 text-center text-sm text-muted-foreground">
-                              No check ranges configured. Click "Add Row" to add one.
-                            </td>
+                            <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Company Code</th>
+                            <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Bank Account</th>
+                            <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Check Number Range</th>
+                            <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground w-16">Actions</th>
                           </tr>
-                        ) : (
-                          editableCheckRanges.map((range, index) => (
+                        </thead>
+                        <tbody>
+                          {editableCheckRanges.map((range, index) => (
                             <tr key={index} className="border-b border-border last:border-0">
                               <td className="px-4 py-3">
                                 <input
@@ -1298,12 +1384,12 @@ useEffect(() => {
                                 </button>
                               </td>
                             </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Pre-Notification Setting */}
                 <div className="rounded-lg border border-border bg-background">

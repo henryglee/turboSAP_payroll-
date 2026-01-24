@@ -12,8 +12,58 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { startSession, submitAnswer } from '../../api/langgraph';
 import type { ChatMessage, Question, GeneratedPayrollArea, ChatState } from '../../types/chat';
-import { MessageCircle, Play, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { MessageCircle, Play, CheckCircle2, AlertCircle, Loader2, RotateCcw } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { useAuthStore } from '../../store/auth';
+import { useConfigStore } from '../../store';
+
+// ============================================
+// User-scoped localStorage persistence
+// ============================================
+interface PayrollDraft {
+  sessionId: string | null;
+  messages: ChatMessage[];
+  answers: Record<string, string | string[]>;
+  isComplete: boolean;
+  progress: number;
+}
+
+function payrollSessionKey(userKey: string) {
+  return `turbosap.payroll_area.sessionId.${userKey}`;
+}
+
+function payrollDraftKey(userKey: string) {
+  return `turbosap.payroll_area.draft.v1.${userKey}`;
+}
+
+function savePayrollSessionId(userKey: string, id: string) {
+  localStorage.setItem(payrollSessionKey(userKey), id);
+}
+
+function clearPayrollSession(userKey: string) {
+  localStorage.removeItem(payrollSessionKey(userKey));
+  localStorage.removeItem(payrollDraftKey(userKey));
+}
+
+function loadPayrollDraft(userKey: string): PayrollDraft | null {
+  try {
+    const raw = localStorage.getItem(payrollDraftKey(userKey));
+    if (!raw) return null;
+    const draft = JSON.parse(raw) as PayrollDraft;
+    // Restore Date objects for messages
+    draft.messages = draft.messages.map(m => ({
+      ...m,
+      timestamp: new Date(m.timestamp),
+    }));
+    return draft;
+  } catch {
+    return null;
+  }
+}
+
+function savePayrollDraft(userKey: string, draft: PayrollDraft) {
+  localStorage.setItem(payrollDraftKey(userKey), JSON.stringify(draft));
+}
 
 interface ChatCardProps {
   /** Called when configuration is complete with generated payroll areas */
@@ -31,13 +81,85 @@ export function ChatCard({ onComplete }: ChatCardProps) {
     progress: 0,
     error: null,
   });
+  const [hydrated, setHydrated] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Get user for scoped persistence
+  const { user } = useAuthStore();
+  const userKey = user?.userId ? String(user.userId) : 'anonymous';
+
+  // Load saved draft on mount
+  useEffect(() => {
+    const draft = loadPayrollDraft(userKey);
+    if (draft && draft.sessionId) {
+      setState(prev => ({
+        ...prev,
+        sessionId: draft.sessionId,
+        messages: draft.messages,
+        answers: draft.answers,
+        isComplete: draft.isComplete,
+        progress: draft.progress,
+        currentQuestion: draft.isComplete ? null : (draft.messages[draft.messages.length - 1]?.question || null),
+      }));
+    }
+    setHydrated(true);
+  }, [userKey]);
+
+  // Save draft whenever state changes (after hydration)
+  useEffect(() => {
+    if (!hydrated) return;
+    if (!state.sessionId) return; // Don't save empty state
+
+    const draft: PayrollDraft = {
+      sessionId: state.sessionId,
+      messages: state.messages,
+      answers: state.answers,
+      isComplete: state.isComplete,
+      progress: state.progress,
+    };
+    savePayrollDraft(userKey, draft);
+
+    // Also save sessionId separately for quick lookup
+    if (state.sessionId) {
+      savePayrollSessionId(userKey, state.sessionId);
+    }
+  }, [hydrated, userKey, state.sessionId, state.messages, state.answers, state.isComplete, state.progress]);
 
   // Auto-scroll to bottom when new messages appear
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [state.messages]);
+
+  // Reset/restart function
+  const handleReset = () => {
+    // Clear localStorage session data
+    clearPayrollSession(userKey);
+
+    // Clear Zustand store payroll areas so sidebar shows "not started"
+    useConfigStore.setState({
+      payrollAreas: [],
+      validation: {
+        isValid: false,
+        employeesCovered: 0,
+        totalEmployees: 0,
+        warnings: [],
+        errors: [],
+      },
+    });
+
+    // Reset local component state
+    setState({
+      sessionId: null,
+      messages: [],
+      currentQuestion: null,
+      answers: {},
+      isComplete: false,
+      isLoading: false,
+      progress: 0,
+      error: null,
+    });
+  };
 
   /**
    * Start a new configuration session
@@ -301,12 +423,12 @@ export function ChatCard({ onComplete }: ChatCardProps) {
     return (
       <div className="rounded-lg border border-border bg-card overflow-hidden">
         <div className="flex items-center gap-3 p-4 border-b border-border">
-          <MessageCircle className="h-5 w-5 text-primary" />
+          <MessageCircle className="h-5 w-5 text-teal-600" />
           <h2 className="text-lg font-semibold">Configuration Assistant</h2>
         </div>
         <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
-          <div className="rounded-full bg-primary/10 p-4 mb-4">
-            <Play className="h-8 w-8 text-primary" />
+          <div className="rounded-full bg-teal-600/10 p-4 mb-4">
+            <Play className="h-8 w-8 text-teal-600" />
           </div>
           <h3 className="text-lg font-medium mb-2">Ready to Configure</h3>
           <p className="text-muted-foreground mb-6 max-w-md">
@@ -320,7 +442,7 @@ export function ChatCard({ onComplete }: ChatCardProps) {
           )}
           <button
             onClick={handleStart}
-            className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-teal-600 text-white rounded-lg font-medium hover:bg-teal-700 transition-colors"
           >
             <Play className="h-4 w-4" />
             Start Configuration
@@ -339,12 +461,24 @@ export function ChatCard({ onComplete }: ChatCardProps) {
             <MessageCircle className="h-5 w-5 text-primary" />
             <h2 className="text-lg font-semibold">Configuration Assistant</h2>
           </div>
-          {state.isComplete && (
-            <span className="inline-flex items-center gap-1.5 text-sm text-green-600 bg-green-50 px-2.5 py-1 rounded-full">
-              <CheckCircle2 className="h-4 w-4" />
-              Complete
-            </span>
-          )}
+          <div className="flex items-center gap-2">
+            {state.isComplete && (
+              <span className="inline-flex items-center gap-1.5 text-sm text-green-600 bg-green-50 px-2.5 py-1 rounded-full">
+                <CheckCircle2 className="h-4 w-4" />
+                Complete
+              </span>
+            )}
+            {state.sessionId && (
+              <button
+                onClick={handleReset}
+                className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground px-2.5 py-1 rounded-lg hover:bg-muted transition-colors"
+                title="Start over"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Start Over
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Progress Bar */}

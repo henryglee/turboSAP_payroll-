@@ -85,6 +85,59 @@ MODULE_SEQUENCE = [
     # "benefits",
 ]
 
+# Question ID prefixes that uniquely identify each module
+# Used as fallback when current_module is not set in state
+PAYMENT_METHOD_QUESTION_PREFIXES = [
+    "q1_payment_method_p",
+    "q1_p_house_banks",
+    "q1_p_ach_spec",
+    "q2_payment_method_q",
+    "q2_q_volume",
+    "q2_q_check_range",
+    "q3_payment_method_k",
+    "q4_payment_method_m",
+    "q5_pre_note_confirmation",
+]
+
+PAYROLL_AREA_QUESTION_PREFIXES = [
+    "q1_frequencies",
+    "q1_weekly_pattern",
+    "q1_biweekly_pattern",
+    "q1_semimonthly_pattern",
+    "q1_monthly_payday",
+    "business_",
+    "geographic_",
+    "regions_",
+]
+
+
+def infer_module_from_answers(answers: dict) -> Optional[str]:
+    """
+    Infer which module the session belongs to based on answer keys.
+
+    This is a defensive fallback used when current_module is not set in state,
+    which can happen due to session serialization issues or stale session reuse.
+
+    Returns:
+        Module name ("payment_method" or "payroll_area") or None if can't determine
+    """
+    if not answers:
+        return None
+
+    # Check for payment method answers first (more specific question IDs)
+    for key in answers:
+        for prefix in PAYMENT_METHOD_QUESTION_PREFIXES:
+            if key == prefix or key.startswith(prefix):
+                return "payment_method"
+
+    # Check for payroll area answers
+    for key in answers:
+        for prefix in PAYROLL_AREA_QUESTION_PREFIXES:
+            if key == prefix or key.startswith(prefix):
+                return "payroll_area"
+
+    return None
+
 
 def get_next_module(state: MasterState) -> Optional[str]:
     """
@@ -114,17 +167,27 @@ def master_router(state: MasterState) -> MasterState:
     Master routing logic - determines which module to execute.
 
     Flow:
-    default_code. Check which modules are complete
+    1. Check which modules are complete
     2. Route to next module
     3. Execute that module's logic
     4. Mark as complete if done
     5. Repeat or finish
     """
     completed_modules = state.get("completed_modules") or []
+    answers = state.get("answers", {})
 
     # Check if a specific module was requested (from /api/start)
     # If current_module is set and not completed, use that
     current_module = state.get("current_module")
+
+    # DEFENSIVE FALLBACK: If current_module is not set but we have answers,
+    # try to infer the module from the answer keys. This handles cases where
+    # state was corrupted or a stale session was reused.
+    if not current_module and answers:
+        inferred_module = infer_module_from_answers(answers)
+        if inferred_module:
+            current_module = inferred_module
+
     if current_module and current_module not in completed_modules:
         next_module = current_module
     else:

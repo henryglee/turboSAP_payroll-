@@ -1,12 +1,32 @@
 from pathlib import Path
 import json
-from typing import List, Optional
+import re
+from typing import Any, Dict, List, Optional
+
+from ..database import get_latest_knowledgebase_upload
+from ..services.knowledgebase import (
+    KnowledgebaseDownloadError,
+    KnowledgebaseDownloadService,
+    KnowledgebaseUploadService,
+    MimeType
+)
+
+
+_COMPANY_RE = re.compile(r"[^a-z0-9-]")
 
 
 class ReachNettDataManager:
-    def __init__(self, base_dir: str = "/data/reachnett"):
-        self.base_dir = Path(base_dir)
+    def __init__(
+        self,
+        upload_service: Optional[KnowledgebaseUploadService] = None,
+        download_service: Optional[KnowledgebaseDownloadService] = None,
+    ):
+        self.base_dir = (Path(__file__).resolve().parent / "reachnett").resolve()
+        self._upload_service = upload_service or KnowledgebaseUploadService()
+        self._download_service = download_service or KnowledgebaseDownloadService()
 
+    def root_dir(self) -> Path:
+        return self.base_dir
     # -------------------------
     # Customer / Company Helpers
     # -------------------------
@@ -16,9 +36,33 @@ class ReachNettDataManager:
     def company_dir(self, customer: str, company_code: str) -> Path:
         return self.customer_dir(customer) / company_code
 
-    def module_file(self, customer: str, company_code: str, module: str) -> Path:
-        return self.company_dir(customer, company_code) / f"{module}.json"
+    def _task_file(self, company_name: str, company_code: str, task_name: str) -> Dict[str, Any]:
+        """LTS"""
+        """Return the latest task JSON fetched from ReachNett storage."""
 
+        metadata = get_latest_knowledgebase_upload(
+            company_name=company_name,
+            task_name=task_name,
+        )
+        print(f"metadata: {metadata}")
+        if not metadata:
+            return {}
+
+        object_key = metadata.get("object_key")
+        if not object_key:
+            print("no object_key found")
+            return {}
+
+        content_type = metadata.get("content_type")
+        match content_type:
+            case MimeType.JSON:
+                try:
+                    return self._download_service.fetch_json_by_object_key(object_key)
+                except KnowledgebaseDownloadError:
+                    return {}
+            case _:
+                print("Unable to handle file download content type other than application/json")
+                return {}
     # -------------------------
     # Discovery APIs
     # -------------------------
@@ -55,15 +99,26 @@ class ReachNettDataManager:
     # -------------------------
     # Module Data
     # -------------------------
-    def load_module(self, customer: str, company_code: str, module: str) -> dict:
-        path = self.module_file(customer, company_code, module)
-        if not path.exists():
-            return {}
-        return json.loads(path.read_text())
+    def _sanitize_company_name(self, company: str) -> str:
+        company = (company or "").strip().lower().replace(" ", "-")
+        company = _COMPANY_RE.sub("-", company)
+        company = re.sub(r"-{2,}", "-", company).strip("-")
+        return company[:64]
 
-    def save_module(self, customer: str, company_code: str, module: str, data: dict):
-        path = self.module_file(customer, company_code, module)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(data, indent=2))
+    def load_task(self, company_name: str, company_code: str, task_name: str) -> dict:
+        """LTS AWS s3 storage loader"""
+        sanitized_company = self._sanitize_company_name(company_name)
+        return self._task_file(sanitized_company, company_code, task_name)
 
-dataManager = ReachNettDataManager()
+    def save_task(self, company_name: str, company_code: str, task_name: str, data: dict, mime_type=MimeType.JSON) -> str:
+        """LTS AWS s3 storage file saver"""
+        payload = json.dumps(data, indent=2).encode("utf-8")
+
+        # Upload task JSON to ReachNett knowledgebase storage as a canonical copy.
+        return self._upload_service.upload_document(
+            company_name=company_name,
+            company_code=company_code,
+            document_bytes=payload,
+            mime_type=mime_type,
+            task_name=task_name,
+        )

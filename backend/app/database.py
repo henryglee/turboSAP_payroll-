@@ -9,6 +9,7 @@ Architecture: Single-Instance, Single-Customer
 Database schema:
 - users: User accounts with authentication (instance-specific)
 - sessions: User configuration sessions (instance-specific)
+- knowledgebase_uploads: Metadata for files sent to the ReachNett knowledgebase
 
 Note: company_name field is for display purposes only, not for tenant isolation.
 """
@@ -22,7 +23,6 @@ from contextlib import contextmanager
 
 # Database file path
 DB_PATH = Path(__file__).parent.parent / "turbosap.db"
-
 
 @contextmanager
 def get_db_connection():
@@ -82,16 +82,49 @@ def init_database():
 
         # Create index on user_id for faster lookups
         cursor.execute("""
-            CREATE INDEX IF NOT EXISTS idx_sessions_user_id 
+            CREATE INDEX IF NOT EXISTS idx_sessions_user_id
             ON sessions(user_id)
         """)
 
+        # Create categories table for hierarchy management
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS categories (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                display_order INTEGER NOT NULL DEFAULT 0
+            )
+        """)
+
+        # Create tasks table (belongs to a category)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS tasks (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                category_id TEXT NOT NULL,
+                display_order INTEGER NOT NULL DEFAULT 0,
+                FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
+            )
+        """)
+
+        # Create index on category_id for faster lookups
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_tasks_category_id
+            ON tasks(category_id)
+        """)
+
+        # Create table to track knowledgebase uploads
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS KnowledgeBaseMetaData (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                object_key TEXT NOT NULL,
+                company_name TEXT NOT NULL,
+                content_type TEXT NOT NULL,
+                task_name TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
         conn.commit()
-
-
-# Initialize database on module import
-init_database()
-
 
 # ============================================
 # User Operations
@@ -193,6 +226,23 @@ def update_user_profile(
             SET {', '.join(updates)}
             WHERE id = ?
         """, params)
+
+
+def update_user_password(user_id: int, new_password_hash: str):
+    """
+    Update user's password hash.
+    
+    Args:
+        user_id: User ID
+        new_password_hash: New hashed password
+    """
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE users
+            SET password_hash = ?
+            WHERE id = ?
+        """, (new_password_hash, user_id))
 
 
 # ============================================
@@ -370,3 +420,211 @@ def get_combined_state(session_id: str) -> Optional[Dict[str, Any]]:
     if not s:
         return None
     return s["config_state"]
+
+
+# ============================================
+# Category Operations
+# ============================================
+
+def get_all_categories() -> List[Dict[str, Any]]:
+    """Get all categories ordered by display_order."""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT id, name, display_order
+            FROM categories
+            ORDER BY display_order ASC, name ASC
+        """)
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def get_category_by_id(category_id: str) -> Optional[Dict[str, Any]]:
+    """Get category by ID."""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT id, name, display_order
+            FROM categories
+            WHERE id = ?
+        """, (category_id,))
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+
+def create_category(category_id: str, name: str, display_order: int = 0) -> str:
+    """Create a new category. Returns the category ID."""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO categories (id, name, display_order)
+            VALUES (?, ?, ?)
+        """, (category_id, name, display_order))
+        return category_id
+
+
+def update_category(category_id: str, name: Optional[str] = None, display_order: Optional[int] = None) -> bool:
+    """Update a category. Returns True if updated."""
+    updates = []
+    params = []
+    if name is not None:
+        updates.append("name = ?")
+        params.append(name)
+    if display_order is not None:
+        updates.append("display_order = ?")
+        params.append(display_order)
+    if not updates:
+        return False
+    params.append(category_id)
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(f"""
+            UPDATE categories
+            SET {', '.join(updates)}
+            WHERE id = ?
+        """, params)
+        return cursor.rowcount > 0
+
+
+def delete_category(category_id: str) -> bool:
+    """Delete a category. Returns True if deleted."""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM categories WHERE id = ?", (category_id,))
+        return cursor.rowcount > 0
+
+
+def count_categories() -> int:
+    """Count total categories."""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM categories")
+        return cursor.fetchone()[0]
+
+
+# ============================================
+# Task Operations
+# ============================================
+
+def get_tasks_by_category(category_id: str) -> List[Dict[str, Any]]:
+    """Get all tasks for a category ordered by display_order."""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT id, name, category_id, display_order
+            FROM tasks
+            WHERE category_id = ?
+            ORDER BY display_order ASC, name ASC
+        """, (category_id,))
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def get_task_by_id(task_id: str) -> Optional[Dict[str, Any]]:
+    """Get task by ID."""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT id, name, category_id, display_order
+            FROM tasks
+            WHERE id = ?
+        """, (task_id,))
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+
+def create_task(task_id: str, name: str, category_id: str, display_order: int = 0) -> str:
+    """Create a new task. Returns the task ID."""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO tasks (id, name, category_id, display_order)
+            VALUES (?, ?, ?, ?)
+        """, (task_id, name, category_id, display_order))
+        return task_id
+
+
+def update_task(
+    task_id: str,
+    name: Optional[str] = None,
+    category_id: Optional[str] = None,
+    display_order: Optional[int] = None
+) -> bool:
+    """Update a task. Returns True if updated."""
+    updates = []
+    params = []
+    if name is not None:
+        updates.append("name = ?")
+        params.append(name)
+    if category_id is not None:
+        updates.append("category_id = ?")
+        params.append(category_id)
+    if display_order is not None:
+        updates.append("display_order = ?")
+        params.append(display_order)
+    if not updates:
+        return False
+    params.append(task_id)
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(f"""
+            UPDATE tasks
+            SET {', '.join(updates)}
+            WHERE id = ?
+        """, params)
+        return cursor.rowcount > 0
+
+
+def delete_task(task_id: str) -> bool:
+    """Delete a task. Returns True if deleted."""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
+        return cursor.rowcount > 0
+
+
+def get_full_hierarchy() -> List[Dict[str, Any]]:
+    """Get full hierarchy: categories with nested tasks."""
+    categories = get_all_categories()
+    for cat in categories:
+        cat["tasks"] = get_tasks_by_category(cat["id"])
+    return categories
+
+
+# ============================================
+# Knowledgebase Upload Metadata Operations
+# ============================================
+
+def record_knowledgebase_upload(
+    *, object_key: str, company_name: str, content_type: str, task_name: Optional[str]
+) -> int:
+    """Persist metadata for a knowledgebase file upload."""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO KnowledgeBaseMetaData (object_key, company_name, content_type,task_name)
+            VALUES (?, ?, ?, ?)
+            """,
+            (object_key, company_name, content_type,task_name),
+        )
+        return cursor.lastrowid
+
+
+def get_latest_knowledgebase_upload(
+    *, company_name: str, task_name: str
+) -> Optional[Dict[str, Any]]:
+    """Return the newest metadata row for a company/content pair."""
+
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT object_key, company_name, content_type, task_name, created_at
+            FROM KnowledgeBaseMetaData
+            WHERE company_name = ? AND task_name = ?
+            ORDER BY datetime(created_at) DESC
+            LIMIT 1
+            """,
+            (company_name, task_name),
+        )
+        row = cursor.fetchone()
+        return dict(row) if row else None

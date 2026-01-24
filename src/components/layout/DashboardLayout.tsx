@@ -13,10 +13,6 @@ interface DashboardLayoutProps {
   title: string;
   description?: string;
   currentPath?: string;
-  statusIndicators?: {
-    payrollAreas?: 'complete' | 'in-progress' | 'not-started';
-    paymentMethods?: 'complete' | 'in-progress' | 'not-started';
-  };
 }
 
 export function DashboardLayout({
@@ -24,11 +20,10 @@ export function DashboardLayout({
   title,
   description,
   currentPath,
-  statusIndicators,
 }: DashboardLayoutProps) {
   return (
     <div className="payment-method-page min-h-screen bg-background">
-      <Sidebar currentPath={currentPath} statusIndicators={statusIndicators} />
+      <Sidebar currentPath={currentPath} />
 
       <div className="pl-64">
         <Header title={title} description={description} />

@@ -18,6 +18,8 @@ import {
   X,
   ChevronRight,
   CreditCard,
+  Lock,
+  KeyRound,
 } from 'lucide-react';
 
 interface User {
@@ -29,26 +31,20 @@ interface User {
   lastLogin?: string;
 }
 
-// Mock progress data for visual filler
 interface UserProgress {
   payrollArea: 'not-started' | 'in-progress' | 'completed';
   paymentMethod: 'not-started' | 'in-progress' | 'completed';
   lastActivity?: string;
 }
 
-const mockUserProgress: Record<number, UserProgress> = {
-  1: { payrollArea: 'completed', paymentMethod: 'in-progress', lastActivity: '2 hours ago' },
-  2: { payrollArea: 'in-progress', paymentMethod: 'not-started', lastActivity: '1 day ago' },
-  3: { payrollArea: 'not-started', paymentMethod: 'not-started', lastActivity: 'Never' },
-};
-
 export function AdminUsersPage() {
-  useAuthStore(); // Auth check
+  useAuthStore();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [userProgress, setUserProgress] = useState<Record<number, UserProgress>>({});
 
   // Add user form state
   const [showAddForm, setShowAddForm] = useState(false);
@@ -61,6 +57,11 @@ export function AdminUsersPage() {
 
   // User detail panel state
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+
+  // Reset password modal state
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [resetPasswordForm, setResetPasswordForm] = useState({ newPassword: '', confirmPassword: '' });
+  const [resetting, setResetting] = useState(false);
 
   const loadUsers = async () => {
     setLoading(true);
@@ -128,13 +129,67 @@ export function AdminUsersPage() {
     }
   };
 
-  const formatDate = (dateString?: string) => {
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setMessage(null);
+
+    if (!resetPasswordForm.newPassword) {
+      setError('New password is required');
+      return;
+    }
+
+    if (resetPasswordForm.newPassword.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+
+    if (resetPasswordForm.newPassword !== resetPasswordForm.confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    if (!selectedUser) return;
+
+    setResetting(true);
+    try {
+      const response = await apiFetch<{ status: string; message: string }>(
+        `/api/admin/users/${selectedUser.id}/reset-password`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ newPassword: resetPasswordForm.newPassword }),
+        }
+      );
+      setMessage(response.message || `Password reset successfully for user "${selectedUser.username}"`);
+      setResetPasswordForm({ newPassword: '', confirmPassword: '' });
+      setShowResetPassword(false);
+    } catch (err: any) {
+      setError(err.message || 'Failed to reset password');
+    } finally {
+      setResetting(false);
+    }
+  };
+
+  const loadUserProgress = async (userId: number) => {
+    try {
+      const data = await apiFetch<UserProgress>(`/api/admin/users/${userId}/progress`);
+      setUserProgress(prev => ({ ...prev, [userId]: data }));
+    } catch (err) {
+      console.error('Failed to load user progress:', err);
+    }
+  };
+
+  const formatDateTime = (dateString?: string) => {
     if (!dateString) return 'Never';
     try {
-      return new Date(dateString).toLocaleDateString('en-US', {
+      return new Date(dateString).toLocaleString('en-US', {
         month: 'short',
         day: 'numeric',
         year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
       });
     } catch {
       return dateString;
@@ -270,18 +325,21 @@ export function AdminUsersPage() {
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2 text-sm text-gray-500">
                         <Calendar className="h-4 w-4" />
-                        {formatDate(u.createdAt)}
+                        {formatDateTime(u.createdAt)}
                       </div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2 text-sm text-gray-500">
                         <Clock className="h-4 w-4" />
-                        {formatDate(u.lastLogin)}
+                        {formatDateTime(u.lastLogin)}
                       </div>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <button
-                        onClick={() => setSelectedUser(u)}
+                        onClick={() => {
+                          setSelectedUser(u);
+                          loadUserProgress(u.id);
+                        }}
                         className="inline-flex items-center gap-1 text-sm text-amber-600 hover:text-amber-700 transition-colors"
                       >
                         View Details
@@ -435,11 +493,11 @@ export function AdminUsersPage() {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-500">Created</span>
-                  <span className="text-sm text-gray-900">{formatDate(selectedUser.createdAt)}</span>
+                  <span className="text-sm text-gray-900">{formatDateTime(selectedUser.createdAt)}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-500">Last Login</span>
-                  <span className="text-sm text-gray-900">{formatDate(selectedUser.lastLogin)}</span>
+                  <span className="text-sm text-gray-900">{formatDateTime(selectedUser.lastLogin)}</span>
                 </div>
               </div>
 
@@ -457,9 +515,9 @@ export function AdminUsersPage() {
                         <div className="flex-1">
                           <p className="text-sm font-medium text-gray-900">Payroll Areas</p>
                           <div className="flex items-center gap-2 mt-1">
-                            {getStatusIcon(mockUserProgress[selectedUser.id]?.payrollArea || 'not-started')}
+                            {getStatusIcon(userProgress[selectedUser.id]?.payrollArea || 'not-started')}
                             <span className="text-xs text-gray-500">
-                              {getStatusText(mockUserProgress[selectedUser.id]?.payrollArea || 'not-started')}
+                              {getStatusText(userProgress[selectedUser.id]?.payrollArea || 'not-started')}
                             </span>
                           </div>
                         </div>
@@ -475,9 +533,9 @@ export function AdminUsersPage() {
                         <div className="flex-1">
                           <p className="text-sm font-medium text-gray-900">Payment Methods</p>
                           <div className="flex items-center gap-2 mt-1">
-                            {getStatusIcon(mockUserProgress[selectedUser.id]?.paymentMethod || 'not-started')}
+                            {getStatusIcon(userProgress[selectedUser.id]?.paymentMethod || 'not-started')}
                             <span className="text-xs text-gray-500">
-                              {getStatusText(mockUserProgress[selectedUser.id]?.paymentMethod || 'not-started')}
+                              {getStatusText(userProgress[selectedUser.id]?.paymentMethod || 'not-started')}
                             </span>
                           </div>
                         </div>
@@ -487,7 +545,7 @@ export function AdminUsersPage() {
                     {/* Last Activity */}
                     <div className="flex items-center gap-2 text-xs text-gray-500 mt-2">
                       <Clock className="h-3 w-3" />
-                      <span>Last activity: {mockUserProgress[selectedUser.id]?.lastActivity || 'Never'}</span>
+                      <span>Last activity: {formatDateTime(userProgress[selectedUser.id]?.lastActivity)}</span>
                     </div>
                   </div>
                 </div>
@@ -495,11 +553,105 @@ export function AdminUsersPage() {
 
               {/* Actions */}
               <div className="pt-4 border-t border-gray-200">
-                <p className="text-xs text-gray-400 text-center">
-                  Additional actions coming soon
-                </p>
+                <h3 className="text-sm font-medium text-gray-900 mb-3">Actions</h3>
+                <button
+                  onClick={() => setShowResetPassword(true)}
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-lg transition-colors"
+                >
+                  <KeyRound className="h-4 w-4" />
+                  Reset Password
+                </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Password Modal */}
+      {showResetPassword && selectedUser && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 backdrop-blur-sm">
+          <div className="bg-white border border-gray-200 rounded-xl p-6 w-full max-w-md mx-4 shadow-xl">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-2">
+                <Lock className="h-5 w-5 text-amber-600" />
+                <h2 className="text-lg font-semibold text-gray-900">Reset Password</h2>
+              </div>
+              <button
+                onClick={() => {
+                  setShowResetPassword(false);
+                  setResetPasswordForm({ newPassword: '', confirmPassword: '' });
+                  setError(null);
+                }}
+                className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-700">
+                Resetting password for user: <strong>{selectedUser.username}</strong>
+              </p>
+            </div>
+
+            <form onSubmit={handleResetPassword} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  New Password *
+                </label>
+                <input
+                  type="password"
+                  value={resetPasswordForm.newPassword}
+                  onChange={(e) => setResetPasswordForm({ ...resetPasswordForm, newPassword: e.target.value })}
+                  placeholder="At least 6 characters"
+                  className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500"
+                  required
+                  minLength={6}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Confirm New Password *
+                </label>
+                <input
+                  type="password"
+                  value={resetPasswordForm.confirmPassword}
+                  onChange={(e) => setResetPasswordForm({ ...resetPasswordForm, confirmPassword: e.target.value })}
+                  placeholder="Re-enter new password"
+                  className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500"
+                  required
+                />
+              </div>
+
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-xs text-amber-700">
+                  <strong>Note:</strong> The system does not support viewing or recovering old passwords. 
+                  This will set a new temporary password for the user.
+                </p>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowResetPassword(false);
+                    setResetPasswordForm({ newPassword: '', confirmPassword: '' });
+                    setError(null);
+                  }}
+                  className="flex-1 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={resetting}
+                  className="flex-1 px-4 py-2 bg-amber-500 hover:bg-amber-600 disabled:bg-amber-300 text-white font-medium rounded-lg transition-colors"
+                >
+                  {resetting ? 'Resetting...' : 'Reset Password'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

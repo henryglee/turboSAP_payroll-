@@ -101,3 +101,33 @@ export interface ValidationResult {
   warnings: string[];
   errors: string[];
 }
+
+// ============================================
+// Company Code Types
+// ============================================
+
+export interface CompanyCode {
+  // Basic Identity
+  companyCode: string;      // 4-char alphanumeric (e.g., "1000", "US01")
+  companyName: string;      // Full legal name (25 char)
+  shortName: string;        // Truncated name for reports
+  currency: string;         // Functional currency (e.g., "USD", "EUR")
+  language: string;         // Default language (e.g., "EN", "DE")
+
+  // Address Details
+  street: string;           // Street and house number
+  city: string;
+  state: string;            // State/Region code
+  zipCode: string;
+  country: string;          // ISO country key (e.g., "US", "DE")
+  poBox?: string;           // Optional PO Box
+
+  // Financial & Steering Parameters
+  chartOfAccounts?: string;       // G/L account list (e.g., "COA1")
+  fiscalYearVariant?: string;     // Financial year definition (e.g., "K4")
+  vatRegistrationNumber?: string; // Tax ID
+  creditControlArea?: string;     // Credit risk area
+  productiveFlag?: boolean;       // Is this live or test?
+  negativePostingsPermitted?: boolean;
+  taxJurisdictionCode?: string;   // US state/local tax code
+}

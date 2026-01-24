@@ -1,0 +1,66 @@
+{
+  "categories": [
+    {
+      "id": "enterprise-structure",
+      "name": "Enterprise Structure",
+      "displayOrder": 10,
+      "tasks": [
+        {
+          "id": "payroll-area",
+          "name": "Payroll Area",
+          "categoryId": "enterprise-structure",
+          "displayOrder": 10
+        },
+        {
+          "id": "company-code",
+          "name": "Company Code",
+          "categoryId": "enterprise-structure",
+          "displayOrder": 20
+        },
+        {
+          "id": "personnel-area",
+          "name": "Personnel Area",
+          "categoryId": "enterprise-structure",
+          "displayOrder": 30
+        },
+        {
+          "id": "employee-group",
+          "name": "Employee Group",
+          "categoryId": "enterprise-structure",
+          "displayOrder": 40
+        },
+        {
+          "id": "employee-subgroup",
+          "name": "Employee Subgroup",
+          "categoryId": "enterprise-structure",
+          "displayOrder": 50
+        }
+      ]
+    },
+    {
+      "id": "banking",
+      "name": "Banking",
+      "displayOrder": 20,
+      "tasks": [
+        {
+          "id": "payment-method",
+          "name": "Payment Method",
+          "categoryId": "banking",
+          "displayOrder": 10
+        }
+      ]
+    },
+    {
+      "id": "personnel-admin",
+      "name": "Personnel Administration",
+      "displayOrder": 30,
+      "tasks": []
+    },
+    {
+      "id": "money",
+      "name": "Money",
+      "displayOrder": 40,
+      "tasks": []
+    }
+  ]
+}

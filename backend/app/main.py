@@ -26,6 +26,7 @@ from fastapi import FastAPI, HTTPException, Depends, Header, UploadFile, File, B
 from app.agents.payments.payment_method_graph import payment_method_graph
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional
+from app.routes.export_api import router as export_router
 
 
 from .services.questions import get_question, get_first_question
@@ -39,7 +40,7 @@ from .database import (
     create_session as db_create_session,
     get_session as db_get_session,
     get_user_sessions,
-    delete_session as db_delete_session,
+    delete_session as db_delete_session, init_database,
 )
 from .auth import hash_password, verify_password, create_token
 from .middleware import get_current_user, get_optional_user, require_admin
@@ -58,7 +59,7 @@ from fastapi.responses import HTMLResponse
 import os
 
 
-from .routes import data_terminal
+from .routes import data_terminal, ai_config, module_config, knowledgebase, hierarchy
 
 ENV = os.getenv("APP_ENV", "development")
 
@@ -70,6 +71,8 @@ from contextlib import asynccontextmanager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    init_database()
+
     # Startup: Initialize database and seed users
     users_to_seed = [
         {"username": "admin123", "password": "admin123", "role": "admin", "company_name": "Admin Corp"},
@@ -93,6 +96,26 @@ async def lifespan(app: FastAPI):
         else:
             print(f"[Seeding] User already exists: {u['username']}")
 
+    # Seed hierarchy (categories & tasks) if empty
+    from .database import count_categories, create_category, create_task
+    if count_categories() == 0:
+        print("[Seeding] Creating initial hierarchy...")
+        # Categories
+        create_category("enterprise-structure", "Enterprise Structure", display_order=10)
+        create_category("banking", "Banking", display_order=20)
+        create_category("personnel-admin", "Personnel Administration", display_order=30)
+        # Tasks under Enterprise Structure (matching existing module slugs)
+        create_task("payroll-area", "Payroll Area", "enterprise-structure", display_order=10)
+        create_task("company-code", "Company Code", "enterprise-structure", display_order=20)
+        create_task("personnel-area", "Personnel Area", "enterprise-structure", display_order=30)
+        create_task("employee-group", "Employee Group", "enterprise-structure", display_order=40)
+        create_task("employee-subgroup", "Employee Subgroup", "enterprise-structure", display_order=50)
+        # Tasks under Banking
+        create_task("payment-method", "Payment Method", "banking", display_order=10)
+        print("[Seeding] Hierarchy created successfully")
+    else:
+        print("[Seeding] Hierarchy already exists, skipping")
+
     yield
     # Shutdown logic (if any)
 
@@ -102,7 +125,7 @@ app = FastAPI(
     version="default_code.0.0",
     lifespan=lifespan
 )
-
+app.include_router(export_router)
 
 # ====== frontend static files ======
 frontend_dir = Path(__file__).parent / "static"
@@ -113,6 +136,10 @@ if ENV == "production":
 
 # Mount API routers that live in app.routes
 app.include_router(data_terminal.router)
+app.include_router(ai_config.router)
+app.include_router(module_config.router)
+app.include_router(knowledgebase.router)
+app.include_router(hierarchy.router)
 
 # Serve uploaded logos (in both dev and production)
 uploads_dir = Path(__file__).parent.parent / "uploads"
@@ -135,7 +162,9 @@ app.add_middleware(
         "http://127.0.0.1:5174",
         "http://127.0.0.1:5175",
         "http://127.0.0.1:3000",
-        "http://turbosap-py312-env.eba-5hg7r3id.us-east-2.elasticbeanstalk.com"
+        "http://turbosap-py312-env.eba-5hg7r3id.us-east-2.elasticbeanstalk.com",
+        "TurboSAP-pre-stage-py312.eba-5hg7r3id.us-east-2.elasticbeanstalk.com",
+        "*"
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -290,8 +319,64 @@ def get_current_user_info(current_user: dict = Depends(get_current_user)):
         "role": user["role"],
         "companyName": user.get("company_name"),
         "logoPath": user.get("logo_path"),
-        "createdAt": user.get("created_at"),
-        "lastLogin": user.get("last_login"),
+        "createdAt": user.get("created_at") + "Z" if user.get("created_at") else None,
+        "lastLogin": user.get("last_login") + "Z" if user.get("last_login") else None,
+    }
+
+
+@app.post("/api/auth/change-password")
+async def change_password(
+    request: dict = Body(...),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Change current user's password.
+    
+    User must provide their current password for verification.
+    System does not support password recovery - old passwords cannot be retrieved.
+    
+    Request body:
+        {
+            "currentPassword": "oldpass123",
+            "newPassword": "newpass456"
+        }
+    
+    Returns:
+        {
+            "status": "ok",
+            "message": "Password changed successfully"
+        }
+    """
+    current_password = request.get("currentPassword")
+    new_password = request.get("newPassword")
+    
+    # Validate input
+    if not current_password:
+        raise HTTPException(status_code=400, detail="Current password is required")
+    if not new_password:
+        raise HTTPException(status_code=400, detail="New password is required")
+    if len(new_password) < 6:
+        raise HTTPException(status_code=400, detail="New password must be at least 6 characters")
+    if current_password == new_password:
+        raise HTTPException(status_code=400, detail="New password must be different from current password")
+    
+    # Get user from database
+    user = get_user_by_id(current_user["user_id"])
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Verify current password
+    if not verify_password(current_password, user["password_hash"]):
+        raise HTTPException(status_code=401, detail="Current password is incorrect")
+    
+    # Hash new password and update
+    new_password_hash = hash_password(new_password)
+    from .database import update_user_password
+    update_user_password(user["id"], new_password_hash)
+    
+    return {
+        "status": "ok",
+        "message": "Password changed successfully"
     }
 
 
@@ -834,10 +919,55 @@ async def list_all_users(current_user: dict = Depends(require_admin)):
                 "role": user_dict.get("role"),
                 "logoPath": user_dict.get("logo_path"),
                 "companyName": user_dict.get("company_name"),
-                "createdAt": user_dict.get("created_at"),
-                "lastLogin": user_dict.get("last_login"),
+                "createdAt": user_dict.get("created_at") + "Z" if user_dict.get("created_at") else None,
+                "lastLogin": user_dict.get("last_login") + "Z" if user_dict.get("last_login") else None,
             })
         return {"users": users}
+
+
+@app.get("/api/admin/users/{user_id}/progress")
+async def get_user_progress(
+    user_id: int,
+    current_user: dict = Depends(require_admin),
+):
+    from .database import get_user_by_id
+    
+    user = get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    sessions_list = get_user_sessions(user_id)
+    
+    payroll_status = "not-started"
+    payment_status = "not-started"
+    last_activity = None
+    
+    for session in sessions_list:
+        config_state = session.get("config_state", {})
+        updated_at = session.get("updated_at")
+        completed_modules = config_state.get("completed_modules", [])
+        answers = config_state.get("answers", {})
+        
+        if updated_at and (not last_activity or updated_at > last_activity):
+            last_activity = updated_at
+        
+        if "payroll_area" in completed_modules or config_state.get("payroll_areas"):
+            payroll_status = "completed"
+        elif any(key.startswith(("q1_frequencies", "q1_weekly", "q1_biweekly", "q1_semimonthly", "q1_monthly", "business_", "geographic_", "regions_")) for key in answers.keys()):
+            if payroll_status != "completed":
+                payroll_status = "in-progress"
+        
+        if "payment_method" in completed_modules or config_state.get("payment_methods"):
+            payment_status = "completed"
+        elif any(key.startswith(("q1_payment_method", "q2_payment_method", "q3_payment_method", "q4_payment_method", "q5_pre_note", "q1_p_", "q2_q_")) for key in answers.keys()):
+            if payment_status != "completed":
+                payment_status = "in-progress"
+    
+    return {
+        "payrollArea": payroll_status,
+        "paymentMethod": payment_status,
+        "lastActivity": last_activity + "Z" if last_activity else None,
+    }
 
 
 @app.get("/api/admin/users/{user_id}")
@@ -901,6 +1031,53 @@ async def update_user_role(
         conn.commit()
     
     return {"status": "ok", "userId": user_id, "role": new_role}
+
+
+@app.put("/api/admin/users/{user_id}/reset-password")
+async def reset_user_password(
+    user_id: int,
+    request: dict = Body(...),
+    current_user: dict = Depends(require_admin),
+):
+    """
+    Reset a user's password. Admin only.
+    
+    Admin can reset any user's password to a new temporary password.
+    System does not support viewing or recovering old passwords.
+    
+    Request body:
+        {
+            "newPassword": "newtemp123"
+        }
+    
+    Returns:
+        {
+            "status": "ok",
+            "message": "Password reset successfully for user 'username'"
+        }
+    """
+    new_password = request.get("newPassword")
+    
+    # Validate input
+    if not new_password:
+        raise HTTPException(status_code=400, detail="New password is required")
+    if len(new_password) < 6:
+        raise HTTPException(status_code=400, detail="New password must be at least 6 characters")
+    
+    # Check if user exists
+    user = get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Hash new password and update
+    new_password_hash = hash_password(new_password)
+    from .database import update_user_password
+    update_user_password(user_id, new_password_hash)
+    
+    return {
+        "status": "ok",
+        "message": f"Password reset successfully for user '{user['username']}'"
+    }
 
 
 # ============================================

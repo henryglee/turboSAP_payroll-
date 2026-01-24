@@ -1,0 +1,7 @@
+Code,Description,Frequency,Period Pattern,Pay Day,Calendar ID,Employee Count,Business Unit,Region
+Z1,Wkly PDAY Fri HI,weekly,mon-sun,friday,80,0,,hawaii
+Z2,Wkly PDAY Fri,weekly,mon-sun,friday,80,0,,
+Z3,Wkly PDAY Thu,weekly,mon-sun,thursday,82,0,,
+Z4,Wkly PDAY Fri,weekly,sun-sat,friday,83,0,,
+Z5,BiWk PDAY Thu,biweekly,sun-sat,thursday,24,0,,
+Z6,BiWk PDAY Thu,biweekly,mon-sun,thursday,25,0,,

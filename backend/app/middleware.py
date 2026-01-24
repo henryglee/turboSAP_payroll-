@@ -12,8 +12,8 @@ security = HTTPBearer(auto_error=False)
 
 
 async def get_current_user(
-    authorization: Optional[str] = None,
-    credentials: Optional[HTTPAuthorizationCredentials] = None,
+    authorization: Optional[str] = Header(None),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
 ) -> dict:
     """
     Get current authenticated user from JWT token.
@@ -57,8 +57,8 @@ async def get_current_user(
 
 
 async def get_optional_user(
-    authorization: Optional[str] = None,
-    credentials: Optional[HTTPAuthorizationCredentials] = None,
+    authorization: Optional[str] = Header(None),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
 ) -> Optional[dict]:
     """
     Get current user if authenticated, otherwise return None.

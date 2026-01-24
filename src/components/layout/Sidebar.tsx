@@ -3,54 +3,73 @@
  * Navigation sidebar for TurboSAP with status indicators
  */
 
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '../../lib/utils.ts';
 import { useAuthStore } from '../../store/auth';
+import { useExportData } from '../../hooks/useExportData';
 import {
   LayoutDashboard,
   Calendar,
   CreditCard,
   FileJson,
+  Download,
   LogOut,
   User,
   CheckCircle2,
   Circle,
   ChevronRight,
   Layers,
+  Sparkles,
+  Building2,
 } from 'lucide-react';
 
 const navItems = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard', key: 'dashboard' },
+  { icon: Sparkles, label: 'AI Config', href: '/ai-config', key: 'aiConfig', isNew: true },
+  { icon: Building2, label: 'Company Codes', href: '/company-code', key: 'companyCodes' },
   { icon: Calendar, label: 'Payroll Areas', href: '/payroll-area', key: 'payrollAreas' },
   { icon: CreditCard, label: 'Payment Methods', href: '/payment-methods', key: 'paymentMethods' },
   { icon: Layers, label: 'All Modules', href: '/scope', key: 'scope' },
-  { icon: FileJson, label: 'Export', href: '/export', key: 'export' },
+  { icon: Download, label: 'Export Center', href: '/export', key: 'export' },
+  // { icon: Network, label: 'Codebase', href: '/viz', key: 'viz' }, // temporarily disabled
 ];
 
 interface SidebarProps {
   currentPath?: string;
-  statusIndicators?: {
-    payrollAreas?: 'complete' | 'in-progress' | 'not-started';
-    paymentMethods?: 'complete' | 'in-progress' | 'not-started';
-  };
 }
 
-export function Sidebar({ currentPath, statusIndicators = {} }: SidebarProps) {
+export function Sidebar({ currentPath }: SidebarProps) {
   const location = useLocation();
+  const navigate = useNavigate();
   const pathname = currentPath || location.pathname;
   const { user, clearAuth } = useAuthStore();
 
-  const getStatusIcon = (key: string) => {
-    if (key === 'dashboard' || key === 'export') return null;
+  // Get live status from localStorage via useExportData hook
+  const { payrollStatus, paymentStatus, companyCodeStatus } = useExportData();
 
-    const statusKey = key as keyof typeof statusIndicators;
-    const status = statusIndicators[statusKey];
+  const handleSignOut = () => {
+    clearAuth();
+    navigate('/login');
+  };
+
+  const getStatusIcon = (key: string, isNew?: boolean) => {
+    if (isNew) {
+      return <span className="px-1.5 py-0.5 text-[10px] font-bold bg-violet-500 text-white rounded">NEW</span>;
+    }
+    if (key === 'dashboard' || key === 'export' || key === 'scope' || key === 'aiConfig') return null;
+
+    // Map key to actual status from useExportData (simplified: complete or not-started)
+    let status: 'complete' | 'not-started' = 'not-started';
+    if (key === 'payrollAreas') {
+      status = payrollStatus.status;
+    } else if (key === 'paymentMethods') {
+      status = paymentStatus.status;
+    } else if (key === 'companyCodes') {
+      status = companyCodeStatus.status;
+    }
 
     if (status === 'complete') {
       return <CheckCircle2 className="h-3.5 w-3.5 text-success" />;
-    }
-    if (status === 'in-progress') {
-      return <Circle className="h-3.5 w-3.5 text-warning fill-warning" />;
     }
     return <Circle className="h-3.5 w-3.5 text-muted-foreground/40" />;
   };
@@ -74,7 +93,7 @@ export function Sidebar({ currentPath, statusIndicators = {} }: SidebarProps) {
           {navItems.map((item) => {
             const isActive = pathname === item.href;
             const Icon = item.icon;
-            const statusIcon = getStatusIcon(item.key);
+            const statusIcon = getStatusIcon(item.key, (item as any).isNew);
 
             return (
               <Link
@@ -127,8 +146,8 @@ export function Sidebar({ currentPath, statusIndicators = {} }: SidebarProps) {
               Account
             </Link>
             <button
-              onClick={clearAuth}
-              className="w-full flex items-center justify-start gap-2 px-3 py-2 text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 rounded-lg transition-colors"
+                   onClick={handleSignOut}
+                   className="w-full flex items-center justify-start gap-2 px-3 py-2 text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 rounded-lg transition-colors"
             >
               <LogOut className="h-4 w-4" />
               Sign Out
