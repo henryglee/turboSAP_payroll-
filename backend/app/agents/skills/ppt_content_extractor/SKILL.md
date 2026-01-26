@@ -31,10 +31,10 @@ Use the PPT Content Extractor when:
 ### Basic Content Extraction
 
 ```python
-from get_ppt_content import get_ppt_content
+from app.agents.skills.ppt_content_extractor.get_ppt_content import get_ppt_content
 
 # Extract all content from a presentation
-content = get_ppt_content("company/1000/presentation.pptx")
+content = get_ppt_content("reachnett_ppt/1010/Enterprise_Structure.pptx")
 
 print(f"Slides: {content['slide_count']}")
 print(f"Title: {content['metadata']['title']}")
@@ -49,7 +49,7 @@ The extracted text includes semantic classification for better understanding:
 ```python
 from get_ppt_content import extract_ppt_text
 
-content = get_ppt_content("company/1000/presentation.pptx")
+content = get_ppt_content("reachnett_ppt/1010/Enterprise_Structure.pptx")
 text = content['full_text']
 
 # Output format with semantic tags:
@@ -91,9 +91,7 @@ print(f"Modified: {metadata['modified']}")
 from get_ppt_content import get_ppt_contents_batch
 
 files = [
-    "company/1000/file1.pptx",
-    "company/1000/file2.pptx",
-    "company/2000/file3.pptx",
+      "reachnett_ppt/1010/Enterprise_Structure.pptx",
 ]
 
 results = get_ppt_contents_batch(files)
@@ -126,7 +124,7 @@ Text output uses tags like `[TITLE]: text`, `[NARRATIVETEXT]: text`, etc., with 
 Retrieve complete content from a PPT file in S3.
 
 **Parameters:**
-- `object_key` (str): S3 path (e.g., "company/1000/file.pptx")
+- `object_key` (str): S3 path (e.g., "reachnett_ppt/1010/Enterprise_Structure.pptx")
 
 **Returns:**
 - `Dict` with: `success`, `object_key`, `file_name`, `file_size`, `slide_count`, `metadata`, `slides`, `full_text`, `error`
@@ -135,7 +133,7 @@ Retrieve complete content from a PPT file in S3.
 
 **Example:**
 ```python
-content = get_ppt_content("acme/1000/budget.pptx")
+content = get_ppt_content("reachnett_ppt/1010/Enterprise_Structure.pptx")
 if content['success']:
     print(f"{content['slide_count']} slides extracted")
 ```
@@ -207,7 +205,7 @@ builder.add_edge(START, "extract_ppt")
 builder.add_edge("extract_ppt", END)
 
 graph = builder.compile()
-result = graph.invoke({"ppt_object_key": "company/1000/file.pptx"})
+result = graph.invoke({"ppt_object_key": "reachnett_ppt/1010/Enterprise_Structure.pptx"})
 ```
 
 ### Configuration
@@ -293,7 +291,5 @@ See `examples.py` for comprehensive usage examples including:
 ## Related Resources
 
 - [README.md](README.md) - Complete reference documentation
-- [INTEGRATION_GUIDE.md](INTEGRATION_GUIDE.md) - Detailed integration patterns
-- [QUICKSTART.md](QUICKSTART.md) - 5-minute setup guide
 - [INSTRUCTIONS.md](INSTRUCTIONS.md) - Component architecture
 - [test_skill.py](test_skill.py) - Test examples and patterns
