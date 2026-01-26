@@ -7,7 +7,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { DashboardLayout } from '../components/layout/DashboardLayout';
 import { useExportData } from '../hooks/useExportData';
-import type { PayrollArea, CompanyCode } from '../types';
+import type { PayrollArea } from '../types';
 import {
   FolderOpen,
   Folder,
@@ -440,7 +440,6 @@ export function ExportCenterPage() {
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [editedContents, setEditedContents] = useState<Record<string, string>>({});
   const [isPublishing, setIsPublishing] = useState(false);
-  const [showConnectionInfo, setShowConnectionInfo] = useState(false);
   
   const handlePublish = async () => {
     // Determine the primary company for naming/pathing

@@ -153,7 +153,7 @@ export function CompanyCodePage() {
   const [rows, setRows] = useState<CompanyCode[]>([]);
   const [editingCell, setEditingCell] = useState<{ row: number; col: number } | null>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
-  const [hasChanges, setHasChanges] = useState(false);
+  const [, setHasChanges] = useState(false);
 
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
