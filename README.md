@@ -1,6 +1,6 @@
 ## Helpful Context
 
-See FILE_DESCRIPTIONS.md. This will give you a comprehensive sense of the architecture + where everything is. 
+See FILE_DESCRIPTIONS.md. This will give you a comprehensive sense of the architecture + where everything is. (As of 12/2025, this does not reflect the 2026 version!)
 
 These 4 files are old and are NOT used in the current architecture:
 - .DS_Store 
