@@ -1,0 +1,10 @@
+{
+  "name": "opencode-linux-x64",
+  "version": "0.0.0-feature/knowledge-retrieval-202602050642",
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "x64"
+  ]
+}

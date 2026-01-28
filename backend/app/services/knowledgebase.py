@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, Optional, Union
@@ -24,17 +25,27 @@ from ..database import (
     record_knowledgebase_upload,
 )
 
+CONTEXT_STORAGE_AVAILABLE = False
+
 DEFAULT_PRESIGN_ENDPOINT = (
     "https://idsn7cy3rf.execute-api.us-east-1.amazonaws.com/default/getPresignedURL"
 )
+
+
 class MimeType(str, Enum):
     PDF = "application/pdf"
     MS_WORD = "application/msword"
-    MS_WORD_OPENXML = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    MS_WORD_OPENXML = (
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
     MS_EXCEL = "application/vnd.ms-excel"
-    MS_EXCEL_OPENXML = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    MS_EXCEL_OPENXML = (
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
     MS_POWERPOINT = "application/vnd.ms-powerpoint"
-    MS_POWERPOINT_OPENXML = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+    MS_POWERPOINT_OPENXML = (
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+    )
     JSON = "application/json"
     JPEG = "image/jpeg"
     PNG = "image/png"
@@ -55,16 +66,18 @@ class PresignedUpload:
     upload_url: str
     raw_response: Dict[str, Any]
 
+
 @dataclass
 class KnowledgeMetaData:
     """Container for the Knowledgebase metadata."""
 
 
-
 class KnowledgebaseUploadService:
     """Client used to obtain presigned URLs and upload documents."""
 
-    def __init__(self, presign_endpoint: str = DEFAULT_PRESIGN_ENDPOINT, timeout: int = 30):
+    def __init__(
+        self, presign_endpoint: str = DEFAULT_PRESIGN_ENDPOINT, timeout: int = 30
+    ):
         self.presign_endpoint = presign_endpoint
         self.timeout = timeout
 
@@ -93,17 +106,23 @@ class KnowledgebaseUploadService:
             with request.urlopen(req, timeout=self.timeout) as resp:
                 raw = resp.read().decode("utf-8")
         except error.URLError as exc:  # pragma: no cover - runtime safety
-            raise KnowledgebaseUploadError("Unable to request presigned upload URL") from exc
+            raise KnowledgebaseUploadError(
+                "Unable to request presigned upload URL"
+            ) from exc
 
         try:
             parsed: Dict[str, Any] = json.loads(raw) if raw else {}
         except json.JSONDecodeError as exc:  # pragma: no cover - defensive
-            raise KnowledgebaseUploadError("Presign endpoint returned invalid JSON") from exc
+            raise KnowledgebaseUploadError(
+                "Presign endpoint returned invalid JSON"
+            ) from exc
 
         upload_url = self._extract_upload_url(parsed)
         return PresignedUpload(upload_url=upload_url, raw_response=parsed)
 
-    def record_upload_metadata(self, presigned: PresignedUpload,task_name:Optional[str]) -> Optional[int]:
+    def record_upload_metadata(
+        self, presigned: PresignedUpload, task_name: Optional[str]
+    ) -> Optional[int]:
         """Persist the metadata returned from the presign request."""
 
         if not isinstance(presigned, PresignedUpload):
@@ -116,6 +135,11 @@ class KnowledgebaseUploadService:
 
         object_key = presigned.raw_response.get("key")
         content_type = presigned.raw_response.get("contentType")
+
+        if not object_key:
+            print("Missing object key, not recording metadata")
+            return None
+
         company_name = self._extract_company_name(object_key)
 
         if not (object_key and content_type):
@@ -140,7 +164,9 @@ class KnowledgebaseUploadService:
             with request.urlopen(req, timeout=self.timeout) as resp:
                 status_code = resp.getcode()
         except error.URLError as exc:  # pragma: no cover - runtime safety
-            raise KnowledgebaseUploadError("Knowledgebase document upload failed") from exc
+            raise KnowledgebaseUploadError(
+                "Knowledgebase document upload failed"
+            ) from exc
 
         if status_code not in (200, 201):  # pragma: no cover - defensive
             raise KnowledgebaseUploadError(
@@ -166,9 +192,7 @@ class KnowledgebaseUploadService:
             company_name=company_name,
             content_type=mime_type,
         )
-        self.record_upload_metadata(
-            presigned,
-            task_name)
+        self.record_upload_metadata(presigned, task_name)
 
         return self.upload_bytes(
             upload_url=presigned.upload_url,
@@ -185,6 +209,7 @@ class KnowledgebaseUploadService:
         raise KnowledgebaseUploadError(
             "Presign endpoint response did not contain an upload URL"
         )
+
     @staticmethod
     def _extract_object_key(payload: Dict[str, Any]) -> str:
         key = payload.get("raw_response", {}).get("key")
@@ -195,13 +220,14 @@ class KnowledgebaseUploadService:
         raise KnowledgebaseUploadError(
             "Knowledgebase document upload did not contain an object key"
         )
+
     @staticmethod
     def _extract_company_name(object_key: str) -> str:
-        return object_key.split("/",1)[0]
+        return object_key.split("/", 1)[0]
 
     @staticmethod
     def _extract_company_code(object_key: str) -> str:
-        return object_key.split("/",1)[1]
+        return object_key.split("/", 1)[1]
 
 
 class KnowledgebaseDownloadService:
@@ -216,21 +242,23 @@ class KnowledgebaseDownloadService:
         self.download_base_url = download_base_url
         self.timeout = timeout
 
-    def fetch_latest_json(self, *, company_name: str, content_type: str) -> Dict[str, Any]:
+    def fetch_latest_json(self, *, company_name: str, task_name: str) -> Dict[str, Any]:
         """Return the newest JSON payload for the given company/module."""
 
         metadata = get_latest_knowledgebase_upload(
             company_name=company_name,
-            content_type=content_type,
+            task_name=task_name,
         )
         if not metadata:
             raise KnowledgebaseDownloadError(
-                f"No knowledgebase uploads recorded for {company_name}/{content_type}"
+                f"No knowledgebase uploads recorded for {company_name}/{task_name}"
             )
 
         object_key = metadata.get("object_key")
         if not object_key:
-            raise KnowledgebaseDownloadError("Knowledgebase metadata missing object key")
+            raise KnowledgebaseDownloadError(
+                "Knowledgebase metadata missing object key"
+            )
 
         return self.fetch_json_by_object_key(object_key)
 
@@ -308,7 +336,10 @@ class KnowledgebaseDownloadService:
         try:
             return json.loads(text)
         except json.JSONDecodeError as exc:  # pragma: no cover - defensive
-            raise KnowledgebaseDownloadError("Downloaded payload is not valid JSON") from exc
+            raise KnowledgebaseDownloadError(
+                "Downloaded payload is not valid JSON"
+            ) from exc
+
 
 __all__ = [
     "KnowledgebaseUploadError",
