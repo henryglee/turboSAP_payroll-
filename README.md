@@ -83,26 +83,35 @@ npm install
 ## 2. Architecture
 
 ```mermaid
+
 flowchart TB
-    subgraph Client["Frontend (React + Vite)"]
+    subgraph Frontend["Frontend (React + Vite)"]
+        direction LR
         AuthUI[Auth UI]
-        ConfigUI[Config Wizard]
+        ConfigWiz[Config Wizard]
         AdminUI[Admin UI]
     end
 
-    subgraph Server["Backend (FastAPI)"]
-        subgraph Middleware["Auth Layer"]
+    Frontend -->|HTTP/JSON| Backend
+
+    subgraph Backend["Backend (FastAPI)"]
+        direction TB
+        
+        subgraph AuthLayer["Auth Layer"]
+            direction LR
             JWT[JWT Validation]
             RBAC[Role-Based Access]
         end
         
         subgraph Routes["API Routes"]
+            direction LR
             AuthR[Auth Routes]
             ConfigR[Config Routes]
             AdminR[Admin Routes]
         end
         
-        subgraph Orchestration["LangGraph Orchestration"]
+        subgraph LangGraph["LangGraph Orchestration"]
+            direction LR
             Master[Master Graph]
             Payroll[Payroll Area Graph]
             Payment[Payment Method Graph]
@@ -110,13 +119,17 @@ flowchart TB
         end
         
         subgraph Services["Core Services"]
-            QuestionSvc[Question Service]
-            AuthSvc[Auth Service]
+            direction LR
             KBSvc[Knowledgebase Service]
+            AuthSvc[Auth Service]
+            QuestionSvc[Question Service]
         end
+
+        AuthLayer --> Routes --> LangGraph --> Services
     end
 
     subgraph Storage["Data Layer"]
+        direction LR
         DB[(SQLite)]
         JSON[JSON Configs]
         Memory[MemorySaver]
@@ -126,13 +139,8 @@ flowchart TB
         ReachNett[ReachNett S3 API]
     end
 
-    Client -->|HTTP/JSON| Middleware
-    Middleware --> Routes
-    Routes --> Orchestration
-    Orchestration --> Services
-    Services --> Storage
-    KBSvc -->|Presigned URLs| ReachNett
-    Master --> Memory
+    Backend --> Storage
+    Services --> ReachNett
 ```
 
 ### Layer Overview
