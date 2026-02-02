@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 
 import { AdminLayout } from '../components/layout/AdminLayout';
 
-const AGENT_CONSOLE_URL = import.meta.env.VITE_AGENT_CONSOLE_URL || 'http://localhost:4096';
+const AGENT_CONSOLE_URL = "/agent/";
 
 function buildAgentUrl(): string {
   try {
