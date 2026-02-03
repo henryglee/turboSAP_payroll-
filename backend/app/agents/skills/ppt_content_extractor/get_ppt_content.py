@@ -48,6 +48,7 @@ from app.services.knowledgebase import (
     KnowledgebaseDownloadError,
 )
 from app.data import ReachNettDataManager
+from app import database
 
 
 # ============================================
@@ -125,6 +126,9 @@ def get_ppt_content(object_key: str) -> Dict[str, Any]:
         file_name = Path(object_key).name
         file_size = len(ppt_bytes)
         slide_count = len(slides)
+
+        # Index slides in the search database for hybrid retrieval
+        _index_ppt_slides_to_db(object_key, slides, metadata)
 
         return {
             "success": True,
@@ -316,6 +320,64 @@ def get_ppt_slides_summary(ppt_bytes: bytes) -> List[Dict[str, Any]]:
     
 
 # ============================================
+# Database Indexing 
+# ============================================
+
+def _index_ppt_slides_to_db(object_key: str, slides: List[Dict[str, Any]], metadata: Dict[str, Any]) -> None:
+    try:
+        # 1. Open ONE connection for the whole batch
+        with database.get_db_connection() as conn:
+            cursor = conn.cursor()
+            
+            # 2. Clear previous index for this file to avoid duplicates
+            cursor.execute("DELETE FROM ppt_search_index WHERE object_key = ?", (object_key,))
+            
+            # 3. Prepare data for batch insertion
+            batch_data = [
+                (object_key, s.get("slide_number", 0), s.get("title", ""), s.get("text_content", ""))
+                for s in slides
+            ]
+            
+            # 4. Use executemany for high performance
+            cursor.executemany("""
+                INSERT INTO ppt_search_index (object_key, slide_number, title, content)
+                VALUES (?, ?, ?, ?)
+            """, batch_data)
+            
+            conn.commit()
+            
+    except Exception as e:
+        print(f"Warning: Failed to index PPT slides to database: {str(e)}")
+
+def search_ppt_by_query(query: str, limit: int = 5) -> List[Dict[str, Any]]:
+    """
+    Search indexed PPT content using BM25 ranking for hybrid retrieval.
+    
+    When a user asks a question about presentation content, this function
+    returns the most relevant slides ranked by relevance.
+    
+    Args:
+        query: User question or search query (e.g., "What is the payment method?")
+        limit: Maximum number of slides to return (default: 5)
+        
+    Returns:
+        List of dicts with:
+            - object_key: str (S3 file reference)
+            - slide_number: int
+            - title: str
+            - content: str (full slide text)
+            - rank: float (BM25 score, lower is better)
+            
+    Example:
+        results = search_ppt_by_query("How to calculate salary deductions?", limit=3)
+        for result in results:
+            print(f"Slide {result['slide_number']}: {result['title']}")
+            print(f"Content: {result['content']}")
+    """
+    return database.search_ppt_index(query, limit)
+
+
+# ============================================
 # LangGraph Integration Helpers
 # ============================================
 
@@ -330,15 +392,21 @@ def create_ppt_content_node():
 
     The node expects state to have:
         - ppt_object_key: str (S3 object key)
+        - ppt_query: Optional[str] (user question for hybrid retrieval)
 
     And will add to state:
         - ppt_content: Dict (extraction result)
         - ppt_extraction_error: Optional[str]
+        - ppt_search_results: Optional[List[Dict]] (if ppt_query provided)
     """
 
     def extract_ppt_node(state: Dict[str, Any]) -> Dict[str, Any]:
         object_key = state.get("ppt_object_key")
 
+        state.setdefault("ppt_content", None)
+        state.setdefault("ppt_search_results", None)
+
+        
         if not object_key:
             state["ppt_extraction_error"] = "No ppt_object_key in state"
             return state
@@ -347,9 +415,19 @@ def create_ppt_content_node():
             content = get_ppt_content(object_key)
             state["ppt_content"] = content
             state["ppt_extraction_error"] = None
+            
+            # Hybrid retrieval: if user provided a query, search for relevant slides
+            user_query = state.get("ppt_query")
+            if user_query:
+                search_results = search_ppt_by_query(user_query, limit=5)
+                state["ppt_search_results"] = search_results
+            else:
+                state["ppt_search_results"] = None
+                
         except (KnowledgebaseDownloadError, PPTContentExtractionError) as e:
             state["ppt_extraction_error"] = str(e)
             state["ppt_content"] = None
+            state["ppt_search_results"] = None
 
         return state
 
@@ -427,6 +505,7 @@ def get_skill_info() -> Dict[str, Any]:
             "semantic_element_classification",
             "extract_metadata",
             "get_slide_summary",
+            "hybrid_retrieval_search",
         ],
         "supported_formats": [".pptx"],
         "dependencies": [

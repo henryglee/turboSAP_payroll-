@@ -14,6 +14,7 @@ Database schema:
 Note: company_name field is for display purposes only, not for tenant isolation.
 """
 
+import re
 import sqlite3
 import json
 from pathlib import Path
@@ -21,8 +22,11 @@ from datetime import datetime
 from typing import Optional, Dict, Any, List
 from contextlib import contextmanager
 
+
 # Database file path
 DB_PATH = Path(__file__).parent.parent / "turbosap.db"
+
+
 
 @contextmanager
 def get_db_connection():
@@ -121,6 +125,17 @@ def init_database():
                 content_type TEXT NOT NULL,
                 task_name TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        # Create virtual table fot full-tsxt search
+        cursor.execute("""
+            CREATE VIRTUAL TABLE IF NOT EXISTS ppt_search_index USING fts5(
+                object_key UNINDEXED,   
+                slide_number UNINDEXED, 
+                title,                  
+                content,                
+                tokenize='unicode61'
             )
         """)
 
@@ -628,3 +643,37 @@ def get_latest_knowledgebase_upload(
         )
         row = cursor.fetchone()
         return dict(row) if row else None
+# ============================================
+# helper functions 
+# ============================================
+
+import re
+
+def search_ppt_index(query: str, limit: int = 5) -> List[Dict[str, Any]]:
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        
+        # 1. Clean the query
+        clean_query = re.sub(r'[^a-zA-Z0-9\s]', '', query)
+        words = clean_query.split()
+        
+        if not words:
+            return []
+
+        # 2. Use OR instead of AND for better flexibility
+        # This way "What is Payroll Area" finds slides with "Payroll" OR "Area"
+        fts_query = " OR ".join(words)
+        
+        search_sql = """
+            SELECT object_key, slide_number, title, content, rank
+            FROM ppt_search_index
+            WHERE ppt_search_index MATCH ?
+            ORDER BY bm25(ppt_search_index, 0.0, 0.0, 10.0, 1.0)
+            LIMIT ?
+        """
+        
+        try:
+            cursor.execute(search_sql, (fts_query, limit))
+            return [dict(row) for row in cursor.fetchall()]
+        except sqlite3.OperationalError:
+            return []

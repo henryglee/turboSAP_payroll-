@@ -1,7 +1,8 @@
 """
 Usage Examples for PPT Content Extractor Agent Skill
 
-Demonstrates various ways to use the PPT content extraction functionality.
+Demonstrates various ways to use the PPT content extraction functionality,
+including the new hybrid retrieval capabilities with search_ppt_by_query.
 """
 
 from typing import Dict, Any
@@ -11,6 +12,7 @@ from app.agents.skills.ppt_content_extractor.get_ppt_content import (
     get_ppt_metadata,
     get_ppt_slides_summary,
     get_ppt_contents_batch,
+    search_ppt_by_query,
     create_ppt_content_node,
     create_ppt_router_node,
     get_skill_info,
@@ -177,39 +179,43 @@ def example_batch_processing():
 
 
 # ============================================
-# Example 6: LangGraph Integration
+# Example 6: Search PPT Content (Hybrid Retrieval)
 # ============================================
 
-def example_langgraph_integration():
-    """Demonstrate integration with LangGraph."""
+def example_search_ppt_content():
+    """Search indexed PPT content using BM25 ranking."""
     print("\n" + "=" * 60)
-    print("Example 6: LangGraph Integration")
+    print("Example 6: PPT Content Search (Hybrid Retrieval)")
     print("=" * 60)
 
-    print("✓ Creating LangGraph nodes...")
+    try:
+        # User question about PPT content
+        query = "What is Payroll Area?"
 
-    # Create nodes
-    ppt_node = create_ppt_content_node()
-    router_node = create_ppt_router_node()
+        print(f"✓ Searching for: '{query}'")
+        print("  This requires PPT to be already indexed in the database...")
 
-    print(f"  - PPT Content Node: {ppt_node.__name__}")
-    print(f"  - Router Node: {router_node.__name__}")
+        # Search for relevant slides
+        results = search_ppt_by_query(query, limit=3)
 
-    # Example state
-    state = {
-        "ppt_object_key": "reachnett_ppt/1010/Enterprise_Structure.pptx",
-        "other_data": "will be preserved",
-    }
+        if results:
+            print(f"\n✓ Found {len(results)} relevant slides:\n")
+            for i, result in enumerate(results, 1):
+                print(f"  Slide {result['slide_number']}: {result['title']}")
+                print(f"    File: {result['object_key']}")
+                print(f"    Relevance Score: {result['rank']}")
+                print(f"    Content Preview: {result['content'][:100]}...")
+                print()
+        else:
+            print("  No results found (PPT may not be indexed yet)")
 
-    print("\n✓ Example usage in state:")
-    print(f"  Input state: {state}")
+        return results
 
-    # Simulate node execution (won't actually run without real S3 data)
-    print("\n  After execution, state would contain:")
-    print("    - ppt_content: Dict with full extraction result")
-    print("    - ppt_extraction_error: None if successful")
+    except Exception as e:
+        print(f"✗ Search failed: {str(e)}")
+        return None
 
-    return (ppt_node, router_node)
+
 
 
 # ============================================
@@ -242,7 +248,6 @@ def example_error_handling():
     print("  Solution: pip install python-pptx")
 
     return None
-
 
 # ============================================
 # Example 8: Skill Information
@@ -315,11 +320,16 @@ def example_processing_pipeline():
 # ============================================
 # Main: Run All Examples
 # ============================================
+# Main: Run All Examples
+# ============================================
 
 if __name__ == "__main__":
+    from app.database import init_database
+    init_database()
     print("\n")
     print("╔" + "═" * 58 + "╗")
     print("║" + "PPT Content Extractor - Usage Examples".center(58) + "║")
+    print("║" + "(Updated with Hybrid Retrieval Features)".center(58) + "║")
     print("╚" + "═" * 58 + "╝")
     print()
 
@@ -336,7 +346,7 @@ if __name__ == "__main__":
     example_metadata_extraction()
     example_slide_summary()
     example_batch_processing()
-    example_langgraph_integration()
+    example_search_ppt_content()
     example_error_handling()
     example_processing_pipeline()
 
