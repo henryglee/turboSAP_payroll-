@@ -29,6 +29,7 @@ export namespace Flag {
   export const OPENCODE_SERVER_PASSWORD = process.env["OPENCODE_SERVER_PASSWORD"]
   export const OPENCODE_SERVER_USERNAME = process.env["OPENCODE_SERVER_USERNAME"]
   export const OPENCODE_AGENT_UI_ORIGIN = process.env["OPENCODE_AGENT_UI_ORIGIN"]
+  export declare const OPENCODE_STATIC_ASSET_ROOT: string | undefined
 
   // Experimental
   export const OPENCODE_EXPERIMENTAL = truthy("OPENCODE_EXPERIMENTAL")
@@ -74,6 +75,14 @@ Object.defineProperty(Flag, "OPENCODE_DISABLE_PROJECT_CONFIG", {
 Object.defineProperty(Flag, "OPENCODE_CONFIG_DIR", {
   get() {
     return process.env["OPENCODE_CONFIG_DIR"]
+  },
+  enumerable: true,
+  configurable: false,
+})
+
+Object.defineProperty(Flag, "OPENCODE_STATIC_ASSET_ROOT", {
+  get() {
+    return process.env["OPENCODE_STATIC_ASSET_ROOT"]
   },
   enumerable: true,
   configurable: false,
