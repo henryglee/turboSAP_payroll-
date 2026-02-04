@@ -45,7 +45,9 @@ import {MDNS} from "./mdns"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
-const STATIC_ASSET_ROOT = path.resolve(__dirname, "../../static")
+const STATIC_ASSET_ROOT = Flag.OPENCODE_STATIC_ASSET_ROOT
+    ? path.resolve(Flag.OPENCODE_STATIC_ASSET_ROOT)
+    : path.resolve(__dirname, "../../static")
 const STATIC_INDEX_PATH = path.join(STATIC_ASSET_ROOT, "index.html")
 const STATIC_CSP =
     "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' data:"
