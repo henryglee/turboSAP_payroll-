@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 
 import { AdminLayout } from '../components/layout/AdminLayout';
 
-const AGENT_CONSOLE_URL = "/agent/";
+const AGENT_CONSOLE_URL = "/agent-ui/";
 
 function buildAgentUrl(): string {
   try {
