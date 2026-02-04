@@ -11,6 +11,7 @@ import { PayrollAreaPage } from './pages/PayrollAreaPage';
 import { CompanyCodePage } from './pages/CompanyCodePage';
 import { EmployeeGroupPage } from './pages/EmployeeGroupPage';
 import { PersonnelAreaPage } from './pages/PersonnelAreaPage';
+import { TaxCompanyPage } from './pages/TaxCompanyPage';
 import { AIConfigPage } from './pages/AIConfigPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { AdminUsersPage } from './pages/AdminUsersPage';
@@ -93,6 +94,16 @@ function AppContent() {
         element={
           <ProtectedRoute requireClient>
             <PayrollAreaPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Tax Companies - Spreadsheet-style tax company maintenance */}
+      <Route
+        path="/tax-company"
+        element={
+          <ProtectedRoute requireClient>
+            <TaxCompanyPage />
           </ProtectedRoute>
         }
       />
