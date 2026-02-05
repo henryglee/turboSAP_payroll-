@@ -22,7 +22,15 @@ Run with: uvicorn app.main:app --reload --port 8000
 
 import uuid
 import shutil
-from fastapi import FastAPI, HTTPException, Depends, Header, UploadFile, File, Body
+from fastapi import (
+    FastAPI,
+    HTTPException,
+    Depends,
+    Header,
+    UploadFile,
+    File,
+    Body,
+)
 from app.agents.payments.payment_method_graph import payment_method_graph
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional
@@ -59,19 +67,15 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 import os
 
-
-<<<<<<< HEAD
-from .routes import data_terminal, ai_config, module_config, knowledgebase, hierarchy, modules
-=======
 from .routes import (
     data_terminal,
     ai_config,
     module_config,
     knowledgebase,
     hierarchy,
+    modules,
     enhanced_knowledge,
 )
->>>>>>> 082146a ([Feature] agent skills)
 
 ENV = os.getenv("APP_ENV", "development")
 
@@ -129,19 +133,33 @@ async def lifespan(app: FastAPI):
             "enterprise-structure", "Enterprise Structure", display_order=10
         )
         create_category("banking", "Banking", display_order=20)
-        create_category("personnel-admin", "Personnel Administration", display_order=30)
+        create_category(
+            "personnel-admin", "Personnel Administration", display_order=30
+        )
         # Tasks under Enterprise Structure (matching existing module slugs)
         create_task(
-            "payroll-area", "Payroll Area", "enterprise-structure", display_order=10
+            "payroll-area",
+            "Payroll Area",
+            "enterprise-structure",
+            display_order=10,
         )
         create_task(
-            "company-code", "Company Code", "enterprise-structure", display_order=20
+            "company-code",
+            "Company Code",
+            "enterprise-structure",
+            display_order=20,
         )
         create_task(
-            "personnel-area", "Personnel Area", "enterprise-structure", display_order=30
+            "personnel-area",
+            "Personnel Area",
+            "enterprise-structure",
+            display_order=30,
         )
         create_task(
-            "employee-group", "Employee Group", "enterprise-structure", display_order=40
+            "employee-group",
+            "Employee Group",
+            "enterprise-structure",
+            display_order=40,
         )
         create_task(
             "employee-subgroup",
@@ -150,7 +168,9 @@ async def lifespan(app: FastAPI):
             display_order=50,
         )
         # Tasks under Banking
-        create_task("payment-method", "Payment Method", "banking", display_order=10)
+        create_task(
+            "payment-method", "Payment Method", "banking", display_order=10
+        )
         print("[Seeding] Hierarchy created successfully")
     else:
         print("[Seeding] Hierarchy already exists, skipping")
@@ -172,7 +192,9 @@ frontend_dir = Path(__file__).parent / "static"
 
 # Serve all static assets (JS, CSS, images)
 if ENV == "production":
-    app.mount("/assets", StaticFiles(directory=frontend_dir / "assets"), name="assets")
+    app.mount(
+        "/assets", StaticFiles(directory=frontend_dir / "assets"), name="assets"
+    )
 
 # Mount API routers that live in app.routes
 app.include_router(data_terminal.router)
@@ -180,11 +202,8 @@ app.include_router(ai_config.router)
 app.include_router(module_config.router)
 app.include_router(knowledgebase.router)
 app.include_router(hierarchy.router)
-<<<<<<< HEAD
 app.include_router(modules.router)
-=======
 app.include_router(enhanced_knowledge.router)
->>>>>>> 082146a ([Feature] agent skills)
 
 # Serve uploaded logos (in both dev and production)
 uploads_dir = Path(__file__).parent.parent / "uploads"
@@ -328,11 +347,15 @@ def login(request: dict = Body(...)):
     # Get user
     user = get_user_by_username(username)
     if not user:
-        raise HTTPException(status_code=401, detail="Invalid username or password")
+        raise HTTPException(
+            status_code=401, detail="Invalid username or password"
+        )
 
     # Verify password
     if not verify_password(password, user["password_hash"]):
-        raise HTTPException(status_code=401, detail="Invalid username or password")
+        raise HTTPException(
+            status_code=401, detail="Invalid username or password"
+        )
 
     # Update last login
     update_user_last_login(user["id"])
@@ -367,8 +390,12 @@ def get_current_user_info(current_user: dict = Depends(get_current_user)):
         "role": user["role"],
         "companyName": user.get("company_name"),
         "logoPath": user.get("logo_path"),
-        "createdAt": user.get("created_at") + "Z" if user.get("created_at") else None,
-        "lastLogin": user.get("last_login") + "Z" if user.get("last_login") else None,
+        "createdAt": (
+            user.get("created_at") + "Z" if user.get("created_at") else None
+        ),
+        "lastLogin": (
+            user.get("last_login") + "Z" if user.get("last_login") else None
+        ),
     }
 
 
@@ -400,7 +427,9 @@ async def change_password(
 
     # Validate input
     if not current_password:
-        raise HTTPException(status_code=400, detail="Current password is required")
+        raise HTTPException(
+            status_code=400, detail="Current password is required"
+        )
     if not new_password:
         raise HTTPException(status_code=400, detail="New password is required")
     if len(new_password) < 6:
@@ -420,7 +449,9 @@ async def change_password(
 
     # Verify current password
     if not verify_password(current_password, user["password_hash"]):
-        raise HTTPException(status_code=401, detail="Current password is incorrect")
+        raise HTTPException(
+            status_code=401, detail="Current password is incorrect"
+        )
 
     # Hash new password and update
     new_password_hash = hash_password(new_password)
@@ -509,7 +540,9 @@ async def start_session(
             )
         else:
             question = (
-                get_question(question_id) if question_id else get_first_question()
+                get_question(question_id)
+                if question_id
+                else get_first_question()
             )
 
     return {
@@ -943,7 +976,9 @@ async def create_user_by_admin(
     # Get created user
     user = get_user_by_id(user_id)
     if not user:
-        raise HTTPException(status_code=500, detail="Failed to retrieve created user")
+        raise HTTPException(
+            status_code=500, detail="Failed to retrieve created user"
+        )
 
     return {
         "userId": user["id"],
@@ -966,11 +1001,13 @@ async def list_all_users(current_user: dict = Depends(require_admin)):
 
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT id, username, role, logo_path, company_name, created_at, last_login
             FROM users
             ORDER BY created_at DESC
-        """)
+        """
+        )
         rows = cursor.fetchall()
         users = []
         for row in rows:
@@ -983,12 +1020,16 @@ async def list_all_users(current_user: dict = Depends(require_admin)):
                     "role": user_dict.get("role"),
                     "logoPath": user_dict.get("logo_path"),
                     "companyName": user_dict.get("company_name"),
-                    "createdAt": user_dict.get("created_at") + "Z"
-                    if user_dict.get("created_at")
-                    else None,
-                    "lastLogin": user_dict.get("last_login") + "Z"
-                    if user_dict.get("last_login")
-                    else None,
+                    "createdAt": (
+                        user_dict.get("created_at") + "Z"
+                        if user_dict.get("created_at")
+                        else None
+                    ),
+                    "lastLogin": (
+                        user_dict.get("last_login") + "Z"
+                        if user_dict.get("last_login")
+                        else None
+                    ),
                 }
             )
         return {"users": users}
@@ -1020,7 +1061,9 @@ async def get_user_progress(
         if updated_at and (not last_activity or updated_at > last_activity):
             last_activity = updated_at
 
-        if "payroll_area" in completed_modules or config_state.get("payroll_areas"):
+        if "payroll_area" in completed_modules or config_state.get(
+            "payroll_areas"
+        ):
             payroll_status = "completed"
         elif any(
             key.startswith(
@@ -1040,7 +1083,9 @@ async def get_user_progress(
             if payroll_status != "completed":
                 payroll_status = "in-progress"
 
-        if "payment_method" in completed_modules or config_state.get("payment_methods"):
+        if "payment_method" in completed_modules or config_state.get(
+            "payment_methods"
+        ):
             payment_status = "completed"
         elif any(
             key.startswith(
@@ -1111,7 +1156,9 @@ async def update_user_role(
 
     # Prevent admin from removing their own admin role
     if user_id == current_user["user_id"] and not is_admin(new_role):
-        raise HTTPException(status_code=400, detail="Cannot remove your own admin role")
+        raise HTTPException(
+            status_code=400, detail="Cannot remove your own admin role"
+        )
 
     from .database import get_db_connection
 
@@ -1236,7 +1283,9 @@ async def upload_logo(
         # Clean up file if database update fails
         if file_path.exists():
             file_path.unlink()
-        raise HTTPException(status_code=500, detail=f"Failed to upload logo: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to upload logo: {str(e)}"
+        )
 
 
 # Catch-all route for SPA (React/Vite)
