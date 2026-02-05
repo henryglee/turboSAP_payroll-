@@ -2,6 +2,7 @@
 Hierarchy Routes - Categories and Tasks Management
 
 API for managing the category/task hierarchy that organizes configuration modules.
+All operations read from and write to hierarchy.json via HierarchyService.
 
 Endpoints:
 - GET    /api/hierarchy                    - Get full hierarchy tree
@@ -15,20 +16,10 @@ Endpoints:
 """
 
 from fastapi import APIRouter, HTTPException, Depends, Body
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
 from ..middleware import get_current_user, require_admin
-from ..database import (
-    get_full_hierarchy,
-    get_category_by_id,
-    create_category as db_create_category,
-    update_category as db_update_category,
-    delete_category as db_delete_category,
-    get_task_by_id,
-    create_task as db_create_task,
-    update_task as db_update_task,
-    delete_task as db_delete_task,
-)
+from ..services.hierarchy_service import hierarchy_service
 
 router = APIRouter(prefix="/api/hierarchy", tags=["Hierarchy"])
 
@@ -49,6 +40,32 @@ def _to_camel_case(data: Dict[str, Any]) -> Dict[str, Any]:
     return result
 
 
+def _category_response(cat: dict) -> dict:
+    """Format a category for API response (camelCase, with tasks)."""
+    return {
+        "id": cat["id"],
+        "name": cat["name"],
+        "displayOrder": cat.get("displayOrder", 0),
+        "tasks": [_task_response(t, cat["id"]) for t in cat.get("tasks", [])],
+    }
+
+
+def _task_response(task: dict, category_id: str) -> dict:
+    """Format a task for API response (camelCase)."""
+    return {
+        "id": task["id"],
+        "name": task["name"],
+        "categoryId": category_id,
+        "displayOrder": task.get("displayOrder", 0),
+        "originalId": task.get("original_id"),
+        "type": task.get("type"),
+        "slug": task.get("slug"),
+        "route": task.get("route"),
+        "relation": task.get("relation", []),
+        "stepIds": task.get("step_ids", []),
+    }
+
+
 # ============================================
 # Hierarchy Endpoints
 # ============================================
@@ -57,22 +74,8 @@ def _to_camel_case(data: Dict[str, Any]) -> Dict[str, Any]:
 async def get_hierarchy(current_user: dict = Depends(get_current_user)):
     """
     Get the full hierarchy tree: categories with nested tasks.
-
-    Returns:
-        {
-            "categories": [
-                {
-                    "id": "enterprise-structure",
-                    "name": "Enterprise Structure",
-                    "displayOrder": 10,
-                    "tasks": [
-                        {"id": "payroll-area", "name": "Payroll Area", "categoryId": "...", "displayOrder": 10}
-                    ]
-                }
-            ]
-        }
     """
-    hierarchy = get_full_hierarchy()
+    hierarchy = hierarchy_service.get_full_hierarchy()
     return {"categories": [_to_camel_case(cat) for cat in hierarchy]}
 
 
@@ -104,14 +107,11 @@ async def create_category(
     if not name or not isinstance(name, str):
         raise HTTPException(status_code=400, detail="name is required")
 
-    # Check if category already exists
-    if get_category_by_id(cat_id):
-        raise HTTPException(status_code=400, detail=f"Category '{cat_id}' already exists")
-
     try:
-        db_create_category(cat_id, name.strip(), display_order)
-        category = get_category_by_id(cat_id)
-        return {"status": "ok", "category": _to_camel_case(category)}
+        cat = hierarchy_service.create_category(cat_id, name.strip(), display_order)
+        return {"status": "ok", "category": _category_response(cat)}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create category: {str(e)}")
 
@@ -131,10 +131,6 @@ async def update_category(
             "displayOrder": 20
         }
     """
-    # Check if category exists
-    if not get_category_by_id(category_id):
-        raise HTTPException(status_code=404, detail=f"Category '{category_id}' not found")
-
     name = payload.get("name")
     display_order = payload.get("displayOrder")
 
@@ -143,12 +139,14 @@ async def update_category(
         if not name:
             raise HTTPException(status_code=400, detail="name cannot be empty")
 
-    updated = db_update_category(category_id, name=name, display_order=display_order)
-    if not updated and name is None and display_order is None:
+    if name is None and display_order is None:
         raise HTTPException(status_code=400, detail="No fields to update")
 
-    category = get_category_by_id(category_id)
-    return {"status": "ok", "category": _to_camel_case(category)}
+    cat = hierarchy_service.update_category(category_id, name=name, display_order=display_order)
+    if not cat:
+        raise HTTPException(status_code=404, detail=f"Category '{category_id}' not found")
+
+    return {"status": "ok", "category": _category_response(cat)}
 
 
 @router.delete("/categories/{category_id}")
@@ -159,12 +157,9 @@ async def delete_category(
     """
     Delete a category and all its tasks.
     """
-    if not get_category_by_id(category_id):
-        raise HTTPException(status_code=404, detail=f"Category '{category_id}' not found")
-
-    deleted = db_delete_category(category_id)
+    deleted = hierarchy_service.delete_category(category_id)
     if not deleted:
-        raise HTTPException(status_code=500, detail="Failed to delete category")
+        raise HTTPException(status_code=404, detail=f"Category '{category_id}' not found")
 
     return {"status": "ok", "message": f"Category '{category_id}' deleted"}
 
@@ -201,18 +196,11 @@ async def create_task(
     if not category_id or not isinstance(category_id, str):
         raise HTTPException(status_code=400, detail="categoryId is required")
 
-    # Check if category exists
-    if not get_category_by_id(category_id):
-        raise HTTPException(status_code=404, detail=f"Category '{category_id}' not found")
-
-    # Check if task already exists
-    if get_task_by_id(task_id):
-        raise HTTPException(status_code=400, detail=f"Task '{task_id}' already exists")
-
     try:
-        db_create_task(task_id, name.strip(), category_id, display_order)
-        task = get_task_by_id(task_id)
-        return {"status": "ok", "task": _to_camel_case(task)}
+        task = hierarchy_service.create_task(task_id, name.strip(), category_id, display_order)
+        return {"status": "ok", "task": _task_response(task, category_id)}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create task: {str(e)}")
 
@@ -233,10 +221,6 @@ async def update_task(
             "displayOrder": 20
         }
     """
-    # Check if task exists
-    if not get_task_by_id(task_id):
-        raise HTTPException(status_code=404, detail=f"Task '{task_id}' not found")
-
     name = payload.get("name")
     category_id = payload.get("categoryId")
     display_order = payload.get("displayOrder")
@@ -246,16 +230,21 @@ async def update_task(
         if not name:
             raise HTTPException(status_code=400, detail="name cannot be empty")
 
-    # If moving to new category, verify it exists
-    if category_id is not None and not get_category_by_id(category_id):
-        raise HTTPException(status_code=404, detail=f"Category '{category_id}' not found")
-
-    updated = db_update_task(task_id, name=name, category_id=category_id, display_order=display_order)
-    if not updated and name is None and category_id is None and display_order is None:
+    if name is None and category_id is None and display_order is None:
         raise HTTPException(status_code=400, detail="No fields to update")
 
-    task = get_task_by_id(task_id)
-    return {"status": "ok", "task": _to_camel_case(task)}
+    try:
+        task = hierarchy_service.update_task(
+            task_id, name=name, category_id=category_id, display_order=display_order
+        )
+        if not task:
+            raise HTTPException(status_code=404, detail=f"Task '{task_id}' not found")
+
+        # Get the category ID for response
+        _, cat_id = hierarchy_service.get_task_by_id(task_id)
+        return {"status": "ok", "task": _task_response(task, cat_id or category_id or "")}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.delete("/tasks/{task_id}")
@@ -266,12 +255,9 @@ async def delete_task(
     """
     Delete a task.
     """
-    if not get_task_by_id(task_id):
-        raise HTTPException(status_code=404, detail=f"Task '{task_id}' not found")
-
-    deleted = db_delete_task(task_id)
+    deleted = hierarchy_service.delete_task(task_id)
     if not deleted:
-        raise HTTPException(status_code=500, detail="Failed to delete task")
+        raise HTTPException(status_code=404, detail=f"Task '{task_id}' not found")
 
     return {"status": "ok", "message": f"Task '{task_id}' deleted"}
 
@@ -312,10 +298,9 @@ async def reorder_hierarchy(
             continue
         display_order = cat.get("displayOrder")
         if display_order is not None:
-            if not get_category_by_id(cat_id):
+            result = hierarchy_service.update_category(cat_id, display_order=display_order)
+            if not result:
                 errors.append(f"Category '{cat_id}' not found")
-            else:
-                db_update_category(cat_id, display_order=display_order)
 
     # Update tasks
     for task in tasks:
@@ -324,13 +309,14 @@ async def reorder_hierarchy(
             continue
         display_order = task.get("displayOrder")
         category_id = task.get("categoryId")
-        if not get_task_by_id(task_id):
-            errors.append(f"Task '{task_id}' not found")
-        else:
-            if category_id and not get_category_by_id(category_id):
-                errors.append(f"Category '{category_id}' not found for task '{task_id}'")
-            else:
-                db_update_task(task_id, display_order=display_order, category_id=category_id)
+        try:
+            result = hierarchy_service.update_task(
+                task_id, display_order=display_order, category_id=category_id
+            )
+            if not result:
+                errors.append(f"Task '{task_id}' not found")
+        except ValueError as e:
+            errors.append(str(e))
 
     if errors:
         return {"status": "partial", "errors": errors}

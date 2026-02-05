@@ -1,253 +1,78 @@
 /**
- * ConfigurationScopePage - Shows the Genie-style hierarchy
- * Category → Task → Step → Execution
+ * ConfigurationScopePage - Tree-style hierarchy navigator
+ * Category → Task with navigation based on task.type and task.route
  *
- * Visual roadmap of available and upcoming configuration modules
+ * Reads from GET /api/hierarchy (backed by hierarchy.json)
  */
 
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '../components/layout/DashboardLayout';
 import {
   ChevronRight,
   ChevronDown,
-  Building2,
-  Landmark,
-  Clock,
-  Heart,
-  FileCode,
+  FolderOpen,
+  Folder,
   CheckCircle2,
-  Lock,
   ArrowRight,
+  Circle,
+  Search,
 } from 'lucide-react';
+import { cn } from '../lib/utils';
+import { getHierarchy, type Category, type Task } from '../api/hierarchy';
 
-interface Step {
-  id: string;
-  name: string;
-  status: 'available' | 'coming-soon';
-}
+// ============================================
+// Tree Node Components
+// ============================================
 
-interface Task {
-  id: string;
-  name: string;
-  description: string;
-  status: 'available' | 'coming-soon';
-  route?: string;
-  steps?: Step[];
-}
-
-interface Category {
-  id: string;
-  name: string;
-  icon: React.ComponentType<{ className?: string }>;
-  description: string;
-  tasks: Task[];
-}
-
-const configurationCategories: Category[] = [
-  {
-    id: 'enterprise-structure',
-    name: 'Enterprise Structure',
-    icon: Building2,
-    description: 'Organizational units, company codes, and personnel areas',
-    tasks: [
-      {
-        id: 'payroll-area',
-        name: 'Payroll Area Configuration',
-        description: 'Define payroll frequencies, periods, and control parameters',
-        status: 'available',
-        route: '/payroll-area',
-        steps: [
-          { id: 'pa-1', name: 'Configure Payroll Area', status: 'available' },
-          { id: 'pa-2', name: 'Define Pay Period Parameters', status: 'available' },
-          { id: 'pa-3', name: 'Create Control Record', status: 'available' },
-        ],
-      },
-      {
-        id: 'personnel-area',
-        name: 'Personnel Area Setup',
-        description: 'Define personnel areas and subareas',
-        status: 'coming-soon',
-      },
-    ],
-  },
-  {
-    id: 'banking',
-    name: 'Banking',
-    icon: Landmark,
-    description: 'Payment methods, bank connections, and disbursement configuration',
-    tasks: [
-      {
-        id: 'payment-method',
-        name: 'Payment Method Configuration',
-        description: 'Configure ACH, check, and paycard payment options',
-        status: 'available',
-        route: '/payment-methods',
-        steps: [
-          { id: 'pm-1', name: 'Configure Payment Medium Format', status: 'available' },
-          { id: 'pm-2', name: 'Define Bank Connection', status: 'available' },
-          { id: 'pm-3', name: 'Set Payment Run Parameters', status: 'available' },
-        ],
-      },
-      {
-        id: 'direct-deposit',
-        name: 'Direct Deposit Setup',
-        description: 'Employee banking information and split deposits',
-        status: 'coming-soon',
-      },
-    ],
-  },
-  {
-    id: 'time-management',
-    name: 'Time Management',
-    icon: Clock,
-    description: 'Work schedules, attendance, and time evaluation',
-    tasks: [
-      {
-        id: 'work-schedule',
-        name: 'Work Schedule Rules',
-        description: 'Define work schedules and holiday calendars',
-        status: 'coming-soon',
-      },
-      {
-        id: 'time-evaluation',
-        name: 'Time Evaluation',
-        description: 'Configure time types and evaluation rules',
-        status: 'coming-soon',
-      },
-    ],
-  },
-  {
-    id: 'benefits',
-    name: 'Benefits Administration',
-    icon: Heart,
-    description: 'Health plans, retirement, and other benefit programs',
-    tasks: [
-      {
-        id: 'health-plans',
-        name: 'Health Plan Configuration',
-        description: 'Medical, dental, and vision plan setup',
-        status: 'coming-soon',
-      },
-      {
-        id: 'retirement',
-        name: 'Retirement Plans',
-        description: '401(k) and pension configuration',
-        status: 'coming-soon',
-      },
-    ],
-  },
-  {
-    id: 'payroll-schema',
-    name: 'Payroll Schema',
-    icon: FileCode,
-    description: 'Calculation rules, wage types, and processing logic',
-    tasks: [
-      {
-        id: 'wage-types',
-        name: 'Wage Type Configuration',
-        description: 'Define earnings and deduction wage types',
-        status: 'coming-soon',
-      },
-      {
-        id: 'calculation-rules',
-        name: 'Calculation Rules',
-        description: 'Payroll calculation schema customization',
-        status: 'coming-soon',
-      },
-    ],
-  },
-];
-
-function CategoryItem({ category }: { category: Category }) {
-  const [isExpanded, setIsExpanded] = useState(
-    category.tasks.some(t => t.status === 'available')
-  );
-  const navigate = useNavigate();
-  const Icon = category.icon;
-  const hasAvailableTasks = category.tasks.some(t => t.status === 'available');
+function CategoryNode({
+  category,
+  expanded,
+  onToggle,
+}: {
+  category: Category;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const implementedCount = category.tasks.filter(t => t.type != null).length;
+  const hasImplemented = implementedCount > 0;
 
   return (
-    <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">
-      {/* Category Header */}
+    <div>
       <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center gap-3 p-4 hover:bg-gray-50 transition-colors text-left"
+        onClick={onToggle}
+        className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left rounded-md hover:bg-gray-100 transition-colors group"
       >
-        <div className={`p-2 rounded-lg ${hasAvailableTasks ? 'bg-primary/10' : 'bg-gray-100'}`}>
-          <Icon className={`h-5 w-5 ${hasAvailableTasks ? 'text-primary' : 'text-gray-400'}`} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <h3 className={`font-medium ${hasAvailableTasks ? 'text-gray-900' : 'text-gray-500'}`}>
-            {category.name}
-          </h3>
-          <p className="text-sm text-gray-500 truncate">{category.description}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          {hasAvailableTasks && (
-            <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
-              {category.tasks.filter(t => t.status === 'available').length} Available
-            </span>
-          )}
-          {isExpanded ? (
-            <ChevronDown className="h-5 w-5 text-gray-400" />
-          ) : (
-            <ChevronRight className="h-5 w-5 text-gray-400" />
-          )}
-        </div>
+        {expanded ? (
+          <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0" />
+        ) : (
+          <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
+        )}
+        {expanded ? (
+          <FolderOpen className="w-4 h-4 text-amber-500 flex-shrink-0" />
+        ) : (
+          <Folder className="w-4 h-4 text-amber-500 flex-shrink-0" />
+        )}
+        <span className={cn(
+          'flex-1 truncate',
+          hasImplemented ? 'text-gray-900 font-medium' : 'text-gray-500'
+        )}>
+          {category.name}
+        </span>
+        {hasImplemented && (
+          <span className="text-xs text-green-600 font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+            {implementedCount}
+          </span>
+        )}
+        <span className="text-xs text-gray-400">
+          {category.tasks.length}
+        </span>
       </button>
 
-      {/* Tasks */}
-      {isExpanded && (
-        <div className="border-t border-gray-100 bg-gray-50/50">
+      {expanded && (
+        <div className="ml-4 pl-2 border-l border-gray-200">
           {category.tasks.map((task) => (
-            <div key={task.id} className="border-b border-gray-100 last:border-b-0">
-              {/* Task Row */}
-              <div
-                className={`flex items-center gap-3 px-4 py-3 pl-12 ${
-                  task.status === 'available'
-                    ? 'hover:bg-gray-100 cursor-pointer'
-                    : 'opacity-60'
-                }`}
-                onClick={() => task.route && navigate(task.route)}
-              >
-                {task.status === 'available' ? (
-                  <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
-                ) : (
-                  <Lock className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-medium ${
-                    task.status === 'available' ? 'text-gray-900' : 'text-gray-500'
-                  }`}>
-                    {task.name}
-                  </p>
-                  <p className="text-xs text-gray-500 truncate">{task.description}</p>
-                </div>
-                {task.status === 'available' ? (
-                  <ArrowRight className="h-4 w-4 text-gray-400" />
-                ) : (
-                  <span className="text-xs text-gray-400">Coming Soon</span>
-                )}
-              </div>
-
-              {/* Steps (only show for available tasks when expanded) */}
-              {task.status === 'available' && task.steps && (
-                <div className="bg-gray-100/50 py-2">
-                  {task.steps.map((step, idx) => (
-                    <div
-                      key={step.id}
-                      className="flex items-center gap-2 px-4 py-1.5 pl-20 text-xs text-gray-600"
-                    >
-                      <span className="w-4 h-4 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-medium">
-                        {idx + 1}
-                      </span>
-                      {step.name}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <TaskNode key={task.id} task={task} />
           ))}
         </div>
       )}
@@ -255,15 +80,150 @@ function CategoryItem({ category }: { category: Category }) {
   );
 }
 
+function TaskNode({ task }: { task: Task }) {
+  const navigate = useNavigate();
+  const isAvailable = task.type != null && task.route != null;
+
+  return (
+    <button
+      onClick={() => {
+        if (isAvailable && task.route) {
+          navigate(task.route);
+        }
+      }}
+      disabled={!isAvailable}
+      className={cn(
+        'w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left rounded-md transition-colors',
+        isAvailable
+          ? 'hover:bg-indigo-50 hover:text-indigo-700 cursor-pointer'
+          : 'opacity-50 cursor-default'
+      )}
+    >
+      {isAvailable ? (
+        <CheckCircle2 className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
+      ) : (
+        <Circle className="w-3.5 h-3.5 text-gray-300 flex-shrink-0" />
+      )}
+      <span className={cn('flex-1 truncate', !isAvailable && 'text-gray-400')}>
+        {task.name}
+      </span>
+      {isAvailable && (
+        <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 flex-shrink-0">
+          {task.type === 'legacy' ? 'guided' : 'config'}
+        </span>
+      )}
+      {isAvailable && (
+        <ArrowRight className="w-3.5 h-3.5 text-gray-300 flex-shrink-0" />
+      )}
+    </button>
+  );
+}
+
+// ============================================
+// Main Component
+// ============================================
+
 export function ConfigurationScopePage() {
-  const availableCount = configurationCategories.reduce(
-    (acc, cat) => acc + cat.tasks.filter(t => t.status === 'available').length,
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Auto-expand categories that have implemented tasks
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    async function fetchHierarchy() {
+      try {
+        const response = await getHierarchy();
+        setCategories(response.categories);
+        // Auto-expand categories with available tasks
+        const autoExpand = new Set<string>();
+        for (const cat of response.categories) {
+          if (cat.tasks.some(t => t.type != null)) {
+            autoExpand.add(cat.id);
+          }
+        }
+        setExpanded(autoExpand);
+      } catch (err) {
+        console.error('Failed to load hierarchy:', err);
+        setError('Failed to load configuration hierarchy.');
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchHierarchy();
+  }, []);
+
+  // Filter categories/tasks by search query
+  const filteredCategories = useMemo(() => {
+    if (!searchQuery.trim()) return categories;
+    const q = searchQuery.toLowerCase();
+    return categories
+      .map(cat => {
+        const matchingTasks = cat.tasks.filter(t =>
+          t.name.toLowerCase().includes(q) ||
+          t.id.toLowerCase().includes(q)
+        );
+        const categoryMatches = cat.name.toLowerCase().includes(q);
+        if (categoryMatches) return cat; // Show all tasks if category matches
+        if (matchingTasks.length === 0) return null;
+        return { ...cat, tasks: matchingTasks };
+      })
+      .filter((cat): cat is Category => cat !== null);
+  }, [categories, searchQuery]);
+
+  // When searching, expand all matching categories
+  const effectiveExpanded = useMemo(() => {
+    if (searchQuery.trim()) {
+      return new Set(filteredCategories.map(c => c.id));
+    }
+    return expanded;
+  }, [searchQuery, filteredCategories, expanded]);
+
+  const handleToggle = (id: string) => {
+    setExpanded(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const expandAll = () => setExpanded(new Set(categories.map(c => c.id)));
+  const collapseAll = () => setExpanded(new Set());
+
+  const availableCount = categories.reduce(
+    (acc, cat) => acc + cat.tasks.filter(t => t.type != null).length,
     0
   );
-  const totalCount = configurationCategories.reduce(
+  const totalCount = categories.reduce(
     (acc, cat) => acc + cat.tasks.length,
     0
   );
+
+  if (loading) {
+    return (
+      <DashboardLayout title="Configuration Scope" currentPath="/scope">
+        <div className="flex items-center justify-center py-20">
+          <p className="text-gray-500">Loading hierarchy...</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <DashboardLayout title="Configuration Scope" currentPath="/scope">
+        <div className="flex items-center justify-center py-20">
+          <p className="text-red-500">{error}</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout
@@ -271,41 +231,70 @@ export function ConfigurationScopePage() {
       description="SAP payroll configuration modules organized by category"
       currentPath="/scope"
     >
-      {/* Summary */}
-      <div className="mb-6 p-4 bg-white border border-gray-200 rounded-lg">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm text-gray-500">Configuration Progress</p>
-            <p className="text-lg font-semibold text-gray-900">
-              {availableCount} of {totalCount} modules available
-            </p>
+      <div className="max-w-4xl">
+        {/* Header bar */}
+        <div className="flex items-center gap-4 mb-4">
+          {/* Search */}
+          <div className="relative flex-1 max-w-xs">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search tasks..."
+              className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300"
+            />
           </div>
-          <div className="flex items-center gap-4 text-sm">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-green-600" />
-              <span className="text-gray-600">Available</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Lock className="h-4 w-4 text-gray-400" />
-              <span className="text-gray-600">Coming Soon</span>
-            </div>
+
+          {/* Summary + controls */}
+          <div className="flex items-center gap-3 text-sm text-gray-500">
+            <span>
+              <span className="font-medium text-green-600">{availableCount}</span>
+              {' / '}
+              <span>{totalCount}</span>
+              {' available'}
+            </span>
+            <span className="text-gray-300">|</span>
+            <button onClick={expandAll} className="hover:text-gray-700 transition-colors">
+              Expand all
+            </button>
+            <button onClick={collapseAll} className="hover:text-gray-700 transition-colors">
+              Collapse all
+            </button>
           </div>
         </div>
-      </div>
 
-      {/* Category Tree */}
-      <div className="space-y-3">
-        {configurationCategories.map((category) => (
-          <CategoryItem key={category.id} category={category} />
-        ))}
-      </div>
+        {/* Tree */}
+        <div className="bg-white border border-gray-200 rounded-lg p-3">
+          {filteredCategories.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-6">
+              No matching categories or tasks
+            </p>
+          ) : (
+            <div className="space-y-0.5">
+              {filteredCategories.map((category) => (
+                <CategoryNode
+                  key={category.id}
+                  category={category}
+                  expanded={effectiveExpanded.has(category.id)}
+                  onToggle={() => handleToggle(category.id)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
 
-      {/* Footer Note */}
-      <div className="mt-6 p-4 bg-blue-50 border border-blue-100 rounded-lg">
-        <p className="text-sm text-blue-800">
-          <strong>Note:</strong> Additional configuration modules will be released in phases.
-          Available modules can be accessed directly from the sidebar or by clicking above.
-        </p>
+        {/* Legend */}
+        <div className="mt-3 flex items-center gap-5 text-xs text-gray-400 px-1">
+          <div className="flex items-center gap-1.5">
+            <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
+            Available — click to configure
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Circle className="w-3.5 h-3.5 text-gray-300" />
+            Coming soon
+          </div>
+        </div>
       </div>
     </DashboardLayout>
   );

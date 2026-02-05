@@ -10,6 +10,13 @@ export interface Task {
   name: string;
   categoryId: string;
   displayOrder: number;
+  // Module integration fields
+  originalId?: string | null;
+  type?: 'legacy' | 'generic' | null;
+  slug?: string | null;
+  route?: string | null;
+  relation?: string[];
+  stepIds?: string[];
 }
 
 export interface Category {
