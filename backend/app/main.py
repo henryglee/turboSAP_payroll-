@@ -22,6 +22,7 @@ Run with: uvicorn app.main:app --reload --port 8000
 
 import uuid
 import shutil
+import subprocess
 from fastapi import (
     FastAPI,
     HTTPException,
@@ -86,8 +87,21 @@ from contextlib import asynccontextmanager
 # ============================================
 
 
+def ensure_qdrant_ready() -> None:
+    script_path = Path(__file__).resolve().parents[1] / "scripts" / "setup_qdrant.sh"
+    if not script_path.exists():
+        raise FileNotFoundError(f"Qdrant setup script missing: {script_path}")
+    subprocess.run(["bash", str(script_path)], check=True)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    try:
+        ensure_qdrant_ready()
+    except Exception as exc:
+        print(f"[Startup] Failed to ensure Qdrant is ready: {exc}")
+        raise
+
     init_database()
 
     # Startup: Initialize database and seed users
