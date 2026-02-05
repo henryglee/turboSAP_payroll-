@@ -6,7 +6,7 @@ const isProductionEnv =
     (typeof import.meta !== 'undefined' && import.meta.env?.VITE_APP_ENV === 'production') ||
     (typeof process !== 'undefined' && process.env?.APP_ENV === 'production');
 console.log(`isProductionEnv= ${isProductionEnv}`)
-const DEFAULT_AGENT_CONSOLE_URL = 'http://localhost:4096/agent-ui/';
+const DEFAULT_AGENT_CONSOLE_URL = 'http://localhost:3000/agent-ui/';
 
 const resolvedProductionAgentUrl = (() => {
     const apiBaseUrl =
