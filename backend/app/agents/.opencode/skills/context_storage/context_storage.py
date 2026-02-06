@@ -126,6 +126,24 @@ class ContextStorageSkill:
         repeats = (self.config.vector_size + len(digest) - 1) // len(digest)
         repeated = (digest * repeats)[: self.config.vector_size]
         return [((b / 255.0) * 2.0) - 1.0 for b in repeated]
+    
+    def search_context(self, query_context: Dict[str, Any], limit: int = 5) -> List[Dict[str, Any]]:
+        """Search for stored contexts that exactly or closely match the provided JSON structure."""
+        
+        # 1. Use the SAME deterministic hashing logic as store_context
+        payload_json = json.dumps(query_context, sort_keys=True, separators=(",", ":"))
+        query_vector = self._embed_payload(payload_json)
+
+        # 2. Query Qdrant
+        results = self.client.search(
+            collection_name=self.config.collection_name,
+            query_vector=query_vector,
+            limit=limit,
+            with_payload=True
+        )
+        
+        # 3. Return only the 'context' and 'metadata' from the payloads
+        return [hit.payload for hit in results]
 
 
 __all__ = ["ContextStorageSkill", "QdrantSkillConfig"]
