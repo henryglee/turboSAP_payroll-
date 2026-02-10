@@ -158,7 +158,7 @@ class OutputMapping(BaseModel):
     """
 
     file: str = Field(..., description="Target output file (e.g., 'payment_methods.csv')")
-    column: str = Field(..., description="Target column in the file (e.g., 'PaymentType')")
+    column: Optional[str] = Field(None, description="Target column in the file (e.g., 'PaymentType'). Not needed for spreadsheet questions.")
     transform: TransformType = Field(
         default=TransformType.DIRECT,
         description="How to transform the answer value"
@@ -237,6 +237,33 @@ class SpreadsheetConfig(BaseModel):
         extra = "allow"
 
 
+class OptionsFrom(BaseModel):
+    """
+    Configuration for dynamically populating question options
+    from another module's completed data.
+
+    Used for cross-module dependencies: e.g., a "Select Company Code"
+    dropdown whose options come from a completed Company Codes module.
+    """
+
+    module: str = Field(..., description="Source module slug")
+    answerKey: str = Field(
+        ...,
+        description="Question ID in source module whose answer contains the data"
+    )
+    valueField: str = Field(
+        ...,
+        description="Field name in each item to use as the option value"
+    )
+    displayField: str = Field(
+        ...,
+        description="Field name in each item to use as the option label"
+    )
+
+    class Config:
+        extra = "allow"
+
+
 class Question(BaseModel):
     """
     A single question in a configuration module.
@@ -254,7 +281,11 @@ class Question(BaseModel):
     # Optional fields
     options: Optional[List[QuestionOption]] = Field(
         None,
-        description="Options for choice-type questions"
+        description="Static options for choice-type questions"
+    )
+    optionsFrom: Optional[OptionsFrom] = Field(
+        None,
+        description="Dynamic options populated from another module's completed data"
     )
     showIf: Optional[ShowIfCondition] = Field(
         None,
@@ -308,6 +339,13 @@ class Question(BaseModel):
         """Ensure spreadsheet questions have spreadsheetConfig."""
         if self.type == "spreadsheet" and not self.spreadsheetConfig:
             raise ValueError("Spreadsheet questions must have 'spreadsheetConfig' defined")
+        return self
+
+    @model_validator(mode="after")
+    def validate_options_source(self) -> "Question":
+        """Ensure a question has either static options or optionsFrom, not both."""
+        if self.options and self.optionsFrom:
+            raise ValueError("Question cannot have both 'options' and 'optionsFrom' — use one or the other")
         return self
 
     def get_normalized_type(self) -> str:

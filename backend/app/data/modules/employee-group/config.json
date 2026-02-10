@@ -1,0 +1,70 @@
+{
+  "slug": "employee-group",
+  "name": "Employee Group / Subgroup",
+  "description": "5-step wizard to define Employee Groups (EG), Employee Subgroups (ESG), and their valid combinations",
+  "icon": "users",
+  "status": "active",
+  "order": 4,
+  "version": "1.0",
+  "type": "legacy",
+  "route": "/employee-group",
+
+  "dependencies": [],
+
+  "outputs": {
+    "employeeGroups": {
+      "description": "Top-level employee groupings (e.g. Regular, Part-Time, Intern)",
+      "format": "array",
+      "schema": {
+        "code":        { "type": "string", "maxLength": 1, "required": true, "description": "Single uppercase character (A-Z or 0-9)" },
+        "description": { "type": "string", "maxLength": 20, "required": true, "description": "Group description" }
+      }
+    },
+    "employeeSubgroups": {
+      "description": "Subdivision of groups with pay/FLSA/union attributes",
+      "format": "array",
+      "schema": {
+        "code":        { "type": "string", "maxLength": 2, "required": true, "description": "Two-character uppercase code (e.g. SE, NH, UH)" },
+        "description": { "type": "string", "maxLength": 20, "required": true, "description": "Subgroup description" },
+        "isSalaried":  { "type": "boolean", "required": false, "description": "Salaried pay flag (auto-derived from dimensions)" },
+        "isHourly":    { "type": "boolean", "required": false, "description": "Hourly pay flag (auto-derived from dimensions)" },
+        "isExempt":    { "type": "boolean", "required": false, "description": "FLSA exempt flag (auto-derived from dimensions)" },
+        "isNonExempt": { "type": "boolean", "required": false, "description": "FLSA non-exempt flag (auto-derived from dimensions)" },
+        "isUnion":     { "type": "boolean", "required": false, "description": "Union membership flag (auto-derived from dimensions)" }
+      }
+    },
+    "validCombinations": {
+      "description": "Valid EG-ESG pairings selected via combination matrix",
+      "format": "array",
+      "derived": true,
+      "schema": {
+        "egCode":  { "type": "string", "required": true, "description": "References an employeeGroups[].code" },
+        "esgCode": { "type": "string", "required": true, "description": "References an employeeSubgroups[].code" }
+      }
+    },
+    "dimensions": {
+      "description": "Initial wizard inputs that drive auto-generation of groups and subgroups",
+      "format": "object",
+      "schema": {
+        "employmentTypes":   { "type": "array", "items": "string", "required": true, "description": "Selected types: regular, part-time, temporary, intern, seasonal, contractor" },
+        "payMethods":        { "type": "array", "items": "string", "required": true, "description": "Selected: salaried, hourly" },
+        "hasBothFlsaTypes":  { "type": "boolean", "required": true, "description": "Whether both exempt and non-exempt employees exist" },
+        "hasUnionEmployees": { "type": "boolean", "required": true, "description": "Whether union employees exist" }
+      }
+    }
+  },
+
+  "completion": {
+    "type": "localstorage_key",
+    "key": "turbosap-employee-group",
+    "rule": "Zustand persisted store with currentStep = 'review' and validCombinations array with at least one entry"
+  },
+
+  "dataAccess": {
+    "type": "legacy",
+    "adapter": "EmployeeGroupAdapter",
+    "storageKey": "turbosap-employee-group",
+    "storePath": "state",
+    "storeNotify": null
+  }
+}

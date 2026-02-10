@@ -10,7 +10,8 @@ import { AccountPage } from './pages/AccountPage';
 import { PayrollAreaPage } from './pages/PayrollAreaPage';
 import { CompanyCodePage } from './pages/CompanyCodePage';
 import { EmployeeGroupPage } from './pages/EmployeeGroupPage';
-import { PersonnelAreaPage } from './pages/PersonnelAreaPage';
+import { PersonnelAreaPage } from './pages/unused/PersonnelAreaPage';
+import { PersonnelAreaV2Page } from './pages/PersonnelAreaV2Page';
 import { TaxCompanyPage } from './pages/TaxCompanyPage';
 import { AIConfigPage } from './pages/AIConfigPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
@@ -202,6 +203,16 @@ function AppContent() {
         element={
           <ProtectedRoute requireClient>
             <PersonnelAreaPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Personnel Area V2 - Smart 4-phase wizard */}
+      <Route
+        path="/personnel-area-v2"
+        element={
+          <ProtectedRoute requireClient>
+            <PersonnelAreaV2Page />
           </ProtectedRoute>
         }
       />

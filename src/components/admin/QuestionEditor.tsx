@@ -4,9 +4,18 @@
  * Supports all question fields including options and outputMapping.
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Plus, Trash2, Loader2, HelpCircle } from 'lucide-react';
-import type { Question, QuestionOption, OutputMapping, SpreadsheetColumn } from '../../api/modules';
+import {
+  listModules,
+  listQuestions,
+  type Question,
+  type QuestionOption,
+  type OptionsFrom,
+  type OutputMapping,
+  type SpreadsheetColumn,
+  type ModuleSummary,
+} from '../../api/modules';
 
 interface QuestionEditorProps {
   question: Question | null; // null = creating new
@@ -48,6 +57,42 @@ export function QuestionEditor({
   const [options, setOptions] = useState<QuestionOption[]>(
     question?.options || []
   );
+
+  // Options source mode: static options vs dynamic from another module
+  const [optionsMode, setOptionsMode] = useState<'static' | 'dynamic'>(
+    question?.optionsFrom ? 'dynamic' : 'static'
+  );
+  const [optionsFrom, setOptionsFrom] = useState<OptionsFrom>(
+    question?.optionsFrom || { module: '', answerKey: '', valueField: '', displayField: '' }
+  );
+
+  // Available modules + questions for "From Module" dropdowns
+  const [availableModules, setAvailableModules] = useState<ModuleSummary[]>([]);
+  const [availableQuestions, setAvailableQuestions] = useState<Question[]>([]);
+
+  // Fetch module list when in dynamic mode
+  useEffect(() => {
+    if (optionsMode === 'dynamic' && availableModules.length === 0) {
+      listModules().then((res) => setAvailableModules(res.modules)).catch(() => {});
+    }
+  }, [optionsMode]);
+
+  // Fetch questions when source module changes
+  useEffect(() => {
+    if (optionsFrom.module) {
+      listQuestions(optionsFrom.module)
+        .then((res) => {
+          setAvailableQuestions(res.questions.filter((q) => q.type === 'spreadsheet'));
+        })
+        .catch(() => setAvailableQuestions([]));
+    } else {
+      setAvailableQuestions([]);
+    }
+  }, [optionsFrom.module]);
+
+  // Derive spreadsheet columns from selected answer key question
+  const selectedSourceQuestion = availableQuestions.find((q) => q.id === optionsFrom.answerKey);
+  const sourceColumns = selectedSourceQuestion?.spreadsheetConfig?.columns || [];
 
   // Spreadsheet config state
   const [spreadsheetColumns, setSpreadsheetColumns] = useState<SpreadsheetColumn[]>(
@@ -186,8 +231,12 @@ export function QuestionEditor({
       questionData.helpText = helpText.trim();
     }
 
-    if (needsOptions && options.length > 0) {
-      questionData.options = options.filter((o) => o.value && o.label);
+    if (needsOptions) {
+      if (optionsMode === 'dynamic' && optionsFrom.module && optionsFrom.answerKey) {
+        questionData.optionsFrom = optionsFrom;
+      } else if (optionsMode === 'static' && options.length > 0) {
+        questionData.options = options.filter((o) => o.value && o.label);
+      }
     }
 
     // Spreadsheet Config
@@ -299,45 +348,160 @@ export function QuestionEditor({
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Options
               </label>
-              <div className="space-y-2">
-                {options.map((option, index) => (
-                  <div key={index} className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={option.label}
-                      onChange={(e) =>
-                        handleOptionChange(index, 'label', e.target.value)
-                      }
-                      placeholder="Label"
-                      className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm"
-                    />
-                    <input
-                      type="text"
-                      value={option.value}
-                      onChange={(e) =>
-                        handleOptionChange(index, 'value', e.target.value)
-                      }
-                      placeholder="Value"
-                      className="w-32 rounded-md border border-gray-300 px-3 py-2 text-sm"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveOption(index)}
-                      className="p-2 text-gray-400 hover:text-red-600"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                ))}
+
+              {/* Static / From Module toggle */}
+              <div className="mb-3 inline-flex rounded-md border border-gray-300 text-sm">
+                <button
+                  type="button"
+                  onClick={() => setOptionsMode('static')}
+                  className={`px-3 py-1.5 rounded-l-md font-medium transition-colors ${
+                    optionsMode === 'static'
+                      ? 'bg-amber-100 text-amber-700'
+                      : 'bg-white text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  Static
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOptionsMode('dynamic')}
+                  className={`px-3 py-1.5 rounded-r-md font-medium border-l border-gray-300 transition-colors ${
+                    optionsMode === 'dynamic'
+                      ? 'bg-amber-100 text-amber-700'
+                      : 'bg-white text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  From Module
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={handleAddOption}
-                className="mt-2 inline-flex items-center gap-1 text-sm text-amber-600 hover:text-amber-700"
-              >
-                <Plus className="h-4 w-4" />
-                Add Option
-              </button>
+
+              {optionsMode === 'static' && (
+                <>
+                  <div className="space-y-2">
+                    {options.map((option, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={option.label}
+                          onChange={(e) =>
+                            handleOptionChange(index, 'label', e.target.value)
+                          }
+                          placeholder="Label"
+                          className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm"
+                        />
+                        <input
+                          type="text"
+                          value={option.value}
+                          onChange={(e) =>
+                            handleOptionChange(index, 'value', e.target.value)
+                          }
+                          placeholder="Value"
+                          className="w-32 rounded-md border border-gray-300 px-3 py-2 text-sm"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveOption(index)}
+                          className="p-2 text-gray-400 hover:text-red-600"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAddOption}
+                    className="mt-2 inline-flex items-center gap-1 text-sm text-amber-600 hover:text-amber-700"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add Option
+                  </button>
+                </>
+              )}
+
+              {optionsMode === 'dynamic' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">
+                      Source Module
+                    </label>
+                    <select
+                      value={optionsFrom.module}
+                      onChange={(e) =>
+                        setOptionsFrom({ module: e.target.value, answerKey: '', valueField: '', displayField: '' })
+                      }
+                      className="block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                    >
+                      <option value="">Select module...</option>
+                      {availableModules.map((m) => (
+                        <option key={m.slug} value={m.slug}>
+                          {m.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">
+                      Answer Key
+                    </label>
+                    <select
+                      value={optionsFrom.answerKey}
+                      onChange={(e) =>
+                        setOptionsFrom({ ...optionsFrom, answerKey: e.target.value, valueField: '', displayField: '' })
+                      }
+                      disabled={!optionsFrom.module}
+                      className="block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm disabled:opacity-50"
+                    >
+                      <option value="">Select question...</option>
+                      {availableQuestions.map((q) => (
+                        <option key={q.id} value={q.id}>
+                          {q.text.length > 40 ? q.text.substring(0, 40) + '...' : q.text}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">
+                      Value Field
+                    </label>
+                    <select
+                      value={optionsFrom.valueField}
+                      onChange={(e) =>
+                        setOptionsFrom({ ...optionsFrom, valueField: e.target.value })
+                      }
+                      disabled={!optionsFrom.answerKey}
+                      className="block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm disabled:opacity-50"
+                    >
+                      <option value="">Select field...</option>
+                      {sourceColumns.map((col) => (
+                        <option key={col.key} value={col.key}>
+                          {col.label} ({col.key})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">
+                      Display Field
+                    </label>
+                    <select
+                      value={optionsFrom.displayField}
+                      onChange={(e) =>
+                        setOptionsFrom({ ...optionsFrom, displayField: e.target.value })
+                      }
+                      disabled={!optionsFrom.answerKey}
+                      className="block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm disabled:opacity-50"
+                    >
+                      <option value="">Select field...</option>
+                      {sourceColumns.map((col) => (
+                        <option key={col.key} value={col.key}>
+                          {col.label} ({col.key})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

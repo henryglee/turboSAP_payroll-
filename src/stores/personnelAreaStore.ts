@@ -14,12 +14,14 @@ import { persist } from 'zustand/middleware';
 // =============================================================================
 
 export interface PersonnelArea {
+  id: string;             // stable identifier for React keys
   code: string;           // 4 chars (e.g., "1000", "1200", "CORP")
   description: string;    // max 30 chars
   companyCode: string;    // FK to existing Company Code
 }
 
 export interface PersonnelSubarea {
+  id: string;             // stable identifier for React keys
   code: string;           // 4 chars (e.g., "9999", "PHX1", "WATR")
   description: string;    // max 15 chars
   personnelAreaCode: string;  // FK to parent PA
@@ -85,13 +87,13 @@ interface PersonnelAreaStore {
 
   // Personnel Areas (Regional path)
   addPersonnelArea: (area?: Partial<PersonnelArea>) => void;
-  updatePersonnelArea: (code: string, updates: Partial<PersonnelArea>) => void;
-  removePersonnelArea: (code: string) => void;
+  updatePersonnelArea: (id: string, updates: Partial<PersonnelArea>) => void;
+  removePersonnelArea: (id: string) => void;
 
   // Personnel Subareas
   addPersonnelSubarea: (personnelAreaCode: string, subarea?: Partial<PersonnelSubarea>) => void;
-  updatePersonnelSubarea: (paCode: string, psaCode: string, updates: Partial<PersonnelSubarea>) => void;
-  removePersonnelSubarea: (paCode: string, psaCode: string) => void;
+  updatePersonnelSubarea: (id: string, updates: Partial<PersonnelSubarea>) => void;
+  removePersonnelSubarea: (id: string) => void;
   getSubareasForArea: (paCode: string) => PersonnelSubarea[];
 
   // Import flow
@@ -205,8 +207,8 @@ export const usePersonnelAreaStore = create<PersonnelAreaStore>()(
           const code = generatePACode([]);
           set({
             currentStep: 'areas',
-            personnelAreas: [{ code, description: '', companyCode: '' }],
-            personnelSubareas: [{ code: '9999', description: 'General Subarea', personnelAreaCode: code }],
+            personnelAreas: [{ id: crypto.randomUUID(), code, description: '', companyCode: '' }],
+            personnelSubareas: [{ id: crypto.randomUUID(), code: '9999', description: 'General Subarea', personnelAreaCode: code }],
           });
         } else if (complexity === 'import') {
           set({ currentStep: 'import-upload' });
@@ -223,11 +225,13 @@ export const usePersonnelAreaStore = create<PersonnelAreaStore>()(
       createSimpleSetup: (paDescription, companyCode) => {
         set({
           personnelAreas: [{
+            id: crypto.randomUUID(),
             code: '1000',
             description: paDescription,
             companyCode,
           }],
           personnelSubareas: [{
+            id: crypto.randomUUID(),
             code: '9999',
             description: 'General Subarea',
             personnelAreaCode: '1000',
@@ -243,6 +247,7 @@ export const usePersonnelAreaStore = create<PersonnelAreaStore>()(
         const newCode = area?.code || generatePACode(existingCodes);
 
         const newPA: PersonnelArea = {
+          id: crypto.randomUUID(),
           code: newCode,
           description: area?.description || '',
           companyCode: area?.companyCode || '',
@@ -250,6 +255,7 @@ export const usePersonnelAreaStore = create<PersonnelAreaStore>()(
 
         // Also add a default subarea
         const newPSA: PersonnelSubarea = {
+          id: crypto.randomUUID(),
           code: '9999',
           description: 'General Subarea',
           personnelAreaCode: newCode,
@@ -261,33 +267,31 @@ export const usePersonnelAreaStore = create<PersonnelAreaStore>()(
         });
       },
 
-      updatePersonnelArea: (code, updates) => {
+      updatePersonnelArea: (id, updates) => {
         set((state) => {
-          const newAreas = state.personnelAreas.map(pa => {
-            if (pa.code === code) {
-              const updated = { ...pa, ...updates };
-              // If code changed, update all subareas too
-              if (updates.code && updates.code !== code) {
-                set((s) => ({
-                  personnelSubareas: s.personnelSubareas.map(psa =>
-                    psa.personnelAreaCode === code
-                      ? { ...psa, personnelAreaCode: updates.code! }
-                      : psa
-                  ),
-                }));
-              }
-              return updated;
-            }
-            return pa;
-          });
-          return { personnelAreas: newAreas };
+          const oldPA = state.personnelAreas.find(pa => pa.id === id);
+          const newAreas = state.personnelAreas.map(pa =>
+            pa.id === id ? { ...pa, ...updates } : pa
+          );
+          // If code changed, update all subareas' FK too
+          let newSubareas = state.personnelSubareas;
+          if (oldPA && updates.code && updates.code !== oldPA.code) {
+            newSubareas = state.personnelSubareas.map(psa =>
+              psa.personnelAreaCode === oldPA.code
+                ? { ...psa, personnelAreaCode: updates.code! }
+                : psa
+            );
+          }
+          return { personnelAreas: newAreas, personnelSubareas: newSubareas };
         });
       },
 
-      removePersonnelArea: (code) => {
+      removePersonnelArea: (id) => {
+        const pa = get().personnelAreas.find(p => p.id === id);
+        if (!pa) return;
         set((state) => ({
-          personnelAreas: state.personnelAreas.filter(pa => pa.code !== code),
-          personnelSubareas: state.personnelSubareas.filter(psa => psa.personnelAreaCode !== code),
+          personnelAreas: state.personnelAreas.filter(p => p.id !== id),
+          personnelSubareas: state.personnelSubareas.filter(psa => psa.personnelAreaCode !== pa.code),
         }));
       },
 
@@ -301,6 +305,7 @@ export const usePersonnelAreaStore = create<PersonnelAreaStore>()(
         const newCode = subarea?.code || generatePSACodeFromName(subarea?.description || 'NEW', existingCodes);
 
         const newPSA: PersonnelSubarea = {
+          id: crypto.randomUUID(),
           code: newCode,
           description: subarea?.description || '',
           personnelAreaCode,
@@ -309,21 +314,17 @@ export const usePersonnelAreaStore = create<PersonnelAreaStore>()(
         set({ personnelSubareas: [...state.personnelSubareas, newPSA] });
       },
 
-      updatePersonnelSubarea: (paCode, psaCode, updates) => {
+      updatePersonnelSubarea: (id, updates) => {
         set((state) => ({
           personnelSubareas: state.personnelSubareas.map(psa =>
-            psa.personnelAreaCode === paCode && psa.code === psaCode
-              ? { ...psa, ...updates }
-              : psa
+            psa.id === id ? { ...psa, ...updates } : psa
           ),
         }));
       },
 
-      removePersonnelSubarea: (paCode, psaCode) => {
+      removePersonnelSubarea: (id) => {
         set((state) => ({
-          personnelSubareas: state.personnelSubareas.filter(
-            psa => !(psa.personnelAreaCode === paCode && psa.code === psaCode)
-          ),
+          personnelSubareas: state.personnelSubareas.filter(psa => psa.id !== id),
         }));
       },
 
@@ -369,7 +370,7 @@ export const usePersonnelAreaStore = create<PersonnelAreaStore>()(
 
           if (!hierarchy.has(paCodeVal)) {
             hierarchy.set(paCodeVal, {
-              pa: { code: paCodeVal, description: paNameVal, companyCode: '' },
+              pa: { id: crypto.randomUUID(), code: paCodeVal, description: paNameVal, companyCode: '' },
               psas: [],
             });
           }
@@ -385,6 +386,7 @@ export const usePersonnelAreaStore = create<PersonnelAreaStore>()(
           // Avoid duplicate subareas
           if (!existingPSACodes.includes(psaCodeVal)) {
             entry.psas.push({
+              id: crypto.randomUUID(),
               code: psaCodeVal,
               description: psaNameVal,
               personnelAreaCode: paCodeVal,
@@ -486,6 +488,26 @@ export const usePersonnelAreaStore = create<PersonnelAreaStore>()(
     }),
     {
       name: 'turbosap-personnel-area',
+      version: 2,
+      migrate: (persisted: any, version: number) => {
+        if (version < 2) {
+          // v1 data lacks id fields — add them
+          const state = persisted as any;
+          if (state.personnelAreas) {
+            state.personnelAreas = state.personnelAreas.map((pa: any) => ({
+              ...pa,
+              id: pa.id || crypto.randomUUID(),
+            }));
+          }
+          if (state.personnelSubareas) {
+            state.personnelSubareas = state.personnelSubareas.map((psa: any) => ({
+              ...psa,
+              id: psa.id || crypto.randomUUID(),
+            }));
+          }
+        }
+        return persisted;
+      },
       partialize: (state) => ({
         currentStep: state.currentStep,
         complexity: state.complexity,

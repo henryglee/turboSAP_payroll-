@@ -23,6 +23,7 @@ from ..schemas.session import (
     SessionStatus,
     StartSessionResponse,
 )
+from .dependency_resolver import DependencyResolver, dependency_resolver
 from .module_service import ModuleService, module_service
 from .output_generator import OutputGenerator, output_generator
 from .question_service import QuestionService, question_service
@@ -46,6 +47,11 @@ class ModuleNotFoundError(ModuleRunnerError):
     pass
 
 
+class DependencyNotMetError(ModuleRunnerError):
+    """Raised when a module's dependencies are not yet satisfied."""
+    pass
+
+
 class GenericModuleRunner:
     """
     Runs any module based on its config.
@@ -65,6 +71,7 @@ class GenericModuleRunner:
         question_svc: Optional[QuestionService] = None,
         output_gen: Optional[OutputGenerator] = None,
         output_store: Optional[SessionOutputStore] = None,
+        dep_resolver: Optional[DependencyResolver] = None,
     ):
         """
         Initialize the module runner for a specific module.
@@ -75,12 +82,14 @@ class GenericModuleRunner:
             question_svc: QuestionService instance
             output_gen: OutputGenerator instance
             output_store: SessionOutputStore instance for persisting outputs
+            dep_resolver: DependencyResolver instance for cross-module dependencies
         """
         self.module_slug = module_slug
         self.module_service = module_svc or module_service
         self.question_service = question_svc or question_service
         self.output_generator = output_gen or output_generator
         self.output_store = output_store or session_output_store
+        self.dep_resolver = dep_resolver or dependency_resolver
 
         # Verify module exists
         if not self.module_service.module_exists(module_slug):
@@ -116,6 +125,13 @@ class GenericModuleRunner:
         Returns:
             StartSessionResponse with session details
         """
+        # Check dependencies before allowing session start
+        dep_status = self.dep_resolver.check_dependencies_met(self.module_slug)
+        if not dep_status.ready:
+            raise DependencyNotMetError(
+                f"Cannot start '{self.module_slug}': missing dependencies: {dep_status.missing}"
+            )
+
         # Generate session ID if not provided
         if not session_id:
             session_id = str(uuid.uuid4())
@@ -183,6 +199,29 @@ class GenericModuleRunner:
             session.answers,
             session.current_question_id,
         )
+
+    def resolve_question(self, question: Optional[Question]) -> Optional[Question]:
+        """
+        If the question has optionsFrom, resolve dynamic options
+        and inject them as the options array.
+
+        The frontend receives the same shape regardless of whether
+        options were static or dynamically resolved.
+        """
+        if not question or not question.optionsFrom:
+            return question
+
+        resolved = self.dep_resolver.resolve_options(question.optionsFrom)
+
+        # Build a copy with resolved options injected, optionsFrom removed
+        q_dict = question.model_dump()
+        q_dict["options"] = [
+            {"value": opt["value"], "label": opt["label"]}
+            for opt in resolved
+        ]
+        q_dict.pop("optionsFrom", None)
+
+        return Question.model_validate(q_dict)
 
     def submit_answer(
         self,
@@ -282,6 +321,9 @@ class GenericModuleRunner:
             outputs = {}
             for filename, output_file in output_files.items():
                 outputs[filename] = output_file.to_csv()
+
+            # Include raw answers for cross-module dependency resolution
+            outputs["answers.json"] = session.answers
 
             # Prepare metadata
             metadata = {

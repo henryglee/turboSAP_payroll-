@@ -1,0 +1,19 @@
+{
+  "slug": "test-company-codes",
+  "name": "Test Company Codes",
+  "description": "Test module — enter company codes via spreadsheet",
+  "dependencies": [],
+  "outputs": {
+    "companyCodeList": {
+      "questionId": "q_company_codes",
+      "description": "List of company codes with names and currency"
+    }
+  },
+  "category": null,
+  "icon": "building",
+  "status": "active",
+  "order": 10,
+  "version": "1.0",
+  "createdAt": "2026-02-09T00:00:00Z",
+  "createdBy": "system"
+}

@@ -76,9 +76,13 @@ class ModuleService:
         """Get the questions.json path for a module."""
         return f"{self.modules_base}/{slug}/questions"
 
-    def list_modules(self) -> List[ModuleSummary]:
+    def list_modules(self, module_type: Optional[str] = None) -> List[ModuleSummary]:
         """
         List all modules by scanning the modules/ directory.
+
+        Args:
+            module_type: Optional filter — "legacy", "generic", or None for all.
+                         Modules with no explicit type are treated as "generic".
 
         Returns:
             List of ModuleSummary objects
@@ -96,6 +100,11 @@ class ModuleService:
                     slug = parts[1]
                     summary = self._get_module_summary(slug)
                     if summary:
+                        # Apply type filter
+                        if module_type is not None:
+                            effective_type = summary.type or "generic"
+                            if effective_type != module_type:
+                                continue
                         modules.append(summary)
             except Exception as e:
                 logger.warning(f"Error loading module from {config_path}: {e}")
@@ -130,6 +139,9 @@ class ModuleService:
             icon=config_data.get("icon", "settings"),
             status=config_data.get("status", "active"),
             order=config_data.get("order", 999),
+            type=config_data.get("type"),
+            route=config_data.get("route"),
+            dependencies=config_data.get("dependencies", []),
             question_count=len(questions),
             output_files=sorted(output_files),
             has_config=True,
@@ -160,6 +172,12 @@ class ModuleService:
             status=config_data.get("status", "active"),
             order=config_data.get("order", 999),
             version=config_data.get("version", "1.0"),
+            dependencies=config_data.get("dependencies", []),
+            outputs=config_data.get("outputs", {}),
+            type=config_data.get("type"),
+            route=config_data.get("route"),
+            completion=config_data.get("completion"),
+            dataAccess=config_data.get("dataAccess"),
             createdAt=config_data.get("createdAt"),
             createdBy=config_data.get("createdBy"),
             updatedAt=config_data.get("updatedAt"),
@@ -351,6 +369,12 @@ class ModuleService:
             status=config_data.get("status", "active"),
             order=config_data.get("order", 999),
             version=config_data.get("version", "1.0"),
+            dependencies=config_data.get("dependencies", []),
+            outputs=config_data.get("outputs", {}),
+            type=config_data.get("type"),
+            route=config_data.get("route"),
+            completion=config_data.get("completion"),
+            dataAccess=config_data.get("dataAccess"),
             createdAt=config_data.get("createdAt"),
             createdBy=config_data.get("createdBy"),
             updatedAt=config_data.get("updatedAt"),

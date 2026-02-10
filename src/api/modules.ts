@@ -22,6 +22,7 @@ export interface ModuleSummary {
   output_files: string[];
   has_config: boolean;
   has_questions: boolean;
+  dependencies: string[];
 }
 
 export interface ModuleMetadata {
@@ -36,6 +37,8 @@ export interface ModuleMetadata {
   createdAt: string | null;
   createdBy: string | null;
   updatedAt: string | null;
+  dependencies: string[];
+  outputs: string[];
 }
 
 export interface QuestionOption {
@@ -76,11 +79,19 @@ export interface SpreadsheetConfig {
 
 export type SpreadsheetRow = Record<string, string | number | null>;
 
+export interface OptionsFrom {
+  module: string;
+  answerKey: string;
+  valueField: string;
+  displayField: string;
+}
+
 export interface Question {
   id: string;
   text: string;
   type: 'single_select' | 'multi_select' | 'text' | 'number' | 'yes_no' | 'spreadsheet' | string;
   options?: QuestionOption[];
+  optionsFrom?: OptionsFrom;
   showIf?: ShowIfCondition;
   order?: number;
   helpText?: string;
@@ -355,4 +366,20 @@ export async function deletePersistedOutput(
   return apiFetch(`/api/modules/${moduleSlug}/outputs/${sessionId}`, {
     method: 'DELETE',
   });
+}
+
+// =============================================================================
+// Dependencies
+// =============================================================================
+
+export interface DependencyStatus {
+  dependencies: string[];
+  all_met: boolean;
+  details: Record<string, boolean>;
+}
+
+export async function getDependencyStatus(
+  moduleSlug: string
+): Promise<DependencyStatus> {
+  return apiFetch<DependencyStatus>(`/api/modules/${moduleSlug}/dependencies`);
 }

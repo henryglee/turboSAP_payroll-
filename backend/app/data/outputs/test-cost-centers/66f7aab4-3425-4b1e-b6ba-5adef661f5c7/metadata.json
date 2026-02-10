@@ -1,0 +1,12 @@
+{
+  "completedAt": "2026-02-09T05:51:37.775986Z",
+  "startedAt": "2026-02-09T05:51:31.096570Z",
+  "answersCount": 3,
+  "userId": 4,
+  "sessionId": "66f7aab4-3425-4b1e-b6ba-5adef661f5c7",
+  "moduleSlug": "test-cost-centers",
+  "files": [
+    "cost_centers.csv",
+    "answers.json"
+  ]
+}

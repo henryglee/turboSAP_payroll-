@@ -1,48 +1,132 @@
 """
-HierarchyService - Loads and persists hierarchy to JSON file.
+HierarchyService - Loads and persists hierarchy with S3 sync.
 
-The hierarchy.json file is the source of truth for categories, tasks,
-and their module linkages (type, slug, route, relation).
+Uses ReachNettDataManager for S3 operations.
+Local file serves as cache/fallback.
+
+S3 structure:
+  {company_name}/{company_code}/hierarchy.json (working version)
 """
 
 import json
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
+
+from ..data.ReachNettDataManager import ReachNettDataManager
+from ..services.knowledgebase import MimeType
 
 logger = logging.getLogger(__name__)
 
 HIERARCHY_PATH = Path(__file__).parent.parent / "data" / "hierarchy.json"
 
+# Default company info for hierarchy (can be overridden)
+DEFAULT_COMPANY_NAME = "turbosap"
+DEFAULT_COMPANY_CODE = "global"
+HIERARCHY_TASK_NAME = "hierarchy"
+
 
 class HierarchyService:
     """
-    Hierarchy service backed by hierarchy.json.
+    Hierarchy service backed by S3 + local cache.
 
-    Loads the JSON file on first access and caches in memory.
-    All CRUD operations write back to the JSON file.
+    - On first access: Try S3, fall back to local file
+    - On write: Update local + sync to S3
     """
 
-    def __init__(self, path: Path | None = None):
+    def __init__(
+        self,
+        path: Path | None = None,
+        company_name: str = DEFAULT_COMPANY_NAME,
+        company_code: str = DEFAULT_COMPANY_CODE,
+        data_manager: Optional[ReachNettDataManager] = None,
+        enable_s3: bool = True,
+    ):
         self._path = path or HIERARCHY_PATH
+        self._company_name = company_name
+        self._company_code = company_code
+        self._data_manager = data_manager or ReachNettDataManager()
+        self._enable_s3 = enable_s3
         self._data: dict[str, Any] | None = None
 
-    def _load(self) -> None:
-        """Load hierarchy.json from disk."""
+    def _load_from_s3(self) -> dict[str, Any] | None:
+        """Try to load hierarchy from S3."""
+        if not self._enable_s3:
+            return None
+        try:
+            data = self._data_manager.load_task(
+                company_name=self._company_name,
+                company_code=self._company_code,
+                task_name=HIERARCHY_TASK_NAME,
+            )
+            if data and "categories" in data:
+                logger.info(
+                    "Loaded hierarchy from S3: %d categories",
+                    len(data.get("categories", [])),
+                )
+                return data
+        except Exception as e:
+            logger.warning("Failed to load hierarchy from S3: %s", e)
+        return None
+
+    def _load_from_local(self) -> dict[str, Any]:
+        """Load hierarchy from local file."""
         try:
             with open(self._path, encoding="utf-8") as f:
-                self._data = json.load(f)
+                data = json.load(f)
             logger.info(
-                "Loaded hierarchy: %d categories, %d tasks",
-                self._data.get("total_categories", 0),
-                self._data.get("total_tasks", 0),
+                "Loaded hierarchy from local: %d categories, %d tasks",
+                data.get("total_categories", 0),
+                data.get("total_tasks", 0),
             )
+            return data
         except (FileNotFoundError, json.JSONDecodeError) as e:
-            logger.error("Failed to load hierarchy.json: %s", e)
-            self._data = {"categories": [], "total_categories": 0, "total_tasks": 0}
+            logger.error("Failed to load local hierarchy.json: %s", e)
+            return {"categories": [], "total_categories": 0, "total_tasks": 0}
+
+    def _load(self) -> None:
+        """Load hierarchy: try S3 first, fall back to local."""
+        # Try S3 first
+        s3_data = self._load_from_s3()
+        if s3_data:
+            self._data = s3_data
+            # Update local cache
+            self._save_local()
+            return
+
+        # Fall back to local
+        self._data = self._load_from_local()
+
+    def _save_local(self) -> None:
+        """Write hierarchy to local file."""
+        if self._data is None:
+            return
+        try:
+            with open(self._path, "w", encoding="utf-8") as f:
+                json.dump(self._data, f, indent=2, ensure_ascii=False)
+            logger.info("Saved hierarchy to local file")
+        except Exception as e:
+            logger.error("Failed to save local hierarchy.json: %s", e)
+
+    def _save_to_s3(self) -> None:
+        """Upload hierarchy to S3."""
+        if not self._enable_s3 or self._data is None:
+            return
+        try:
+            self._data_manager.save_task(
+                company_name=self._company_name,
+                company_code=self._company_code,
+                task_name=HIERARCHY_TASK_NAME,
+                data=self._data,
+                mime_type=MimeType.JSON,
+            )
+            logger.info("Saved hierarchy to S3")
+        except Exception as e:
+            logger.error("Failed to save hierarchy to S3: %s", e)
+            # Don't raise - local save succeeded
 
     def _save(self) -> None:
-        """Write hierarchy.json to disk."""
+        """Save hierarchy to local + S3."""
         if self._data is None:
             return
         # Update totals
@@ -50,13 +134,10 @@ class HierarchyService:
         self._data["total_tasks"] = sum(
             len(cat.get("tasks", [])) for cat in self._data.get("categories", [])
         )
-        try:
-            with open(self._path, "w", encoding="utf-8") as f:
-                json.dump(self._data, f, indent=2, ensure_ascii=False)
-            logger.info("Saved hierarchy.json")
-        except Exception as e:
-            logger.error("Failed to save hierarchy.json: %s", e)
-            raise
+        # Save locally first (fast, reliable)
+        self._save_local()
+        # Then sync to S3 (async-friendly, may fail)
+        self._save_to_s3()
 
     @property
     def data(self) -> dict[str, Any]:
@@ -65,9 +146,28 @@ class HierarchyService:
         return self._data
 
     def reload(self) -> None:
-        """Force reload from disk (useful after external edits)."""
+        """Force reload from S3/disk."""
         self._data = None
         _ = self.data
+
+    def sync_from_s3(self) -> bool:
+        """Explicitly pull latest from S3. Returns True if successful."""
+        s3_data = self._load_from_s3()
+        if s3_data:
+            self._data = s3_data
+            self._save_local()
+            return True
+        return False
+
+    def sync_to_s3(self) -> bool:
+        """Explicitly push current state to S3. Returns True if successful."""
+        if self._data is None:
+            return False
+        try:
+            self._save_to_s3()
+            return True
+        except Exception:
+            return False
 
     # ============================================
     # Read Operations
@@ -262,5 +362,5 @@ class HierarchyService:
         return False
 
 
-# Singleton
+# Singleton with S3 enabled by default
 hierarchy_service = HierarchyService()

@@ -25,18 +25,18 @@ export function PersonnelAreasEditor() {
     addPersonnelArea();
   };
 
-  const handleCodeChange = (oldCode: string, newCode: string) => {
+  const handleCodeChange = (id: string, newCode: string) => {
     // Limit to 4 characters, alphanumeric, uppercase
     const code = newCode.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4);
-    updatePersonnelArea(oldCode, { code });
+    updatePersonnelArea(id, { code });
   };
 
-  const handleDescriptionChange = (code: string, value: string) => {
-    updatePersonnelArea(code, { description: value.slice(0, 30) });
+  const handleDescriptionChange = (id: string, value: string) => {
+    updatePersonnelArea(id, { description: value.slice(0, 30) });
   };
 
-  const handleCompanyCodeChange = (code: string, companyCode: string) => {
-    updatePersonnelArea(code, { companyCode });
+  const handleCompanyCodeChange = (id: string, companyCode: string) => {
+    updatePersonnelArea(id, { companyCode });
   };
 
   // Validation
@@ -127,7 +127,7 @@ export function PersonnelAreasEditor() {
               const hasErrors = errors.length > 0;
 
               return (
-                <tr key={area.code || index} className={hasErrors ? 'bg-red-50' : 'hover:bg-gray-50'}>
+                <tr key={area.id} className={hasErrors ? 'bg-red-50' : 'hover:bg-gray-50'}>
                   <td className="px-3 py-2 text-sm text-gray-500">
                     {index + 1}
                   </td>
@@ -135,7 +135,7 @@ export function PersonnelAreasEditor() {
                     <input
                       type="text"
                       value={area.code}
-                      onChange={(e) => handleCodeChange(area.code, e.target.value)}
+                      onChange={(e) => handleCodeChange(area.id, e.target.value)}
                       placeholder="1000"
                       maxLength={4}
                       className={`w-20 px-2 py-1.5 text-sm border rounded uppercase font-mono focus:outline-none focus:ring-1 ${
@@ -150,7 +150,7 @@ export function PersonnelAreasEditor() {
                       <input
                         type="text"
                         value={area.description}
-                        onChange={(e) => handleDescriptionChange(area.code, e.target.value)}
+                        onChange={(e) => handleDescriptionChange(area.id, e.target.value)}
                         placeholder="e.g., Southwest Region"
                         maxLength={30}
                         className={`flex-1 px-2 py-1.5 text-sm border rounded focus:outline-none focus:ring-1 ${
@@ -161,7 +161,7 @@ export function PersonnelAreasEditor() {
                       />
                       {hasErrors && (
                         <div className="flex-shrink-0" title={errors.join(', ')}>
-                          <AlertCircle className="h-4 w-4 text-red-500" />
+                          <AlertCircle className="h-4 w-4" />
                         </div>
                       )}
                     </div>
@@ -170,7 +170,7 @@ export function PersonnelAreasEditor() {
                     <td className="px-3 py-2">
                       <select
                         value={area.companyCode}
-                        onChange={(e) => handleCompanyCodeChange(area.code, e.target.value)}
+                        onChange={(e) => handleCompanyCodeChange(area.id, e.target.value)}
                         className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded focus:outline-none focus:ring-1 focus:border-purple-500 focus:ring-purple-500 bg-white"
                       >
                         <option value="">Select...</option>
@@ -184,7 +184,7 @@ export function PersonnelAreasEditor() {
                   )}
                   <td className="px-3 py-2 text-right">
                     <button
-                      onClick={() => removePersonnelArea(area.code)}
+                      onClick={() => removePersonnelArea(area.id)}
                       disabled={personnelAreas.length <= 1}
                       className="p-1 text-gray-400 hover:text-red-600 disabled:opacity-30 disabled:cursor-not-allowed"
                       title="Delete area"

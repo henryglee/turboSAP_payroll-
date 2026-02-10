@@ -1,0 +1,53 @@
+{
+  "slug": "company-code",
+  "name": "Company Code",
+  "description": "Define SAP company codes with legal entity details, addresses, and financial settings",
+  "icon": "building-2",
+  "status": "active",
+  "order": 1,
+  "version": "1.0",
+  "type": "legacy",
+  "route": "/company-code",
+
+  "dependencies": [],
+
+  "outputs": {
+    "companyCodes": {
+      "description": "Array of SAP company code configurations, one per legal entity",
+      "format": "array",
+      "schema": {
+        "companyCode":             { "type": "string", "maxLength": 4, "required": true, "description": "SAP company code identifier (e.g. 1000, US01)" },
+        "companyName":             { "type": "string", "maxLength": 25, "required": true, "description": "Full legal entity name" },
+        "shortName":               { "type": "string", "required": false, "description": "Truncated name for reports" },
+        "currency":                { "type": "string", "required": true, "description": "Functional currency code (e.g. USD, EUR)" },
+        "language":                { "type": "string", "required": false, "description": "Default language key (e.g. EN, DE)" },
+        "street":                  { "type": "string", "required": true, "description": "Street and house number" },
+        "city":                    { "type": "string", "required": true, "description": "City name" },
+        "state":                   { "type": "string", "required": true, "description": "State or region code" },
+        "zipCode":                 { "type": "string", "required": true, "description": "Postal code" },
+        "country":                 { "type": "string", "required": true, "description": "ISO country key (e.g. US, DE)" },
+        "poBox":                   { "type": "string", "required": false, "description": "PO Box number" },
+        "chartOfAccounts":         { "type": "string", "required": false, "description": "G/L chart of accounts key (e.g. COA1)" },
+        "fiscalYearVariant":       { "type": "string", "required": false, "description": "Financial year variant (e.g. K4)" },
+        "vatRegistrationNumber":   { "type": "string", "required": false, "description": "VAT or Tax ID number" },
+        "creditControlArea":       { "type": "string", "required": false, "description": "Credit risk control area code" },
+        "productiveFlag":          { "type": "boolean", "required": false, "description": "Whether this is a live (vs test) entity" },
+        "negativePostingsPermitted": { "type": "boolean", "required": false, "description": "Allow negative postings in this company code" },
+        "taxJurisdictionCode":     { "type": "string", "required": false, "description": "US state/local tax jurisdiction code (e.g. NY0000000)" }
+      }
+    }
+  },
+
+  "completion": {
+    "type": "localstorage_key",
+    "key": "turbosap.company_code.draft.v1.{userId}",
+    "rule": "Array with at least one row where companyCode, companyName, currency, street, city, state, zipCode, and country are non-empty"
+  },
+
+  "dataAccess": {
+    "type": "legacy",
+    "adapter": "CompanyCodeAdapter",
+    "storageKey": "turbosap.company_code.draft.v1.{userId}",
+    "storeNotify": "companyCodeVersion"
+  }
+}

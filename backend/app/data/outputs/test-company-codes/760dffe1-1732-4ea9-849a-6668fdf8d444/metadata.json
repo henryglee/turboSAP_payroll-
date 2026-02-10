@@ -1,0 +1,12 @@
+{
+  "completedAt": "2026-02-09T05:35:10.699345Z",
+  "startedAt": "2026-02-09T05:34:50.839737Z",
+  "answersCount": 1,
+  "userId": 4,
+  "sessionId": "760dffe1-1732-4ea9-849a-6668fdf8d444",
+  "moduleSlug": "test-company-codes",
+  "files": [
+    "company_codes.csv",
+    "answers.json"
+  ]
+}

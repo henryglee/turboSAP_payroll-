@@ -47,12 +47,15 @@ from ..schemas.session import (
     StartSessionResponse,
     SubmitAnswerRequest,
 )
+from ..services.dependency_resolver import dependency_resolver
 from ..services.module_runner import (
+    DependencyNotMetError,
     GenericModuleRunner,
     ModuleRunnerError,
     SessionNotFoundError,
     get_module_runner,
 )
+from ..services.legacy_bridge import legacy_bridge
 from ..services.module_service import (
     ModuleAlreadyExistsError,
     ModuleNotFoundError as ModuleServiceNotFoundError,
@@ -81,15 +84,17 @@ router = APIRouter(prefix="/api/modules", tags=["Modules"])
 
 @router.get("", response_model=Dict[str, List[ModuleSummary]])
 async def list_modules(
+    type: Optional[str] = Query(None, description="Filter by module type: 'legacy', 'generic', or omit for all"),
     current_user: dict = Depends(get_current_user),
 ):
     """
     List all available modules.
 
     Returns modules discovered from the filesystem.
+    Optionally filter by type ('legacy' or 'generic').
     """
     try:
-        modules = module_service.list_modules()
+        modules = module_service.list_modules(module_type=type)
         return {"modules": modules}
     except Exception as e:
         logger.error(f"Error listing modules: {e}")
@@ -371,6 +376,83 @@ async def reorder_questions(
 
 
 # =============================================================================
+# Dependency Endpoints
+# =============================================================================
+
+
+@router.get("/{slug}/dependencies", response_model=Dict[str, Any])
+async def get_dependency_status(
+    slug: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Get dependency status for a module.
+
+    Returns the list of dependencies and whether each has been completed.
+    """
+    if not module_service.module_exists(slug):
+        raise HTTPException(status_code=404, detail=f"Module '{slug}' not found")
+
+    try:
+        deps = dependency_resolver.get_dependencies(slug)
+        status = dependency_resolver.check_dependencies_met(slug)
+
+        return {
+            "moduleSlug": slug,
+            "dependencies": deps,
+            "status": status.model_dump(),
+        }
+    except Exception as e:
+        logger.error(f"Error checking dependencies: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# =============================================================================
+# Contract & Legacy Endpoints
+# =============================================================================
+
+
+@router.get("/{slug}/contract", response_model=Dict[str, Any])
+async def get_contract(
+    slug: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Get the full contract for a module.
+
+    Returns identity, dependencies, output schemas, completion rules,
+    and data access info. Works for both legacy and generic modules.
+    """
+    contract = legacy_bridge.get_contract(slug)
+    if not contract:
+        raise HTTPException(status_code=404, detail=f"Module '{slug}' not found")
+
+    return {"success": True, "contract": contract}
+
+
+@router.post("/{slug}/completion-status", response_model=Dict[str, Any])
+async def check_legacy_completion(
+    slug: str,
+    client_data: Dict[str, Any] = Body(...),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Check completion status for a legacy module.
+
+    The frontend posts its localStorage data for the module,
+    and the backend validates it against the contract's completion rules.
+    """
+    if not legacy_bridge.is_legacy(slug):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Module '{slug}' is not a legacy module. Use session endpoints for generic modules.",
+        )
+
+    result = legacy_bridge.validate_completion(slug, client_data)
+    return {"success": True, "moduleSlug": slug, **result}
+
+
+# =============================================================================
 # Session Endpoints (User-Facing)
 # =============================================================================
 
@@ -384,7 +466,16 @@ async def start_session(
     Start a new module session.
 
     Returns session ID and first question.
+    Only available for generic (config-driven) modules. Legacy modules
+    have their own dedicated pages and don't use the session workflow.
     """
+    # Guard: legacy modules don't have sessions
+    if legacy_bridge.is_legacy(slug):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Module '{slug}' is a legacy module and does not support sessions. Use its dedicated page at its configured route.",
+        )
+
     try:
         runner = get_module_runner(slug)
         user_id = current_user.get("user_id")
@@ -397,6 +488,8 @@ async def start_session(
             "firstQuestionId": response.first_question_id,
             "status": response.session_state.status.value,
         }
+    except DependencyNotMetError as e:
+        raise HTTPException(status_code=409, detail=str(e))
     except ModuleRunnerError as e:
         if "not found" in str(e).lower():
             raise HTTPException(status_code=404, detail=str(e))
@@ -419,11 +512,12 @@ async def get_session(
         runner = get_module_runner(slug)
         session = runner.get_session_state(session_id)
 
-        # Get current question
+        # Get current question (with dynamic options resolved if applicable)
         current_question = None
         if session.current_question_id:
             q = question_service.get_question(slug, session.current_question_id)
             if q:
+                q = runner.resolve_question(q)
                 current_question = q.model_dump(by_alias=True, exclude_none=True)
 
         # Get progress
@@ -465,11 +559,12 @@ async def submit_answer(
         runner = get_module_runner(slug)
         result = runner.submit_answer(session_id, request.question_id, request.value)
 
-        # Get next question details if available
+        # Get next question details if available (with dynamic options resolved)
         next_question = None
         if result.next_question_id:
             q = question_service.get_question(slug, result.next_question_id)
             if q:
+                q = runner.resolve_question(q)
                 next_question = q.model_dump(by_alias=True, exclude_none=True)
 
         # Get progress

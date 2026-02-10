@@ -35,7 +35,7 @@ const navItems = [
   { icon: Calendar, label: 'Payroll Areas', href: '/payroll-area', key: 'payrollAreas' },
   { icon: CreditCard, label: 'Payment Methods', href: '/payment-methods', key: 'paymentMethods' },
   { icon: Users, label: 'Employee Groups', href: '/employee-group', key: 'employeeGroups', isNew: true },
-  { icon: MapPin, label: 'Personnel Areas', href: '/personnel-area', key: 'personnelAreas', isNew: true },
+  { icon: MapPin, label: 'Personnel Areas', href: '/personnel-area-v2', key: 'personnelAreas', isNew: true },
   { icon: Package, label: 'Config Modules', href: '/modules', key: 'modules', isNew: true },
   { icon: Layers, label: 'All Modules', href: '/scope', key: 'scope' },
   { icon: Download, label: 'Export Center', href: '/export', key: 'export' },

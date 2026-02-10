@@ -1,5 +1,5 @@
 {
-  "total_categories": 30,
+  "total_categories": 32,
   "total_tasks": 96,
   "categories": [
     {
@@ -41,17 +41,6 @@
           "name": "Create Point Mapping",
           "step_ids": [],
           "displayOrder": 20,
-          "type": null,
-          "slug": null,
-          "route": null,
-          "relation": []
-        },
-        {
-          "id": "point-to-point-review",
-          "name": "Point to Point Review",
-          "displayOrder": 30,
-          "original_id": null,
-          "step_ids": [],
           "type": null,
           "slug": null,
           "route": null,
@@ -1262,10 +1251,34 @@
       "displayOrder": 290
     },
     {
-      "id": "new",
+      "id": "C030",
       "name": "New",
-      "displayOrder": 300,
+      "displayOrder": 310,
       "tasks": []
+    },
+    {
+      "id": "C031",
+      "name": "New2",
+      "displayOrder": 320,
+      "tasks": []
+    },
+    {
+      "id": "C032",
+      "name": "Test S3 Pipeline Category",
+      "displayOrder": 320,
+      "tasks": [
+        {
+          "id": "C032-T001",
+          "name": "Test S3 Pipeline Task",
+          "displayOrder": 10,
+          "original_id": null,
+          "step_ids": [],
+          "type": null,
+          "slug": null,
+          "route": null,
+          "relation": []
+        }
+      ]
     }
   ]
 }

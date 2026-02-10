@@ -99,14 +99,24 @@ class OutputGenerator:
         Returns:
             OutputFile with rows and columns
         """
-        # Collect all columns and check for row_per_selected
+        # Collect all columns and check for row_per_selected / spreadsheet
         columns = set()
         has_row_per_selected = False
+        has_spreadsheet = False
         row_per_selected_questions = []
+        spreadsheet_questions = []
 
         for q in questions:
-            if q.outputMapping:
-                columns.add(q.outputMapping.column)
+            if q.type == "spreadsheet":
+                has_spreadsheet = True
+                spreadsheet_questions.append(q)
+                # For spreadsheet, columns come from the answer data (dict keys)
+                answer = answers.get(q.id, [])
+                if isinstance(answer, list) and answer and isinstance(answer[0], dict):
+                    columns.update(answer[0].keys())
+            elif q.outputMapping:
+                if q.outputMapping.column:
+                    columns.add(q.outputMapping.column)
                 transform = q.outputMapping.transform
                 if hasattr(transform, 'value'):
                     transform = transform.value
@@ -117,8 +127,12 @@ class OutputGenerator:
         # Sort columns for consistent output
         sorted_columns = sorted(columns)
 
-        # Generate rows
-        if has_row_per_selected and row_per_selected_questions:
+        # Generate rows — spreadsheet takes priority
+        if has_spreadsheet and spreadsheet_questions:
+            rows = self._generate_spreadsheet_rows(
+                spreadsheet_questions, answers
+            )
+        elif has_row_per_selected and row_per_selected_questions:
             rows = self._generate_rows_per_selected(
                 questions, answers, row_per_selected_questions
             )
@@ -208,6 +222,35 @@ class OutputGenerator:
                             row.set(col, val)
 
             rows.append(row)
+
+        return rows
+
+    def _generate_spreadsheet_rows(
+        self,
+        spreadsheet_questions: List[Question],
+        answers: Dict[str, Any],
+    ) -> List[OutputRow]:
+        """
+        Generate rows from spreadsheet-type question answers.
+
+        Each dict in the answer array becomes a CSV row,
+        with the dict keys as column names.
+        """
+        rows = []
+
+        for q in spreadsheet_questions:
+            answer = answers.get(q.id, [])
+
+            if not isinstance(answer, list):
+                continue
+
+            for item in answer:
+                if not isinstance(item, dict):
+                    continue
+                row = OutputRow(columns={})
+                for key, value in item.items():
+                    row.set(key, str(value) if value is not None else "")
+                rows.append(row)
 
         return rows
 
