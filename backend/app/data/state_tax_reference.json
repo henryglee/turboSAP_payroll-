@@ -1,0 +1,714 @@
+{
+  "metadata": {
+    "source": "T5UTI_1000 SAP export from ReachNett",
+    "description": "Reference data for Tax ID module - maps states to their applicable tax types",
+    "usage": "When user selects a state, show input fields for each tax type listed"
+  },
+  "taxTypeCodes": {
+    "001": {
+      "code": "001",
+      "name": "Withholding Tax",
+      "shortName": "SIT",
+      "paidBy": "employee",
+      "description": "State income tax withheld from employee paycheck"
+    },
+    "003": {
+      "code": "003",
+      "name": "Employee Social Security Tax",
+      "shortName": "EE_SS",
+      "paidBy": "employee",
+      "description": "Federal - employee portion of Social Security"
+    },
+    "004": {
+      "code": "004",
+      "name": "Employer Social Security Tax",
+      "shortName": "ER_SS",
+      "paidBy": "employer",
+      "description": "Federal - employer portion of Social Security"
+    },
+    "005": {
+      "code": "005",
+      "name": "Employee Medicare Tax",
+      "shortName": "EE_MED",
+      "paidBy": "employee",
+      "description": "Federal - employee portion of Medicare"
+    },
+    "006": {
+      "code": "006",
+      "name": "Employer Medicare Tax",
+      "shortName": "ER_MED",
+      "paidBy": "employer",
+      "description": "Federal - employer portion of Medicare"
+    },
+    "010": {
+      "code": "010",
+      "name": "Employer Unemployment Tax",
+      "shortName": "SUI",
+      "paidBy": "employer",
+      "description": "State unemployment insurance paid by employer"
+    },
+    "014": {
+      "code": "014",
+      "name": "Er Re-employment Placement Tax",
+      "shortName": "REEMPLOY",
+      "paidBy": "employer",
+      "description": "NY - Re-employment services fund"
+    },
+    "015": {
+      "code": "015",
+      "name": "Er Job Development Assessment Tax",
+      "shortName": "JOBDEV",
+      "paidBy": "employer",
+      "description": "GA - Job development assessment"
+    },
+    "016": {
+      "code": "016",
+      "name": "Employment Training Tax",
+      "shortName": "ETT",
+      "paidBy": "employer",
+      "description": "Employer-paid workforce training tax"
+    },
+    "017": {
+      "code": "017",
+      "name": "Employer Health Insurance Tax",
+      "shortName": "ER_HI",
+      "paidBy": "employer",
+      "description": "NJ - Employer health insurance contribution"
+    },
+    "018": {
+      "code": "018",
+      "name": "Employer Workforce Development Tax",
+      "shortName": "ER_WFD",
+      "paidBy": "employer",
+      "description": "Employer workforce development fund"
+    },
+    "020": {
+      "code": "020",
+      "name": "Employee Unemployment Tax",
+      "shortName": "EE_UI",
+      "paidBy": "employee",
+      "description": "Employee-paid unemployment (rare - AK, NJ, PA)"
+    },
+    "023": {
+      "code": "023",
+      "name": "Employee Health Insurance Tax",
+      "shortName": "EE_HI",
+      "paidBy": "employee",
+      "description": "NJ - Employee health insurance contribution"
+    },
+    "024": {
+      "code": "024",
+      "name": "Employee Workforce Development Tax",
+      "shortName": "EE_WFD",
+      "paidBy": "employee",
+      "description": "Employee workforce development fund"
+    },
+    "030": {
+      "code": "030",
+      "name": "Employer Worker Compensation Tax",
+      "shortName": "WC",
+      "paidBy": "employer",
+      "description": "State-managed workers compensation"
+    },
+    "031": {
+      "code": "031",
+      "name": "Employer Disability Tax",
+      "shortName": "ER_DI",
+      "paidBy": "employer",
+      "description": "Employer disability insurance contribution"
+    },
+    "037": {
+      "code": "037",
+      "name": "Administrative Contingency Fund Tax",
+      "shortName": "ACF",
+      "paidBy": "employer",
+      "description": "SC - Administrative contingency fund"
+    },
+    "041": {
+      "code": "041",
+      "name": "Employee Disability Tax",
+      "shortName": "SDI",
+      "paidBy": "employee",
+      "description": "State disability insurance withheld from employee"
+    },
+    "087": {
+      "code": "087",
+      "name": "Employee Family Leave Insurance Tax",
+      "shortName": "EE_FLI",
+      "paidBy": "employee",
+      "description": "Paid family leave - employee portion"
+    },
+    "096": {
+      "code": "096",
+      "name": "Statewide Transit Tax",
+      "shortName": "TRANSIT",
+      "paidBy": "employee",
+      "description": "OR - Statewide transit tax"
+    },
+    "098": {
+      "code": "098",
+      "name": "Employer Family Leave Insurance Tax",
+      "shortName": "ER_FLI",
+      "paidBy": "employer",
+      "description": "Paid family leave - employer portion"
+    },
+    "099": {
+      "code": "099",
+      "name": "Employee Medical Leave Insurance Tax",
+      "shortName": "EE_MLI",
+      "paidBy": "employee",
+      "description": "Paid medical leave - employee portion"
+    },
+    "100": {
+      "code": "100",
+      "name": "Employer Medical Leave Insurance Tax",
+      "shortName": "ER_MLI",
+      "paidBy": "employer",
+      "description": "Paid medical leave - employer portion"
+    },
+    "109": {
+      "code": "109",
+      "name": "COVID-19 Recovery Assessment Tax",
+      "shortName": "COVID",
+      "paidBy": "employer",
+      "description": "MA - COVID recovery assessment"
+    },
+    "113": {
+      "code": "113",
+      "name": "WA Cares Fund LTC Tax",
+      "shortName": "LTC",
+      "paidBy": "employee",
+      "description": "WA - Long-term care fund"
+    },
+    "117": {
+      "code": "117",
+      "name": "EE PFML Tax State Plan",
+      "shortName": "EE_PFML",
+      "paidBy": "employee",
+      "description": "Paid family/medical leave - employee portion"
+    },
+    "118": {
+      "code": "118",
+      "name": "ER PFML Tax State Plan",
+      "shortName": "ER_PFML",
+      "paidBy": "employer",
+      "description": "Paid family/medical leave - employer portion"
+    }
+  },
+  "federal": {
+    "code": "FED",
+    "name": "Federal",
+    "taxTypes": [
+      "001",
+      "003",
+      "004",
+      "005",
+      "006",
+      "010"
+    ],
+    "notes": "Federal taxes apply to ALL employees. IDs typically use Federal EIN."
+  },
+  "states": {
+    "AK": {
+      "code": "AK",
+      "name": "Alaska",
+      "taxTypes": [
+        "010",
+        "020"
+      ],
+      "hasLocalTaxes": false,
+      "notes": "No state income tax"
+    },
+    "AL": {
+      "code": "AL",
+      "name": "Alabama",
+      "taxTypes": [
+        "001",
+        "010"
+      ],
+      "hasLocalTaxes": false
+    },
+    "AR": {
+      "code": "AR",
+      "name": "Arkansas",
+      "taxTypes": [
+        "001",
+        "010"
+      ],
+      "hasLocalTaxes": false
+    },
+    "AZ": {
+      "code": "AZ",
+      "name": "Arizona",
+      "taxTypes": [
+        "001",
+        "010"
+      ],
+      "hasLocalTaxes": false
+    },
+    "CA": {
+      "code": "CA",
+      "name": "California",
+      "taxTypes": [
+        "001",
+        "010",
+        "016",
+        "041"
+      ],
+      "hasLocalTaxes": false,
+      "notes": "SUI, ETT, and SDI typically use same EDD account number"
+    },
+    "CO": {
+      "code": "CO",
+      "name": "Colorado",
+      "taxTypes": [
+        "001",
+        "010",
+        "117",
+        "118"
+      ],
+      "hasLocalTaxes": false
+    },
+    "CT": {
+      "code": "CT",
+      "name": "Connecticut",
+      "taxTypes": [
+        "001"
+      ],
+      "hasLocalTaxes": false
+    },
+    "DC": {
+      "code": "DC",
+      "name": "District Of Columbia",
+      "taxTypes": [
+        "001",
+        "010",
+        "098"
+      ],
+      "hasLocalTaxes": false
+    },
+    "DE": {
+      "code": "DE",
+      "name": "Delaware",
+      "taxTypes": [
+        "001"
+      ],
+      "hasLocalTaxes": false
+    },
+    "FL": {
+      "code": "FL",
+      "name": "Florida",
+      "taxTypes": [
+        "010"
+      ],
+      "hasLocalTaxes": false,
+      "notes": "No state income tax"
+    },
+    "GA": {
+      "code": "GA",
+      "name": "Georgia",
+      "taxTypes": [
+        "001",
+        "010",
+        "015"
+      ],
+      "hasLocalTaxes": false
+    },
+    "GU": {
+      "code": "GU",
+      "name": "Guam",
+      "taxTypes": [
+        "001",
+        "010"
+      ],
+      "hasLocalTaxes": false
+    },
+    "HI": {
+      "code": "HI",
+      "name": "Hawaii",
+      "taxTypes": [
+        "001",
+        "010",
+        "016",
+        "041"
+      ],
+      "hasLocalTaxes": false
+    },
+    "IA": {
+      "code": "IA",
+      "name": "Iowa",
+      "taxTypes": [
+        "001",
+        "010"
+      ],
+      "hasLocalTaxes": false
+    },
+    "ID": {
+      "code": "ID",
+      "name": "Idaho",
+      "taxTypes": [
+        "001",
+        "010"
+      ],
+      "hasLocalTaxes": false
+    },
+    "IL": {
+      "code": "IL",
+      "name": "Illinois",
+      "taxTypes": [
+        "001",
+        "010"
+      ],
+      "hasLocalTaxes": false
+    },
+    "IN": {
+      "code": "IN",
+      "name": "Indiana",
+      "taxTypes": [
+        "001",
+        "010"
+      ],
+      "hasLocalTaxes": false
+    },
+    "KS": {
+      "code": "KS",
+      "name": "Kansas",
+      "taxTypes": [
+        "001",
+        "010"
+      ],
+      "hasLocalTaxes": false
+    },
+    "KY": {
+      "code": "KY",
+      "name": "Kentucky",
+      "taxTypes": [
+        "001",
+        "010"
+      ],
+      "hasLocalTaxes": false
+    },
+    "LA": {
+      "code": "LA",
+      "name": "Louisiana",
+      "taxTypes": [
+        "001",
+        "010"
+      ],
+      "hasLocalTaxes": false
+    },
+    "MA": {
+      "code": "MA",
+      "name": "Massachusetts",
+      "taxTypes": [
+        "001",
+        "010",
+        "018",
+        "087",
+        "098",
+        "099",
+        "100",
+        "109"
+      ],
+      "hasLocalTaxes": false
+    },
+    "MD": {
+      "code": "MD",
+      "name": "Maryland",
+      "taxTypes": [
+        "001",
+        "010"
+      ],
+      "hasLocalTaxes": true,
+      "notes": "Maryland counties have local income tax (piggyback on state)"
+    },
+    "ME": {
+      "code": "ME",
+      "name": "Maine",
+      "taxTypes": [
+        "001",
+        "010",
+        "117",
+        "118"
+      ],
+      "hasLocalTaxes": false
+    },
+    "MI": {
+      "code": "MI",
+      "name": "Michigan",
+      "taxTypes": [
+        "001",
+        "010"
+      ],
+      "hasLocalTaxes": true
+    },
+    "MN": {
+      "code": "MN",
+      "name": "Minnesota",
+      "taxTypes": [
+        "001",
+        "010"
+      ],
+      "hasLocalTaxes": false
+    },
+    "MO": {
+      "code": "MO",
+      "name": "Missouri",
+      "taxTypes": [
+        "001",
+        "010"
+      ],
+      "hasLocalTaxes": false
+    },
+    "MS": {
+      "code": "MS",
+      "name": "Mississippi",
+      "taxTypes": [
+        "001",
+        "010"
+      ],
+      "hasLocalTaxes": false
+    },
+    "MT": {
+      "code": "MT",
+      "name": "Montana",
+      "taxTypes": [
+        "001",
+        "010"
+      ],
+      "hasLocalTaxes": false
+    },
+    "NC": {
+      "code": "NC",
+      "name": "North Carolina",
+      "taxTypes": [
+        "001",
+        "010"
+      ],
+      "hasLocalTaxes": false
+    },
+    "ND": {
+      "code": "ND",
+      "name": "North Dakota",
+      "taxTypes": [
+        "001",
+        "010",
+        "030"
+      ],
+      "hasLocalTaxes": false
+    },
+    "NE": {
+      "code": "NE",
+      "name": "Nebraska",
+      "taxTypes": [
+        "001",
+        "010"
+      ],
+      "hasLocalTaxes": false
+    },
+    "NJ": {
+      "code": "NJ",
+      "name": "New Jersey",
+      "taxTypes": [
+        "001",
+        "010",
+        "017",
+        "018",
+        "020",
+        "023",
+        "024",
+        "031",
+        "041"
+      ],
+      "hasLocalTaxes": false,
+      "notes": "NJ has many tax types - most use same account number"
+    },
+    "NM": {
+      "code": "NM",
+      "name": "New Mexico",
+      "taxTypes": [
+        "001",
+        "010"
+      ],
+      "hasLocalTaxes": false
+    },
+    "NV": {
+      "code": "NV",
+      "name": "Nevada",
+      "taxTypes": [
+        "001",
+        "010",
+        "016"
+      ],
+      "hasLocalTaxes": false
+    },
+    "NY": {
+      "code": "NY",
+      "name": "New York",
+      "taxTypes": [
+        "001",
+        "010",
+        "014",
+        "041",
+        "087"
+      ],
+      "hasLocalTaxes": true,
+      "notes": "Check for NYC employees separately",
+      "localJurisdictions": [
+        {
+          "code": "NY01",
+          "name": "New York City",
+          "taxTypes": [
+            "001"
+          ]
+        }
+      ]
+    },
+    "OH": {
+      "code": "OH",
+      "name": "Ohio",
+      "taxTypes": [
+        "001",
+        "010",
+        "030"
+      ],
+      "hasLocalTaxes": true,
+      "notes": "Ohio has MANY local tax jurisdictions - cities and school districts"
+    },
+    "OK": {
+      "code": "OK",
+      "name": "Oklahoma",
+      "taxTypes": [
+        "001",
+        "010"
+      ],
+      "hasLocalTaxes": false
+    },
+    "OR": {
+      "code": "OR",
+      "name": "Oregon",
+      "taxTypes": [
+        "001",
+        "010",
+        "096",
+        "117",
+        "118"
+      ],
+      "hasLocalTaxes": false
+    },
+    "PA": {
+      "code": "PA",
+      "name": "Pennsylvania",
+      "taxTypes": [
+        "001",
+        "010"
+      ],
+      "hasLocalTaxes": true,
+      "notes": "Pennsylvania has local earned income taxes for many townships/cities"
+    },
+    "RI": {
+      "code": "RI",
+      "name": "Rhode Island",
+      "taxTypes": [
+        "001"
+      ],
+      "hasLocalTaxes": false
+    },
+    "SC": {
+      "code": "SC",
+      "name": "South Carolina",
+      "taxTypes": [
+        "001",
+        "010",
+        "037"
+      ],
+      "hasLocalTaxes": false
+    },
+    "SD": {
+      "code": "SD",
+      "name": "South Dakota",
+      "taxTypes": [
+        "010"
+      ],
+      "hasLocalTaxes": false,
+      "notes": "No state income tax"
+    },
+    "TN": {
+      "code": "TN",
+      "name": "Tennessee",
+      "taxTypes": [
+        "010"
+      ],
+      "hasLocalTaxes": false,
+      "notes": "No state income tax"
+    },
+    "TX": {
+      "code": "TX",
+      "name": "Texas",
+      "taxTypes": [
+        "010",
+        "016"
+      ],
+      "hasLocalTaxes": false,
+      "notes": "No state income tax"
+    },
+    "UT": {
+      "code": "UT",
+      "name": "Utah",
+      "taxTypes": [
+        "001",
+        "010"
+      ],
+      "hasLocalTaxes": false
+    },
+    "VA": {
+      "code": "VA",
+      "name": "Virginia",
+      "taxTypes": [
+        "001",
+        "010"
+      ],
+      "hasLocalTaxes": false
+    },
+    "WA": {
+      "code": "WA",
+      "name": "Washington",
+      "taxTypes": [
+        "010",
+        "087",
+        "099",
+        "100",
+        "113"
+      ],
+      "hasLocalTaxes": false,
+      "notes": "No state income tax"
+    },
+    "WI": {
+      "code": "WI",
+      "name": "Wisconsin",
+      "taxTypes": [
+        "001"
+      ],
+      "hasLocalTaxes": false
+    },
+    "WV": {
+      "code": "WV",
+      "name": "West Virginia",
+      "taxTypes": [
+        "001",
+        "010"
+      ],
+      "hasLocalTaxes": false
+    },
+    "WY": {
+      "code": "WY",
+      "name": "Wyoming",
+      "taxTypes": [
+        "010",
+        "030"
+      ],
+      "hasLocalTaxes": false,
+      "notes": "No state income tax"
+    }
+  }
+}

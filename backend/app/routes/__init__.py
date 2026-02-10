@@ -5,4 +5,5 @@ __all__ = [
     "ai_config",
     "module_config",
     "knowledgebase",
+    "tax_reference",
 ]
