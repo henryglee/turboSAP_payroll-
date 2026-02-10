@@ -9,6 +9,8 @@ import { PaymentMethodPage } from './pages/PaymentMethodPage';
 import { AccountPage } from './pages/AccountPage';
 import { PayrollAreaPage } from './pages/PayrollAreaPage';
 import { CompanyCodePage } from './pages/CompanyCodePage';
+import { EmployeeGroupPage } from './pages/EmployeeGroupPage';
+import { PersonnelAreaPage } from './pages/PersonnelAreaPage';
 import { TaxCompanyPage } from './pages/TaxCompanyPage';
 import { TaxIdPage } from './pages/TaxIdPage';
 import { SuiTaxRatePage } from './pages/SuiTaxRatePage';
@@ -202,6 +204,26 @@ function AppContent() {
         element={
           <ProtectedRoute requireClient>
             <CompanyCodePage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Employee Group / Subgroup - 5-step wizard for EG/ESG config */}
+      <Route
+        path="/employee-group"
+        element={
+          <ProtectedRoute requireClient>
+            <EmployeeGroupPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Personnel Area / Subarea - Wizard for PA/PSA config */}
+      <Route
+        path="/personnel-area"
+        element={
+          <ProtectedRoute requireClient>
+            <PersonnelAreaPage />
           </ProtectedRoute>
         }
       />

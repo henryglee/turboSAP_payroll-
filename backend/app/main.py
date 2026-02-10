@@ -22,7 +22,16 @@ Run with: uvicorn app.main:app --reload --port 8000
 
 import uuid
 import shutil
-from fastapi import FastAPI, HTTPException, Depends, Header, UploadFile, File, Body
+import subprocess
+from fastapi import (
+    FastAPI,
+    HTTPException,
+    Depends,
+    Header,
+    UploadFile,
+    File,
+    Body,
+)
 from app.agents.payments.payment_method_graph import payment_method_graph
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional
@@ -40,7 +49,8 @@ from .database import (
     create_session as db_create_session,
     get_session as db_get_session,
     get_user_sessions,
-    delete_session as db_delete_session, init_database,
+    delete_session as db_delete_session,
+    init_database,
 )
 from .auth import hash_password, verify_password, create_token
 from .middleware import get_current_user, get_optional_user, require_admin
@@ -69,14 +79,38 @@ from contextlib import asynccontextmanager
 # FastAPI App Setup
 # ============================================
 
+
+def ensure_qdrant_ready() -> None:
+    script_path = Path(__file__).resolve().parents[1] / "scripts" / "setup_qdrant.sh"
+    if not script_path.exists():
+        raise FileNotFoundError(f"Qdrant setup script missing: {script_path}")
+    subprocess.run(["bash", str(script_path)], check=True)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    try:
+        ensure_qdrant_ready()
+    except Exception as exc:
+        print(f"[Startup] Failed to ensure Qdrant is ready: {exc}")
+        raise
+
     init_database()
 
     # Startup: Initialize database and seed users
     users_to_seed = [
-        {"username": "admin123", "password": "admin123", "role": "admin", "company_name": "Admin Corp"},
-        {"username": "test123", "password": "test123", "role": "client", "company_name": "Test Client Inc"}
+        {
+            "username": "admin123",
+            "password": "admin123",
+            "role": "admin",
+            "company_name": "Admin Corp",
+        },
+        {
+            "username": "test123",
+            "password": "test123",
+            "role": "client",
+            "company_name": "Test Client Inc",
+        },
     ]
 
     for u in users_to_seed:
@@ -88,7 +122,7 @@ async def lifespan(app: FastAPI):
                     username=u["username"],
                     password_hash=pw_hash,
                     role=u["role"],
-                    company_name=u["company_name"]
+                    company_name=u["company_name"],
                 )
                 print(f"[Seeding] Successfully created {u['username']}")
             except Exception as e:
@@ -98,20 +132,52 @@ async def lifespan(app: FastAPI):
 
     # Seed hierarchy (categories & tasks) if empty
     from .database import count_categories, create_category, create_task
+
     if count_categories() == 0:
         print("[Seeding] Creating initial hierarchy...")
         # Categories
-        create_category("enterprise-structure", "Enterprise Structure", display_order=10)
+        create_category(
+            "enterprise-structure", "Enterprise Structure", display_order=10
+        )
         create_category("banking", "Banking", display_order=20)
-        create_category("personnel-admin", "Personnel Administration", display_order=30)
+        create_category(
+            "personnel-admin", "Personnel Administration", display_order=30
+        )
         # Tasks under Enterprise Structure (matching existing module slugs)
-        create_task("payroll-area", "Payroll Area", "enterprise-structure", display_order=10)
-        create_task("company-code", "Company Code", "enterprise-structure", display_order=20)
-        create_task("personnel-area", "Personnel Area", "enterprise-structure", display_order=30)
-        create_task("employee-group", "Employee Group", "enterprise-structure", display_order=40)
-        create_task("employee-subgroup", "Employee Subgroup", "enterprise-structure", display_order=50)
+        create_task(
+            "payroll-area",
+            "Payroll Area",
+            "enterprise-structure",
+            display_order=10,
+        )
+        create_task(
+            "company-code",
+            "Company Code",
+            "enterprise-structure",
+            display_order=20,
+        )
+        create_task(
+            "personnel-area",
+            "Personnel Area",
+            "enterprise-structure",
+            display_order=30,
+        )
+        create_task(
+            "employee-group",
+            "Employee Group",
+            "enterprise-structure",
+            display_order=40,
+        )
+        create_task(
+            "employee-subgroup",
+            "Employee Subgroup",
+            "enterprise-structure",
+            display_order=50,
+        )
         # Tasks under Banking
-        create_task("payment-method", "Payment Method", "banking", display_order=10)
+        create_task(
+            "payment-method", "Payment Method", "banking", display_order=10
+        )
         print("[Seeding] Hierarchy created successfully")
     else:
         print("[Seeding] Hierarchy already exists, skipping")
@@ -119,11 +185,12 @@ async def lifespan(app: FastAPI):
     yield
     # Shutdown logic (if any)
 
+
 app = FastAPI(
     title="TurboSAP Payroll Configuration API",
     description="API for configuring SAP payroll areas through a guided Q&A flow",
     version="default_code.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 app.include_router(export_router)
 
@@ -132,7 +199,9 @@ frontend_dir = Path(__file__).parent / "static"
 
 # Serve all static assets (JS, CSS, images)
 if ENV == "production":
-    app.mount("/assets", StaticFiles(directory=frontend_dir / "assets"), name="assets")
+    app.mount(
+        "/assets", StaticFiles(directory=frontend_dir / "assets"), name="assets"
+    )
 
 # Mount API routers that live in app.routes
 app.include_router(data_terminal.router)
@@ -166,7 +235,7 @@ app.add_middleware(
         "http://127.0.0.1:3000",
         "http://turbosap-py312-env.eba-5hg7r3id.us-east-2.elasticbeanstalk.com",
         "TurboSAP-pre-stage-py312.eba-5hg7r3id.us-east-2.elasticbeanstalk.com",
-        "*"
+        "*",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -184,6 +253,7 @@ sessions: dict[str, PayrollState] = {}
 # ============================================
 # Helper Functions
 # ============================================
+
 
 def calculate_progress(state: PayrollState) -> int:
     """Calculate completion progress (0-100)."""
@@ -208,14 +278,15 @@ def calculate_progress(state: PayrollState) -> int:
 
     return min(int((answered_count / max(estimated_total, 1)) * 100), 95)
 
+
 def cfg(session_id: str) -> dict:
     return {"configurable": {"thread_id": session_id}}
-
 
 
 # ============================================
 # API Endpoints
 # ============================================
+
 
 @app.get("/api/health")
 def root():
@@ -227,6 +298,7 @@ def root():
 # Authentication Endpoints
 # ============================================
 
+
 @app.post("/api/auth/register")
 def register(request: dict = Body(...)):
     """
@@ -235,7 +307,7 @@ def register(request: dict = Body(...)):
     """
     raise HTTPException(
         status_code=403,
-        detail="Public registration is disabled. Please contact an administrator to create an account."
+        detail="Public registration is disabled. Please contact an administrator to create an account.",
     )
 
 
@@ -282,11 +354,15 @@ def login(request: dict = Body(...)):
     # Get user
     user = get_user_by_username(username)
     if not user:
-        raise HTTPException(status_code=401, detail="Invalid username or password")
+        raise HTTPException(
+            status_code=401, detail="Invalid username or password"
+        )
 
     # Verify password
     if not verify_password(password, user["password_hash"]):
-        raise HTTPException(status_code=401, detail="Invalid username or password")
+        raise HTTPException(
+            status_code=401, detail="Invalid username or password"
+        )
 
     # Update last login
     update_user_last_login(user["id"])
@@ -321,8 +397,12 @@ def get_current_user_info(current_user: dict = Depends(get_current_user)):
         "role": user["role"],
         "companyName": user.get("company_name"),
         "logoPath": user.get("logo_path"),
-        "createdAt": user.get("created_at") + "Z" if user.get("created_at") else None,
-        "lastLogin": user.get("last_login") + "Z" if user.get("last_login") else None,
+        "createdAt": (
+            user.get("created_at") + "Z" if user.get("created_at") else None
+        ),
+        "lastLogin": (
+            user.get("last_login") + "Z" if user.get("last_login") else None
+        ),
     }
 
 
@@ -333,16 +413,16 @@ async def change_password(
 ):
     """
     Change current user's password.
-    
+
     User must provide their current password for verification.
     System does not support password recovery - old passwords cannot be retrieved.
-    
+
     Request body:
         {
             "currentPassword": "oldpass123",
             "newPassword": "newpass456"
         }
-    
+
     Returns:
         {
             "status": "ok",
@@ -351,35 +431,42 @@ async def change_password(
     """
     current_password = request.get("currentPassword")
     new_password = request.get("newPassword")
-    
+
     # Validate input
     if not current_password:
-        raise HTTPException(status_code=400, detail="Current password is required")
+        raise HTTPException(
+            status_code=400, detail="Current password is required"
+        )
     if not new_password:
         raise HTTPException(status_code=400, detail="New password is required")
     if len(new_password) < 6:
-        raise HTTPException(status_code=400, detail="New password must be at least 6 characters")
+        raise HTTPException(
+            status_code=400, detail="New password must be at least 6 characters"
+        )
     if current_password == new_password:
-        raise HTTPException(status_code=400, detail="New password must be different from current password")
-    
+        raise HTTPException(
+            status_code=400,
+            detail="New password must be different from current password",
+        )
+
     # Get user from database
     user = get_user_by_id(current_user["user_id"])
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    
+
     # Verify current password
     if not verify_password(current_password, user["password_hash"]):
-        raise HTTPException(status_code=401, detail="Current password is incorrect")
-    
+        raise HTTPException(
+            status_code=401, detail="Current password is incorrect"
+        )
+
     # Hash new password and update
     new_password_hash = hash_password(new_password)
     from .database import update_user_password
+
     update_user_password(user["id"], new_password_hash)
-    
-    return {
-        "status": "ok",
-        "message": "Password changed successfully"
-    }
+
+    return {"status": "ok", "message": "Password changed successfully"}
 
 
 @app.post("/api/start")
@@ -427,7 +514,6 @@ async def start_session(
     # Run master graph to get first question
     result = master_graph.invoke(initial_state, config=cfg(session_id))
 
-
     # Try to get current user (optional authentication)
     current_user = None
     try:
@@ -454,17 +540,23 @@ async def start_session(
     if not question:
         # Question is in JSON file - need to determine which module's questions
         if module == "payment_method":
-            question = get_question(question_id, "payment_method") if question_id else get_first_question("payment_method")
+            question = (
+                get_question(question_id, "payment_method")
+                if question_id
+                else get_first_question("payment_method")
+            )
         else:
-            question = get_question(question_id) if question_id else get_first_question()
+            question = (
+                get_question(question_id)
+                if question_id
+                else get_first_question()
+            )
 
     return {
         "sessionId": session_id,
         "question": question,
         "module": module,  # Return module so frontend knows which one started
     }
-
-
 
 
 @app.post("/api/answer")
@@ -578,7 +670,9 @@ async def submit_answer(
             next_question = get_question(next_question_id)
 
     if not next_question:
-        raise HTTPException(status_code=500, detail=f"Question not found: {next_question_id}")
+        raise HTTPException(
+            status_code=500, detail=f"Question not found: {next_question_id}"
+        )
 
     return {
         "sessionId": session_id,
@@ -591,9 +685,8 @@ async def submit_answer(
 @app.get("/api/session/{session_id}")
 async def get_session_state(
     session_id: str,
-    authorization: Optional[str] = Header(None),
+    current_user: Optional[dict] = Depends(get_optional_user),
 ):
-    current_user = await get_optional_user(authorization)
 
     state = None
 
@@ -631,10 +724,10 @@ async def get_session_state(
     }
 
 
-
 # ============================================
 # Session Management Endpoints
 # ============================================
+
 
 @app.get("/api/sessions")
 async def list_user_sessions(
@@ -695,7 +788,7 @@ async def save_session(
         db_session = db_get_session(session_id)
         if db_session:
             state = db_session["config_state"]
-    
+
     if not state:
         raise HTTPException(status_code=404, detail="Session not found")
 
@@ -774,15 +867,18 @@ async def delete_session(
     db_delete_session(session_id)
     return {"status": "ok"}
 
+
 @app.get("/api/config/questions/current")
 def get_current_config():
     """Get current questions configuration. Available to all authenticated users."""
     return load_current_questions()
 
+
 @app.get("/api/config/questions/original")
 async def get_original_config(current_user: dict = Depends(get_current_user)):
     """Get original questions configuration. Available to all authenticated users."""
     return load_original_questions()
+
 
 @app.post("/api/config/questions/upload")
 async def upload_questions_config(
@@ -796,6 +892,7 @@ async def upload_questions_config(
         raise HTTPException(status_code=400, detail=str(e))
     return {"status": "ok"}
 
+
 @app.put("/api/config/questions/current")
 async def update_current_config(
     payload: dict = Body(...),
@@ -808,6 +905,7 @@ async def update_current_config(
         raise HTTPException(status_code=400, detail=str(e))
     return {"status": "ok"}
 
+
 @app.post("/api/config/questions/restore")
 async def restore_questions_config(current_user: dict = Depends(require_admin)):
     """Restore original questions configuration. Admin only."""
@@ -819,6 +917,7 @@ async def restore_questions_config(current_user: dict = Depends(require_admin)):
 # Admin Management Endpoints
 # ============================================
 
+
 @app.post("/api/admin/users")
 async def create_user_by_admin(
     request: dict = Body(...),
@@ -826,7 +925,7 @@ async def create_user_by_admin(
 ):
     """
     Create a new user (admin only).
-    
+
     Request body:
         {
             "username": "newuser",
@@ -834,7 +933,7 @@ async def create_user_by_admin(
             "role": "client" | "admin",
             "companyName": "ABC Corp" (optional)
         }
-    
+
     Returns:
         {
             "userId": default_code,
@@ -847,26 +946,28 @@ async def create_user_by_admin(
     password = request.get("password")
     role = request.get("role", "client")
     company_name = request.get("companyName")
-    
+
     # Validate input
     if not username:
         raise HTTPException(status_code=400, detail="Username is required")
     if not password:
         raise HTTPException(status_code=400, detail="Password is required")
     if len(password) < 6:
-        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+        raise HTTPException(
+            status_code=400, detail="Password must be at least 6 characters"
+        )
     # Use role validation utility (allows future extension to module roles)
     if not is_valid_role(role):
         raise HTTPException(
-            status_code=400, 
-            detail=f"Invalid role. Must be '{CLIENT_ROLE}' or '{ADMIN_ROLE}'"
+            status_code=400,
+            detail=f"Invalid role. Must be '{CLIENT_ROLE}' or '{ADMIN_ROLE}'",
         )
-    
+
     # Check if username already exists
     existing_user = get_user_by_username(username)
     if existing_user:
         raise HTTPException(status_code=400, detail="Username already exists")
-    
+
     # Create user
     try:
         password_hash = hash_password(password)
@@ -878,12 +979,14 @@ async def create_user_by_admin(
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    
+
     # Get created user
     user = get_user_by_id(user_id)
     if not user:
-        raise HTTPException(status_code=500, detail="Failed to retrieve created user")
-    
+        raise HTTPException(
+            status_code=500, detail="Failed to retrieve created user"
+        )
+
     return {
         "userId": user["id"],
         "username": user["username"],
@@ -902,28 +1005,40 @@ async def list_all_users(current_user: dict = Depends(require_admin)):
         List of all users (without password hashes)
     """
     from .database import get_db_connection
-    
+
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT id, username, role, logo_path, company_name, created_at, last_login
             FROM users
             ORDER BY created_at DESC
-        """)
+        """
+        )
         rows = cursor.fetchall()
         users = []
         for row in rows:
             user_dict = dict(row)
             # Convert snake_case to camelCase for frontend
-            users.append({
-                "id": user_dict.get("id"),
-                "username": user_dict.get("username"),
-                "role": user_dict.get("role"),
-                "logoPath": user_dict.get("logo_path"),
-                "companyName": user_dict.get("company_name"),
-                "createdAt": user_dict.get("created_at") + "Z" if user_dict.get("created_at") else None,
-                "lastLogin": user_dict.get("last_login") + "Z" if user_dict.get("last_login") else None,
-            })
+            users.append(
+                {
+                    "id": user_dict.get("id"),
+                    "username": user_dict.get("username"),
+                    "role": user_dict.get("role"),
+                    "logoPath": user_dict.get("logo_path"),
+                    "companyName": user_dict.get("company_name"),
+                    "createdAt": (
+                        user_dict.get("created_at") + "Z"
+                        if user_dict.get("created_at")
+                        else None
+                    ),
+                    "lastLogin": (
+                        user_dict.get("last_login") + "Z"
+                        if user_dict.get("last_login")
+                        else None
+                    ),
+                }
+            )
         return {"users": users}
 
 
@@ -933,38 +1048,69 @@ async def get_user_progress(
     current_user: dict = Depends(require_admin),
 ):
     from .database import get_user_by_id
-    
+
     user = get_user_by_id(user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    
+
     sessions_list = get_user_sessions(user_id)
-    
+
     payroll_status = "not-started"
     payment_status = "not-started"
     last_activity = None
-    
+
     for session in sessions_list:
         config_state = session.get("config_state", {})
         updated_at = session.get("updated_at")
         completed_modules = config_state.get("completed_modules", [])
         answers = config_state.get("answers", {})
-        
+
         if updated_at and (not last_activity or updated_at > last_activity):
             last_activity = updated_at
-        
-        if "payroll_area" in completed_modules or config_state.get("payroll_areas"):
+
+        if "payroll_area" in completed_modules or config_state.get(
+            "payroll_areas"
+        ):
             payroll_status = "completed"
-        elif any(key.startswith(("q1_frequencies", "q1_weekly", "q1_biweekly", "q1_semimonthly", "q1_monthly", "business_", "geographic_", "regions_")) for key in answers.keys()):
+        elif any(
+            key.startswith(
+                (
+                    "q1_frequencies",
+                    "q1_weekly",
+                    "q1_biweekly",
+                    "q1_semimonthly",
+                    "q1_monthly",
+                    "business_",
+                    "geographic_",
+                    "regions_",
+                )
+            )
+            for key in answers.keys()
+        ):
             if payroll_status != "completed":
                 payroll_status = "in-progress"
-        
-        if "payment_method" in completed_modules or config_state.get("payment_methods"):
+
+        if "payment_method" in completed_modules or config_state.get(
+            "payment_methods"
+        ):
             payment_status = "completed"
-        elif any(key.startswith(("q1_payment_method", "q2_payment_method", "q3_payment_method", "q4_payment_method", "q5_pre_note", "q1_p_", "q2_q_")) for key in answers.keys()):
+        elif any(
+            key.startswith(
+                (
+                    "q1_payment_method",
+                    "q2_payment_method",
+                    "q3_payment_method",
+                    "q4_payment_method",
+                    "q5_pre_note",
+                    "q1_p_",
+                    "q2_q_",
+                )
+            )
+            for key in answers.keys()
+        ):
             if payment_status != "completed":
                 payment_status = "in-progress"
-    
+
     return {
         "payrollArea": payroll_status,
         "paymentMethod": payment_status,
@@ -983,7 +1129,7 @@ async def get_user_details(
     user = get_user_by_id(user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    
+
     # Remove password hash from response
     user.pop("password_hash", None)
     return user
@@ -1007,31 +1153,34 @@ async def update_user_role(
     # Use role validation utility (allows future extension to module roles)
     if not is_valid_role(new_role):
         raise HTTPException(
-            status_code=400, 
-            detail=f"Invalid role. Must be '{CLIENT_ROLE}' or '{ADMIN_ROLE}'"
+            status_code=400,
+            detail=f"Invalid role. Must be '{CLIENT_ROLE}' or '{ADMIN_ROLE}'",
         )
-    
+
     user = get_user_by_id(user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    
+
     # Prevent admin from removing their own admin role
     if user_id == current_user["user_id"] and not is_admin(new_role):
         raise HTTPException(
-            status_code=400,
-            detail="Cannot remove your own admin role"
+            status_code=400, detail="Cannot remove your own admin role"
         )
-    
+
     from .database import get_db_connection
+
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             UPDATE users
             SET role = ?
             WHERE id = ?
-        """, (new_role, user_id))
+        """,
+            (new_role, user_id),
+        )
         conn.commit()
-    
+
     return {"status": "ok", "userId": user_id, "role": new_role}
 
 
@@ -1043,15 +1192,15 @@ async def reset_user_password(
 ):
     """
     Reset a user's password. Admin only.
-    
+
     Admin can reset any user's password to a new temporary password.
     System does not support viewing or recovering old passwords.
-    
+
     Request body:
         {
             "newPassword": "newtemp123"
         }
-    
+
     Returns:
         {
             "status": "ok",
@@ -1059,32 +1208,36 @@ async def reset_user_password(
         }
     """
     new_password = request.get("newPassword")
-    
+
     # Validate input
     if not new_password:
         raise HTTPException(status_code=400, detail="New password is required")
     if len(new_password) < 6:
-        raise HTTPException(status_code=400, detail="New password must be at least 6 characters")
-    
+        raise HTTPException(
+            status_code=400, detail="New password must be at least 6 characters"
+        )
+
     # Check if user exists
     user = get_user_by_id(user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    
+
     # Hash new password and update
     new_password_hash = hash_password(new_password)
     from .database import update_user_password
+
     update_user_password(user_id, new_password_hash)
-    
+
     return {
         "status": "ok",
-        "message": f"Password reset successfully for user '{user['username']}'"
+        "message": f"Password reset successfully for user '{user['username']}'",
     }
 
 
 # ============================================
 # Logo Upload Endpoint
 # ============================================
+
 
 @app.post("/api/upload/logo")
 async def upload_logo(
@@ -1112,7 +1265,7 @@ async def upload_logo(
     if file_ext not in allowed_extensions:
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid file type. Allowed types: {', '.join(allowed_extensions)}"
+            detail=f"Invalid file type. Allowed types: {', '.join(allowed_extensions)}",
         )
 
     # Create uploads directory if it doesn't exist
@@ -1131,18 +1284,14 @@ async def upload_logo(
         logo_path = f"/uploads/logos/{user_id}{file_ext}"
         update_user_profile(user_id, logo_path=logo_path)
 
-        return {
-            "logoPath": logo_path,
-            "message": "Logo uploaded successfully"
-        }
+        return {"logoPath": logo_path, "message": "Logo uploaded successfully"}
 
     except Exception as e:
         # Clean up file if database update fails
         if file_path.exists():
             file_path.unlink()
         raise HTTPException(
-            status_code=500,
-            detail=f"Failed to upload logo: {str(e)}"
+            status_code=500, detail=f"Failed to upload logo: {str(e)}"
         )
 
 
@@ -1151,12 +1300,12 @@ async def upload_logo(
 def serve_spa(full_path: str):
     index_file = frontend_dir / "index.html"
 
-    #Development
+    # Development
     if ENV == "development":
         # In dev, the frontend should be served by Vite directly
         return HTMLResponse(
             "<h1>Vite Dev ServerRunning</h1><p>FastAPI is acting as an API only.</p>",
-            status_code=200
+            status_code=200,
         )
 
     # Production
@@ -1164,6 +1313,7 @@ def serve_spa(full_path: str):
         return index_file.read_text(encoding="utf-8")
 
     return HTMLResponse("<h1>Frontend not found</h1>", status_code=404)
+
 
 # @app.post("/api/session/payment_method/start")
 # async def start_payment_method_session(
@@ -1281,6 +1431,7 @@ def serve_spa(full_path: str):
 
 # ---- Payment Method alias endpoints (thin wrappers) ----
 
+
 @app.post("/api/session/payment_method/start")
 async def start_payment_method_session(
     authorization: Optional[str] = Header(None),
@@ -1304,13 +1455,13 @@ async def submit_payment_method_answer(
     )
 
 
-
 # ============================================
 # Run the server
 # ============================================
 
 if __name__ == "__main__":
     import uvicorn
+
     print("Starting TurboSAP API server...")
     print("API docs available at: http://localhost:8000/docs")
     uvicorn.run(app, host="0.0.0.0", port=8000)
