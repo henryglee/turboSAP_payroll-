@@ -68,15 +68,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 import os
 
-from .routes import (
-    data_terminal,
-    ai_config,
-    module_config,
-    knowledgebase,
-    hierarchy,
-    modules,
-    enhanced_knowledge,
-)
+
+from .routes import data_terminal, ai_config, module_config, knowledgebase, hierarchy, modules, tax_reference
 
 ENV = os.getenv("APP_ENV", "development")
 
@@ -217,7 +210,7 @@ app.include_router(module_config.router)
 app.include_router(knowledgebase.router)
 app.include_router(hierarchy.router)
 app.include_router(modules.router)
-app.include_router(enhanced_knowledge.router)
+app.include_router(tax_reference.router)
 
 # Serve uploaded logos (in both dev and production)
 uploads_dir = Path(__file__).parent.parent / "uploads"

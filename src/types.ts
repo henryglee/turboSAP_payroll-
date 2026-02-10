@@ -141,6 +141,12 @@ export interface TaxCompany {
   code: number;
   // Display name, limited to 40 characters in the UI
   name: string;
-  // Free-form address string
-  address: string;
+  // Address components
+  address: {
+    street: string;
+    city: string;
+    state: string;
+    zipCode: string;
+    country: string;
+  };
 }
