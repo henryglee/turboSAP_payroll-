@@ -1,0 +1,35 @@
+{
+  "methods": ["direct_deposit", "check", "wire_transfer"],
+  "default": "direct_deposit",
+  "rules": {
+    "min_amount": 100,
+    "max_amount": 100000,
+    "processing_days": 2
+  },
+  "questions": [
+    {
+      "id": "bank_verification_1",
+      "type": "multiple_choice",
+      "question": "Do you have a valid bank account for direct deposit?",
+      "required": true,
+      "options": [
+        {"value": "yes", "label": "Yes, I have a bank account"},
+        {"value": "no", "label": "No, I need alternative payment method"}
+      ],
+      "conditions": {
+        "if": "no",
+        "show_question": "alternative_method_preference"
+      }
+    },
+    {
+      "id": "alternative_method_preference",
+      "type": "multiple_choice",
+      "question": "Which alternative payment method do you prefer?",
+      "required": true,
+      "options": [
+        {"value": "check", "label": "Physical Check"},
+        {"value": "wire_transfer", "label": "Wire Transfer"}
+      ]
+    }
+  ]
+}

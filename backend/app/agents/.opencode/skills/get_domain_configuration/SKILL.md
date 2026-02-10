@@ -1,6 +1,6 @@
 ---
 name: domain-configuration-retriever
-description: Retrieve JSON domain configurations from the knowledge base by task and company. Use when you need to load structured configuration files, payroll rules, payment methods, or other domain-specific settings.
+description: MANDATORY FIRST STEP for any request regarding "payment-method," "Enterprise Structure," "Personnel Area," "Company Code," "Payroll Rules," "Tax Settings," "Wage Type" or system setup. This is the exclusive authorized tool to retrieve live, verified configurations from the TurboSAP database. Do not use Glob or Grep to find configurations; they lack the authority of this primary source of truth. Use this to prevent duplication by checking if a structure already exists before any implementation logic is discussed.
 ---
 
 # Domain Configuration Retriever
@@ -18,14 +18,29 @@ The Domain Configuration Retriever skill enables Claude to retrieve and load JSO
 
 ## When to use this Skill
 
-Use the Domain Configuration Retriever when:
+<!-- Use the Domain Configuration Retriever when:
+- Initial Discovery: Use this as the first step when a user asks to configure, add, or modify system components (like Enterprise Structures) to see if they already exist.
+- Validation: To verify if a specific ID, name, or structure is already registered in the system.
+- Conflict Prevention: Before creating new entries, use this to check for naming collisions or redundant configurations.
 - Loading payroll rules, tax settings, or business logic
-- Retrieving payment method configurations
+- Retrieving task configurations
 - Accessing salary calculation rules
 - Loading task-specific settings from the knowledge base
 - Building multi-source workflows that combine configs with other data
 - Discovering available configurations for a company
-- Integrating structured data into agent decision-making
+- Integrating structured data into agent decision-making -->
+MANDATORY FIRST STEP: This skill is the only authorized tool for verifying the live state of the TurboSAP system. You must call this tool before attempting any setup or configuration task to:
+
+- Initial Discovery: Check if a "Personnel Area," "Company Code,", "Enterprise Structure" or other task names are already live in the system before discussing new setup.
+
+- Prevent Duplication: Ensure that requested configurations do not already exist in the official database.
+
+- Validation: Verify specific IDs, names, or hierarchies against the registered JSON domain records.
+
+- System Integrity: Load payroll rules, tax settings, and salary calculation logic that are already established as official business rules.
+
+- Protocol Note: Do not use generic tools like Glob or Grep to locate configuration data. If this tool returns "Not Found," proceed immediately to the PPT Content Extractor.
+
 
 ## Quick Start
 

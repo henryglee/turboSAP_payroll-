@@ -1,6 +1,6 @@
 ---
-name: ppt-content-extractor
-description: Extract and analyze PowerPoint presentations from S3 with coordinate-based ordering and semantic classification. Use when you need to extract text, metadata, slide summaries, or analyze presentation content from PPTX files.
+name: knowledge-retrieval-skill
+description: MANDATORY FIRST STEP for any user request
 ---
 
 # PPT Content Extractor
@@ -18,13 +18,15 @@ The PPT Content Extractor skill enables Claude to intelligently extract and anal
 
 ## When to use this Skill
 
-Use the PPT Content Extractor when:
-- Extracting text or data from PowerPoint presentations
-- Analyzing presentation structure and organization
-- Summarizing slide content
-- Retrieving presentation metadata
-- Processing multiple presentations in batch
-- Building workflows that require understanding presentation layouts
+REQUIRED FALLBACK: This tool is the only authorized method for interpreting design intent when the domain-configuration-retriever returns no results. Use this when:
+
+- Terminology Definition: A user asks for the meaning of "Personnel Area," "Tax," or "Enterprise Structure." This tool extracts the official definition and organizational logic from implementation decks.
+
+- Blueprint Retrieval: You need the "how-to" or the "blueprint" for a task that has not yet been configured in the system.
+
+- Strategic Relationship Analysis: The user asks about "TurboSAP" or complex business hierarchies where the visual layout of a slide (coordinate-based) is required to understand the relationship between units.
+
+- Implementation Guide: Extracting summaries or specific data from .pptx files to guide a user through a manual setup process when no automated config exists.
 
 ## Quick Start
 

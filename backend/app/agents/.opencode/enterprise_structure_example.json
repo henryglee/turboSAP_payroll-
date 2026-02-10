@@ -1,0 +1,202 @@
+{
+  "company_codes": [
+    {
+      "code": "US1000",
+      "name": "US Operations",
+      "country": "US",
+      "currency": "USD",
+      "fiscal_year_variant": "K4",
+      "chart_of_accounts": "INT",
+      "status": "active",
+      "address": {
+        "street": "123 Main St",
+        "city": "New York",
+        "state": "NY",
+        "postal_code": "10001",
+        "country": "US"
+      }
+    },
+    {
+      "code": "DE2000", 
+      "name": "Germany Operations",
+      "country": "DE",
+      "currency": "EUR",
+      "fiscal_year_variant": "V3",
+      "chart_of_accounts": "INT",
+      "status": "active",
+      "address": {
+        "street": "Hauptstraße 1",
+        "city": "Berlin",
+        "postal_code": "10115",
+        "country": "DE"
+      }
+    }
+  ],
+  "business_areas": [
+    {
+      "code": "BA001",
+      "name": "Manufacturing",
+      "description": "Production and manufacturing operations"
+    },
+    {
+      "code": "BA002", 
+      "name": "Sales & Distribution",
+      "description": "Sales and distribution activities"
+    },
+    {
+      "code": "BA003",
+      "name": "Research & Development",
+      "description": "Product development and innovation"
+    }
+  ],
+  "controlling_areas": [
+    {
+      "code": "CO001",
+      "name": "North America Controlling",
+      "currency": "USD",
+      "company_codes": ["US1000"]
+    },
+    {
+      "code": "CO002",
+      "name": "Europe Controlling", 
+      "currency": "EUR",
+      "company_codes": ["DE2000"]
+    }
+  ],
+  "profit_centers": [
+    {
+      "code": "PC001",
+      "name": "North America Manufacturing",
+      "controlling_area": "CO001",
+      "business_area": "BA001",
+      "hierarchy_level": "1"
+    },
+    {
+      "code": "PC002",
+      "name": "Europe Manufacturing",
+      "controlling_area": "CO002", 
+      "business_area": "BA001",
+      "hierarchy_level": "1"
+    }
+  ],
+  "plants": [
+    {
+      "code": "PL001",
+      "name": "US Plant 1",
+      "company_code": "US1000",
+      "business_area": "BA001",
+      "storage_locations": ["SL001", "SL002"]
+    },
+    {
+      "code": "PL002",
+      "name": "Germany Plant 1", 
+      "company_code": "DE2000",
+      "business_area": "BA001",
+      "storage_locations": ["SL003", "SL004"]
+    }
+  ],
+  "questions": [
+    {
+      "id": "company_code_selection",
+      "type": "multiple_choice",
+      "question": "Which company code do you want to configure?",
+      "required": true,
+      "options": [
+        {"value": "US1000", "label": "US Operations (US1000)"},
+        {"value": "DE2000", "label": "Germany Operations (DE2000)"},
+        {"value": "create_new", "label": "Create new company code"}
+      ],
+      "conditions": {
+        "if": "create_new",
+        "show_questions": ["new_company_code_details", "new_company_address"]
+      }
+    },
+    {
+      "id": "new_company_code_details",
+      "type": "text_input",
+      "question": "Enter the new company code (4 digits):",
+      "required": true,
+      "validation": {
+        "pattern": "^[A-Z]{2}[0-9]{4}$",
+        "message": "Company code must be 2 letters followed by 4 digits (e.g., UK3000)"
+      }
+    },
+    {
+      "id": "new_company_address",
+      "type": "address_form",
+      "question": "Enter the company address:",
+      "required": true,
+      "fields": [
+        {"name": "street", "label": "Street Address", "required": true},
+        {"name": "city", "label": "City", "required": true},
+        {"name": "postal_code", "label": "Postal Code", "required": true},
+        {"name": "country", "label": "Country", "required": true, "type": "country_select"}
+      ]
+    },
+    {
+      "id": "business_area_assignment",
+      "type": "multiple_choice",
+      "question": "Select the primary business area:",
+      "required": true,
+      "options": [
+        {"value": "BA001", "label": "Manufacturing"},
+        {"value": "BA002", "label": "Sales & Distribution"},
+        {"value": "BA003", "label": "Research & Development"}
+      ]
+    },
+    {
+      "id": "controlling_area_selection",
+      "type": "multiple_choice",
+      "question": "Select the controlling area:",
+      "required": true,
+      "options": [
+        {"value": "CO001", "label": "North America Controlling"},
+        {"value": "CO002", "label": "Europe Controlling"},
+        {"value": "create_new", "label": "Create new controlling area"}
+      ]
+    },
+    {
+      "id": "fiscal_year_variant",
+      "type": "multiple_choice",
+      "question": "Select fiscal year variant:",
+      "required": true,
+      "options": [
+        {"value": "K4", "label": "K4 - Oct to Sep"},
+        {"value": "V3", "label": "V3 - Jan to Dec"},
+        {"value": "V9", "label": "V9 - Apr to Mar"}
+      ]
+    }
+  ],
+  "validation_rules": {
+    "company_code": {
+      "unique": true,
+      "length": 6,
+      "pattern": "^[A-Z]{2}[0-9]{4}$"
+    },
+    "business_area": {
+      "unique": true,
+      "length": 5,
+      "pattern": "^BA[0-9]{3}$"
+    },
+    "controlling_area": {
+      "unique": true,
+      "length": 5,
+      "pattern": "^CO[0-9]{3}$"
+    }
+  },
+  "integration_points": {
+    "finance": {
+      "gl_accounts": "chart_of_accounts",
+      "document_types": "company_code",
+      "posting_periods": "fiscal_year_variant"
+    },
+    "hr": {
+      "employee_groups": "company_code",
+      "payroll_areas": "company_code"
+    },
+    "logistics": {
+      "plants": "company_code",
+      "storage_locations": "plant"
+    }
+  }
+}
