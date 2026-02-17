@@ -70,7 +70,17 @@ export function TaxCompanyPage() {
     setRows((prev) => {
       const maxCode = prev.reduce((max, row) => Math.max(max, row.code), 0);
       const nextCode = maxCode === 0 ? 1000 : maxCode + 1000;
-      return [...prev, { code: nextCode, name: '', address: '' }];
+      return [...prev, { 
+        code: nextCode, 
+        name: '', 
+        address: {
+          street: '',
+          city: '',
+          state: '',
+          zipCode: '',
+          country: 'US' // Default to US
+        } 
+      }];
     });
   };
 
@@ -78,10 +88,25 @@ export function TaxCompanyPage() {
     setRows((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleCellChange = (rowIndex: number, field: keyof Omit<TaxCompany, 'code'>, value: string) => {
+  const handleCellChange = (rowIndex: number, field: keyof Omit<TaxCompany, 'code' | 'address'>, value: string) => {
     setRows((prev) => {
       const next = [...prev];
       const row = { ...next[rowIndex], [field]: value } as TaxCompany;
+      next[rowIndex] = row;
+      return next;
+    });
+  };
+
+  const handleAddressChange = (rowIndex: number, field: keyof TaxCompany['address'], value: string) => {
+    setRows((prev) => {
+      const next = [...prev];
+      const row = { 
+        ...next[rowIndex], 
+        address: { 
+          ...next[rowIndex].address, 
+          [field]: value 
+        } 
+      };
       next[rowIndex] = row;
       return next;
     });
@@ -127,13 +152,23 @@ export function TaxCompanyPage() {
               <tr className="bg-[#4a5568] text-white">
                 <th className="px-3 py-2 text-left font-medium w-24 border-r border-gray-600">Tax Company Code</th>
                 <th className="px-3 py-2 text-left font-medium border-r border-gray-600">Tax Company Name (max 40)</th>
-                <th className="px-3 py-2 text-left font-medium border-r border-gray-600">Address</th>
+                <th className="px-3 py-2 text-left font-medium border-r border-gray-600">Street Address</th>
+                <th className="px-3 py-2 text-left font-medium border-r border-gray-600">City</th>
+                <th className="px-3 py-2 text-left font-medium border-r border-gray-600">State</th>
+                <th className="px-3 py-2 text-left font-medium border-r border-gray-600">Postal Code</th>
+                <th className="px-3 py-2 text-left font-medium border-r border-gray-600">Country</th>
+                <th className="px-3 py-2 text-left font-medium border-r border-gray-600"></th>
                 <th className="px-3 py-2 text-center font-medium w-10" />
               </tr>
               <tr className="bg-[#5a6778] text-gray-300 text-xs">
                 <th className="px-3 py-1 text-left border-r border-gray-600">Auto-generated</th>
                 <th className="px-3 py-1 text-left border-r border-gray-600">Required</th>
                 <th className="px-3 py-1 text-left border-r border-gray-600">Required</th>
+                <th className="px-3 py-1 text-left border-r border-gray-600">Optional</th>
+                <th className="px-3 py-1 text-left border-r border-gray-600">Required</th>
+                <th className="px-3 py-1 text-left border-r border-gray-600">Required</th>
+                <th className="px-3 py-1 text-left border-r border-gray-600">Required</th>
+                <th className="px-3 py-1 text-left border-r border-gray-600"></th>
                 <th className="px-3 py-1" />
               </tr>
             </thead>
@@ -176,12 +211,52 @@ export function TaxCompanyPage() {
                     )}
                   </td>
                   <td className="px-3 py-1 border-r border-border">
-                    <textarea
-                      value={row.address}
-                      onChange={(e) => handleCellChange(index, 'address', e.target.value)}
-                      className="w-full px-2 py-1 border border-input rounded bg-card text-foreground outline-none text-sm resize-y min-h-[32px]"
-                      placeholder="Street, City, State, Zip, Country"
+                    <input
+                      type="text"
+                      value={row.address.street}
+                      onChange={(e) => handleAddressChange(index, 'street', e.target.value)}
+                      className="w-full px-2 py-1 border border-input rounded bg-card text-foreground outline-none text-sm"
+                      placeholder="Street address"
                     />
+                  </td>
+                  <td className="px-3 py-1 border-r border-border">
+                    <input
+                      type="text"
+                      value={row.address.city}
+                      onChange={(e) => handleAddressChange(index, 'city', e.target.value)}
+                      className="w-full px-2 py-1 border border-input rounded bg-card text-foreground outline-none text-sm"
+                      placeholder="City"
+                    />
+                  </td>
+                  <td className="px-3 py-1 border-r border-border">
+                    <input
+                      type="text"
+                      value={row.address.state}
+                      onChange={(e) => handleAddressChange(index, 'state', e.target.value)}
+                      className="w-full px-2 py-1 border border-input rounded bg-card text-foreground outline-none text-sm"
+                      placeholder="State/Province"
+                      maxLength={2}
+                    />
+                  </td>
+                  <td className="px-3 py-1 border-r border-border">
+                    <input
+                      type="text"
+                      value={row.address.zipCode}
+                      onChange={(e) => handleAddressChange(index, 'zipCode', e.target.value)}
+                      className="w-full px-2 py-1 border border-input rounded bg-card text-foreground outline-none text-sm"
+                      placeholder="Postal code"
+                    />
+                  </td>
+                  <td className="px-3 py-1 border-r border-border">
+                    <select
+                      value={row.address.country}
+                      onChange={(e) => handleAddressChange(index, 'country', e.target.value)}
+                      className="w-full px-2 py-1 border border-input rounded bg-card text-foreground outline-none text-sm"
+                    >
+                      <option value="US">United States</option>
+                      <option value="CA">Canada</option>
+                      <option value="MX">Mexico</option>
+                    </select>
                   </td>
                   <td className="px-2 py-1 text-center">
                     <button

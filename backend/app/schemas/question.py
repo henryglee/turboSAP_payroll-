@@ -27,7 +27,6 @@ class QuestionType(str, Enum):
     FREE_TEXT = "free_text"  # Legacy: treated as text
     NUMBER = "number"
     YES_NO = "yes_no"
-    SPREADSHEET = "spreadsheet"  # Tabular data entry
 
 
 class QuestionOption(BaseModel):
@@ -306,12 +305,6 @@ class Question(BaseModel):
         description="Output mapping configuration (Phase 2 - not used yet)"
     )
 
-    # Spreadsheet-specific configuration
-    spreadsheetConfig: Optional[SpreadsheetConfig] = Field(
-        None,
-        description="Configuration for spreadsheet-type questions (columns, rows)"
-    )
-
     @field_validator("type")
     @classmethod
     def validate_type(cls, v: str) -> str:
@@ -323,7 +316,6 @@ class Question(BaseModel):
             "text",
             "number",
             "yes_no",
-            "spreadsheet",
             # Legacy types
             "multiple_choice",
             "multiple_select",

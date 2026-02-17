@@ -13,6 +13,8 @@ import { EmployeeGroupPage } from './pages/EmployeeGroupPage';
 import { PersonnelAreaPage } from './pages/unused/PersonnelAreaPage';
 import { PersonnelAreaV2Page } from './pages/PersonnelAreaV2Page';
 import { TaxCompanyPage } from './pages/TaxCompanyPage';
+import { TaxIdPage } from './pages/TaxIdPage';
+import { SuiTaxRatePage } from './pages/SuiTaxRatePage';
 import { AIConfigPage } from './pages/AIConfigPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { AdminUsersPage } from './pages/AdminUsersPage';
@@ -105,6 +107,26 @@ function AppContent() {
         element={
           <ProtectedRoute requireClient>
             <TaxCompanyPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Tax ID - Tax ID by Tax Authority and Tax Type */}
+      <Route
+        path="/tax-id"
+        element={
+          <ProtectedRoute requireClient>
+            <TaxIdPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* SUI Tax Rate - SUI tax rate per state and tax company */}
+      <Route
+        path="/sui-tax-rate"
+        element={
+          <ProtectedRoute requireClient>
+            <SuiTaxRatePage />
           </ProtectedRoute>
         }
       />

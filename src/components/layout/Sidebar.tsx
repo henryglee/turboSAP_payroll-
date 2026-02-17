@@ -32,6 +32,8 @@ const navItems = [
   { icon: Sparkles, label: 'AI Config', href: '/ai-config', key: 'aiConfig', isNew: true },
   { icon: Building2, label: 'Company Codes', href: '/company-code', key: 'companyCodes' },
   { icon: ReceiptCent, label: 'Tax Companies', href: '/tax-company', key: 'taxCompanies' },
+  { icon: ReceiptCent, label: 'Tax IDs', href: '/tax-id', key: 'taxIds' },
+  { icon: ReceiptCent, label: 'SUI Tax Rate', href: '/sui-tax-rate', key: 'suiTaxRate' },
   { icon: Calendar, label: 'Payroll Areas', href: '/payroll-area', key: 'payrollAreas' },
   { icon: CreditCard, label: 'Payment Methods', href: '/payment-methods', key: 'paymentMethods' },
   { icon: Users, label: 'Employee Groups', href: '/employee-group', key: 'employeeGroups', isNew: true },

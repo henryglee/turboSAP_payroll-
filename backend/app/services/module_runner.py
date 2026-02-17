@@ -27,7 +27,6 @@ from .dependency_resolver import DependencyResolver, dependency_resolver
 from .module_service import ModuleService, module_service
 from .output_generator import OutputGenerator, output_generator
 from .question_service import QuestionService, question_service
-from .session_output_store import SessionOutputStore, session_output_store
 
 logger = logging.getLogger(__name__)
 
@@ -290,9 +289,6 @@ class GenericModuleRunner:
                 session.status = SessionStatus.COMPLETED
                 session.completed_at = datetime.utcnow()
                 session.current_question_id = None
-
-                # Save outputs to persistent storage
-                self._persist_session_outputs(session)
 
             self._save_session(session)
 
