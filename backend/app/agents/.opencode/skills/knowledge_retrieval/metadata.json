@@ -1,0 +1,70 @@
+{
+  "skill": {
+    "id": "knowledge_retrieval",
+    "name": "Knowledge Retrieval Skill",
+    "version": "1.0.0",
+    "description": "Deterministic retrieval of PPT/PPTX knowledge from ReachNett and user attachments.",
+    "author": "TurboSAP Team",
+    "created_date": "2024-01-24"
+  },
+  "capabilities": {
+    "supported_operations": [
+      "list_reachnett_assets",
+      "ingest_user_attachments",
+      "langgraph_node_factory"
+    ],
+    "supported_file_types": [
+      {
+        "extension": ".ppt",
+        "mime_type": "application/vnd.ms-powerpoint"
+      },
+      {
+        "extension": ".pptx",
+        "mime_type": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+      }
+    ]
+  },
+  "dependencies": {
+    "internal_modules": [
+      {
+        "module": "app.data.ReachNettDataManager",
+        "purpose": "Lists ReachNett PPT uploads"
+      }
+    ]
+  },
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "query": { "type": "string" },
+      "company_name": { "type": "string" },
+      "max_documents": { "type": "integer", "minimum": 0 },
+      "attachments": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "type": { "const": "file" },
+            "mime": { "type": "string" },
+            "url": { "type": "string" },
+            "filename": { "type": "string" }
+          }
+        }
+      }
+    }
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "knowledge_retrieval": {
+        "type": "object",
+        "properties": {
+          "query": { "type": "string" },
+          "company_name": { "type": ["string", "null"] },
+          "max_documents": { "type": "integer" },
+          "documents": { "type": "array" },
+          "errors": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    }
+  }
+}
