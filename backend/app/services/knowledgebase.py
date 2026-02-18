@@ -268,6 +268,11 @@ class KnowledgebaseDownloadService:
         payload = self._download_bytes(object_key)
         return self._parse_json(payload)
 
+    def fetch_bytes_by_object_key(self, object_key: str) -> bytes:
+        """Download the raw bytes for an arbitrary knowledgebase object."""
+
+        return self._download_bytes(object_key)
+
     def _download_bytes(self, object_key: str) -> bytes:
         url = self._build_download_url(object_key)
 
