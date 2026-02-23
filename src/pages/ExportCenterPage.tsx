@@ -16,8 +16,6 @@ import {
   Archive,
   ChevronRight,
   ChevronDown,
-  CheckCircle2,
-  AlertCircle,
   Edit3,
   Save,
   X,
@@ -42,6 +40,7 @@ import { downloadCSV, downloadAsZip } from '../utils/exportUtils';
 import {
   listAllOutputs,
   getPersistedOutput,
+  syncLegacyModule,
   type ModuleOutputs,
 } from '../api/modules';
 
@@ -144,29 +143,6 @@ function serializeCSV(data: ParsedCSV): string {
 // Components
 // ============================================
 
-function StatusBadge({ status }: { status: 'complete' | 'not-started' }) {
-  const config = {
-    complete: {
-      icon: CheckCircle2,
-      text: 'Ready',
-      className: 'bg-success/10 text-success border-success/30',
-    },
-    'not-started': {
-      icon: AlertCircle,
-      text: 'Not Started',
-      className: 'bg-secondary text-muted-foreground border-border',
-    },
-  };
-
-  const { icon: Icon, text, className } = config[status];
-
-  return (
-    <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full border', className)}>
-      <Icon className="w-3 h-3" />
-      {text}
-    </span>
-  );
-}
 
 interface FileTreeNodeProps {
   node: FileNode;
@@ -491,9 +467,30 @@ export function ExportCenterPage() {
 
   // const [taxRef, setTaxRef] = useState<TaxReferenceResponse | null>(null);
 
-  // Fetch config module outputs on mount
+  // Sync legacy modules then fetch all outputs on mount
   useEffect(() => {
-    async function fetchConfigOutputs() {
+    async function syncAndFetch() {
+      // Sync legacy modules from localStorage to backend
+      const legacyModules = [
+        { slug: 'payroll-area', storageKey: 'turbosap-config' },
+        { slug: 'employee-group', storageKey: 'turbosap-employee-group' },
+        { slug: 'personnel-area', storageKey: 'turbosap-personnel-area-v2' },
+      ];
+
+      await Promise.allSettled(
+        legacyModules.map(({ slug, storageKey }) => {
+          try {
+            const raw = localStorage.getItem(storageKey);
+            if (!raw) return Promise.resolve();
+            const data = JSON.parse(raw);
+            return syncLegacyModule(slug, data);
+          } catch {
+            return Promise.resolve();
+          }
+        })
+      );
+
+      // Now fetch all outputs (includes both generic and freshly-synced legacy)
       try {
         const response = await listAllOutputs();
         setConfigOutputs(response.outputs);
@@ -501,7 +498,7 @@ export function ExportCenterPage() {
         console.error('Failed to load config module outputs:', err);
       }
     }
-    fetchConfigOutputs();
+    syncAndFetch();
   }, []);
 
   // useEffect(() => {
@@ -777,14 +774,16 @@ export function ExportCenterPage() {
                     name: moduleData.moduleName,
                     type: 'folder' as const,
                     module: 'config' as const,
-                    children: latestSession.files.map((filename): FileNode => ({
-                      id: `config-${moduleSlug}-${latestSession.sessionId}-${filename}`,
-                      name: filename,
-                      type: 'file' as const,
-                      module: 'config' as const,
-                      configModuleSlug: moduleSlug,
-                      configSessionId: latestSession.sessionId,
-                    })),
+                    children: latestSession.files
+                      .filter((filename) => filename !== 'answers.json')
+                      .map((filename): FileNode => ({
+                        id: `config-${moduleSlug}-${latestSession.sessionId}-${filename}`,
+                        name: filename,
+                        type: 'file' as const,
+                        module: 'config' as const,
+                        configModuleSlug: moduleSlug,
+                        configSessionId: latestSession.sessionId,
+                      })),
                   };
                 }),
             },
@@ -827,10 +826,14 @@ export function ExportCenterPage() {
 
       try {
         const output = await getPersistedOutput(configModuleSlug, configSessionId);
-        if (output.files[filename]) {
+        const fileContent = output.files[filename];
+        if (fileContent !== undefined) {
+          const contentStr = typeof fileContent === 'string'
+            ? fileContent
+            : JSON.stringify(fileContent, null, 2);
           setConfigFileContents((prev) => ({
             ...prev,
-            [selectedFile]: output.files[filename],
+            [selectedFile]: contentStr,
           }));
         }
       } catch (err) {
@@ -1109,52 +1112,6 @@ export function ExportCenterPage() {
             </button>
         </div>
      </div>
-
-        {/* Module Status Summary */}
-        <div className="shrink-0 grid grid-cols-3 gap-4">
-          <div className="flex items-center gap-3 p-4 bg-card rounded-lg border border-border">
-            <div className="p-2 bg-secondary rounded-lg">
-              <FolderOpen className="w-5 h-5 text-indigo-600" />
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <span className="font-medium text-foreground">Payroll Configuration</span>
-                <StatusBadge status={payrollStatus.status} />
-              </div>
-              <p className="text-sm text-muted-foreground">
-                {payrollStatus.itemCount} payroll area{payrollStatus.itemCount !== 1 ? 's' : ''} configured
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 p-4 bg-card rounded-lg border border-border">
-            <div className="p-2 bg-secondary rounded-lg">
-              <FolderOpen className="w-5 h-5 text-emerald-600" />
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <span className="font-medium text-foreground">Payment Configuration</span>
-                <StatusBadge status={paymentStatus.status} />
-              </div>
-              <p className="text-sm text-muted-foreground">
-                {paymentStatus.itemCount} payment method{paymentStatus.itemCount !== 1 ? 's' : ''} enabled
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 p-4 bg-card rounded-lg border border-border">
-            <div className="p-2 bg-secondary rounded-lg">
-              <FolderOpen className="w-5 h-5 text-amber-600" />
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <span className="font-medium text-foreground">Company Codes</span>
-                <StatusBadge status={companyCodeStatus.status} />
-              </div>
-              <p className="text-sm text-muted-foreground">
-                {companyCodeStatus.itemCount} company code{companyCodeStatus.itemCount !== 1 ? 's' : ''} configured
-              </p>
-            </div>
-          </div>
-        </div>
 
         {/* Main Content: File Tree + Preview */}
         <div className="flex-1 min-h-0 flex gap-6">

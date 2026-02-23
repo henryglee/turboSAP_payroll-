@@ -1,0 +1,14 @@
+{
+  "q_company_codes": [
+    {
+      "code": "100",
+      "name": "Amber comp",
+      "currency": "amber money"
+    },
+    {
+      "code": "200",
+      "name": "b comp",
+      "currency": "b money"
+    }
+  ]
+}

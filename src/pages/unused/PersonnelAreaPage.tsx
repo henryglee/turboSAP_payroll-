@@ -7,9 +7,9 @@
  * - Import: File upload with column mapping
  */
 
-import { DashboardLayout } from '../components/layout/DashboardLayout';
-import { usePersonnelAreaStore } from '../stores/personnelAreaStore';
-import type { WizardStep } from '../stores/personnelAreaStore';
+import { DashboardLayout } from '../../components/layout/DashboardLayout';
+import { usePersonnelAreaStore } from '../../stores/personnelAreaStore';
+import type { WizardStep } from '../../stores/personnelAreaStore';
 import {
   ComplexitySelector,
   SimpleForm,
@@ -19,7 +19,7 @@ import {
   ImportMapping,
   ImportPreview,
   FinalReview,
-} from '../components/pa-psa';
+} from '../../components/pa-psa';
 import { Check, MapPin, Map, Upload, FileCheck } from 'lucide-react';
 
 // =============================================================================

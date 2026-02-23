@@ -1,0 +1,14 @@
+{
+  "slug": "test-cost-centers",
+  "name": "Test Cost Centers",
+  "description": "Test module — configure cost centers per company code",
+  "dependencies": ["test-company-codes"],
+  "outputs": {},
+  "category": null,
+  "icon": "layers",
+  "status": "active",
+  "order": 20,
+  "version": "1.0",
+  "createdAt": "2026-02-09T00:00:00Z",
+  "createdBy": "system"
+}

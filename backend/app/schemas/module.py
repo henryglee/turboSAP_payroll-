@@ -15,6 +15,9 @@ from .question import Question, QuestionsConfig
 class ModuleMetadata(BaseModel):
     """
     Metadata for a module (stored in config.json or modules_metadata.json).
+
+    The ``type`` field distinguishes generic config-driven modules
+    (questions/sessions) from legacy custom-coded modules.
     """
 
     slug: str = Field(..., description="URL-friendly identifier")
@@ -25,6 +28,14 @@ class ModuleMetadata(BaseModel):
     status: str = Field(default="active", description="Module status: active, inactive, draft")
     order: int = Field(default=999, description="Display order")
     version: str = Field(default="1.0", description="Config version")
+    dependencies: List[str] = Field(default_factory=list, description="Module slugs this module depends on")
+    outputs: Dict[str, Any] = Field(default_factory=dict, description="Named outputs this module exposes for downstream consumers")
+    # --- Type-awareness fields (Phase 2) ---
+    type: Optional[str] = Field(None, description="Module type: 'generic' (default/null) or 'legacy'")
+    route: Optional[str] = Field(None, description="Frontend route path for legacy modules (e.g. /payroll-area)")
+    completion: Optional[Dict[str, Any]] = Field(None, description="How to detect module completion (e.g. localStorage key + rule)")
+    data_access: Optional[Dict[str, Any]] = Field(None, alias="dataAccess", description="How to read module data (adapter name, storage keys)")
+    # --- Timestamps ---
     created_at: Optional[datetime] = Field(None, alias="createdAt")
     created_by: Optional[str] = Field(None, alias="createdBy")
     updated_at: Optional[datetime] = Field(None, alias="updatedAt")
@@ -89,6 +100,9 @@ class ModuleSummary(BaseModel):
     icon: str = "settings"
     status: str = "active"
     order: int = 999
+    type: Optional[str] = None
+    route: Optional[str] = None
+    dependencies: List[str] = Field(default_factory=list)
     question_count: int = 0
     output_files: List[str] = Field(default_factory=list)
     has_config: bool = False

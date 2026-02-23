@@ -22,6 +22,22 @@ export interface ModuleSummary {
   output_files: string[];
   has_config: boolean;
   has_questions: boolean;
+  dependencies: string[];
+}
+
+export interface CompletionRule {
+  type: string; // 'localstorage_key'
+  key: string;  // localStorage key pattern (may include {userId})
+  rule: string; // Human-readable completion rule
+}
+
+export interface DataAccess {
+  type: string;       // 'legacy'
+  adapter?: string;   // e.g., 'PayrollAreaAdapter'
+  storageKey: string; // localStorage key
+  storePath?: string; // Path within store (e.g., 'state.payrollAreas')
+  storeNotify?: string | null;
+  notes?: string;
 }
 
 export interface ModuleMetadata {
@@ -36,6 +52,13 @@ export interface ModuleMetadata {
   createdAt: string | null;
   createdBy: string | null;
   updatedAt: string | null;
+  dependencies: string[];
+  outputs: string[];
+  // Type-awareness fields for dashboard progress tracking
+  type?: 'legacy' | 'generic' | null;
+  route?: string;
+  completion?: CompletionRule;
+  dataAccess?: DataAccess;
 }
 
 export interface QuestionOption {
@@ -76,11 +99,19 @@ export interface SpreadsheetConfig {
 
 export type SpreadsheetRow = Record<string, string | number | null>;
 
+export interface OptionsFrom {
+  module: string;
+  answerKey: string;
+  valueField: string;
+  displayField: string;
+}
+
 export interface Question {
   id: string;
   text: string;
   type: 'single_select' | 'multi_select' | 'text' | 'number' | 'yes_no' | 'spreadsheet' | string;
   options?: QuestionOption[];
+  optionsFrom?: OptionsFrom;
   showIf?: ShowIfCondition;
   order?: number;
   helpText?: string;
@@ -355,4 +386,42 @@ export async function deletePersistedOutput(
   return apiFetch(`/api/modules/${moduleSlug}/outputs/${sessionId}`, {
     method: 'DELETE',
   });
+}
+
+// =============================================================================
+// Legacy Sync
+// =============================================================================
+
+export interface LegacySyncResult {
+  success: boolean;
+  moduleSlug: string;
+  sessionId?: string;
+  files?: string[];
+  errors?: string[];
+}
+
+export async function syncLegacyModule(
+  moduleSlug: string,
+  clientData: Record<string, unknown>
+): Promise<LegacySyncResult> {
+  return apiFetch(`/api/modules/${moduleSlug}/sync`, {
+    method: 'POST',
+    body: JSON.stringify(clientData),
+  });
+}
+
+// =============================================================================
+// Dependencies
+// =============================================================================
+
+export interface DependencyStatus {
+  dependencies: string[];
+  all_met: boolean;
+  details: Record<string, boolean>;
+}
+
+export async function getDependencyStatus(
+  moduleSlug: string
+): Promise<DependencyStatus> {
+  return apiFetch<DependencyStatus>(`/api/modules/${moduleSlug}/dependencies`);
 }

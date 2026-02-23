@@ -39,13 +39,13 @@ export function PersonnelSubareasEditor() {
     });
   };
 
-  const handleCodeChange = (paCode: string, oldPsaCode: string, newCode: string) => {
+  const handleCodeChange = (id: string, newCode: string) => {
     const code = newCode.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4);
-    updatePersonnelSubarea(paCode, oldPsaCode, { code });
+    updatePersonnelSubarea(id, { code });
   };
 
-  const handleDescriptionChange = (paCode: string, psaCode: string, value: string) => {
-    updatePersonnelSubarea(paCode, psaCode, { description: value.slice(0, 15) });
+  const handleDescriptionChange = (id: string, value: string) => {
+    updatePersonnelSubarea(id, { description: value.slice(0, 15) });
   };
 
   // Validation
@@ -157,12 +157,12 @@ export function PersonnelSubareasEditor() {
                           const hasRowErrors = errors.length > 0;
 
                           return (
-                            <tr key={psa.code} className={hasRowErrors ? 'bg-red-50' : 'hover:bg-gray-50'}>
+                            <tr key={psa.id} className={hasRowErrors ? 'bg-red-50' : 'hover:bg-gray-50'}>
                               <td className="px-3 py-2">
                                 <input
                                   type="text"
                                   value={psa.code}
-                                  onChange={(e) => handleCodeChange(pa.code, psa.code, e.target.value)}
+                                  onChange={(e) => handleCodeChange(psa.id, e.target.value)}
                                   placeholder="PHX1"
                                   maxLength={4}
                                   className={`w-20 px-2 py-1 text-sm border rounded uppercase font-mono focus:outline-none focus:ring-1 ${
@@ -177,7 +177,7 @@ export function PersonnelSubareasEditor() {
                                   <input
                                     type="text"
                                     value={psa.description}
-                                    onChange={(e) => handleDescriptionChange(pa.code, psa.code, e.target.value)}
+                                    onChange={(e) => handleDescriptionChange(psa.id, e.target.value)}
                                     placeholder="e.g., Phoenix Office"
                                     maxLength={15}
                                     className={`flex-1 px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1 ${
@@ -195,7 +195,7 @@ export function PersonnelSubareasEditor() {
                               </td>
                               <td className="px-3 py-2 text-right">
                                 <button
-                                  onClick={() => removePersonnelSubarea(pa.code, psa.code)}
+                                  onClick={() => removePersonnelSubarea(psa.id)}
                                   disabled={subareas.length <= 1}
                                   className="p-1 text-gray-400 hover:text-red-600 disabled:opacity-30 disabled:cursor-not-allowed"
                                   title="Delete subarea"

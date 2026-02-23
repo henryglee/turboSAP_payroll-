@@ -89,11 +89,14 @@ def ensure_qdrant_ready() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # NOTE(yan): Making Qdrant optional so the app starts without Podman.
+    # April/William — if you want this mandatory for agent features,
+    # consider a REQUIRE_QDRANT env var or similar toggle. Happy to discuss!
     try:
         ensure_qdrant_ready()
     except Exception as exc:
-        print(f"[Startup] Failed to ensure Qdrant is ready: {exc}")
-        raise
+        print(f"[Startup] Qdrant not available (skipping): {exc}")
+        print("[Startup] Agent features requiring Qdrant will be disabled.")
 
     init_database()
 

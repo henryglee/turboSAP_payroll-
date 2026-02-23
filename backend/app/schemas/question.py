@@ -157,7 +157,7 @@ class OutputMapping(BaseModel):
     """
 
     file: str = Field(..., description="Target output file (e.g., 'payment_methods.csv')")
-    column: str = Field(..., description="Target column in the file (e.g., 'PaymentType')")
+    column: Optional[str] = Field(None, description="Target column in the file (e.g., 'PaymentType'). Not needed for spreadsheet questions.")
     transform: TransformType = Field(
         default=TransformType.DIRECT,
         description="How to transform the answer value"
@@ -173,6 +173,91 @@ class OutputMapping(BaseModel):
         if self.transform == TransformType.VALUE_LOOKUP and not self.valueMap:
             raise ValueError("valueMap is required when transform is 'value_lookup'")
         return self
+
+    class Config:
+        extra = "allow"
+
+
+class SpreadsheetColumnType(str, Enum):
+    """Column data types for spreadsheet questions."""
+
+    TEXT = "text"
+    NUMBER = "number"
+
+
+class SpreadsheetColumn(BaseModel):
+    """
+    Configuration for a single column in a spreadsheet question.
+    """
+
+    key: str = Field(..., description="Column identifier used in row data")
+    label: str = Field(..., description="Display header for the column")
+    width: Optional[int] = Field(None, description="Column width in pixels")
+    required: bool = Field(default=False, description="Whether this column is required")
+    type: SpreadsheetColumnType = Field(
+        default=SpreadsheetColumnType.TEXT,
+        description="Data type for the column"
+    )
+    placeholder: Optional[str] = Field(None, description="Placeholder text for empty cells")
+
+    class Config:
+        extra = "allow"
+
+
+class SpreadsheetConfig(BaseModel):
+    """
+    Configuration for spreadsheet-type questions.
+    """
+
+    columns: List[SpreadsheetColumn] = Field(
+        ...,
+        min_length=1,
+        description="Column definitions for the spreadsheet"
+    )
+    minRows: int = Field(default=1, ge=0, description="Minimum number of rows required")
+    maxRows: Optional[int] = Field(None, ge=1, description="Maximum number of rows allowed")
+
+    @model_validator(mode="after")
+    def validate_max_rows(self) -> "SpreadsheetConfig":
+        """Ensure maxRows >= minRows if both are set."""
+        if self.maxRows is not None and self.maxRows < self.minRows:
+            raise ValueError(f"maxRows ({self.maxRows}) must be >= minRows ({self.minRows})")
+        return self
+
+    @model_validator(mode="after")
+    def validate_unique_keys(self) -> "SpreadsheetConfig":
+        """Ensure all column keys are unique."""
+        keys = [col.key for col in self.columns]
+        if len(keys) != len(set(keys)):
+            raise ValueError("Column keys must be unique")
+        return self
+
+    class Config:
+        extra = "allow"
+
+
+class OptionsFrom(BaseModel):
+    """
+    Configuration for dynamically populating question options
+    from another module's completed data.
+
+    Used for cross-module dependencies: e.g., a "Select Company Code"
+    dropdown whose options come from a completed Company Codes module.
+    """
+
+    module: str = Field(..., description="Source module slug")
+    answerKey: str = Field(
+        ...,
+        description="Question ID in source module whose answer contains the data"
+    )
+    valueField: str = Field(
+        ...,
+        description="Field name in each item to use as the option value"
+    )
+    displayField: str = Field(
+        ...,
+        description="Field name in each item to use as the option label"
+    )
 
     class Config:
         extra = "allow"
@@ -195,7 +280,11 @@ class Question(BaseModel):
     # Optional fields
     options: Optional[List[QuestionOption]] = Field(
         None,
-        description="Options for choice-type questions"
+        description="Static options for choice-type questions"
+    )
+    optionsFrom: Optional[OptionsFrom] = Field(
+        None,
+        description="Dynamic options populated from another module's completed data"
     )
     showIf: Optional[ShowIfCondition] = Field(
         None,
@@ -236,6 +325,20 @@ class Question(BaseModel):
         if v not in valid_types:
             raise ValueError(f"Invalid question type: {v}. Valid types: {valid_types}")
         return v
+
+    @model_validator(mode="after")
+    def validate_spreadsheet_config(self) -> "Question":
+        """Ensure spreadsheet questions have spreadsheetConfig."""
+        if self.type == "spreadsheet" and not self.spreadsheetConfig:
+            raise ValueError("Spreadsheet questions must have 'spreadsheetConfig' defined")
+        return self
+
+    @model_validator(mode="after")
+    def validate_options_source(self) -> "Question":
+        """Ensure a question has either static options or optionsFrom, not both."""
+        if self.options and self.optionsFrom:
+            raise ValueError("Question cannot have both 'options' and 'optionsFrom' — use one or the other")
+        return self
 
     def get_normalized_type(self) -> str:
         """Get the normalized question type (maps legacy to new types)."""

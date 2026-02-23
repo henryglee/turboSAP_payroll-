@@ -14,6 +14,7 @@ import {
   Box,
   AlertCircle,
   Loader2,
+  GitBranch,
 } from 'lucide-react';
 import { AdminLayout } from '../../components/layout/AdminLayout';
 import {
@@ -207,6 +208,22 @@ export function ModulesPage() {
                   <span>{module.output_files.length} output files</span>
                 )}
               </div>
+
+              {/* Dependencies */}
+              {module.dependencies && module.dependencies.length > 0 && (
+                <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                  <GitBranch className="h-3.5 w-3.5 text-blue-500" />
+                  <span className="text-xs text-gray-500">Depends on:</span>
+                  {module.dependencies.map((dep) => (
+                    <span
+                      key={dep}
+                      className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-600/20"
+                    >
+                      {dep}
+                    </span>
+                  ))}
+                </div>
+              )}
 
               {/* Actions */}
               <div className="mt-4 flex items-center gap-2 border-t border-gray-100 pt-4">

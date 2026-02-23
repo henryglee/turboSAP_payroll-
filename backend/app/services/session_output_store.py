@@ -154,10 +154,16 @@ class LocalSessionOutputStore(SessionOutputStore):
                         pass
                 files[filename] = content
 
-        return {
+        result = {
             "metadata": metadata,
             "files": files,
         }
+
+        # Expose raw answers separately for cross-module dependency resolution
+        if "answers.json" in files:
+            result["answers"] = files["answers.json"]
+
+        return result
 
     def list_outputs(self, module_slug: str) -> list[dict[str, Any]]:
         """

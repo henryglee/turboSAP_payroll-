@@ -153,6 +153,18 @@ function SortableQuestion({
                     {question.options.length} options
                   </span>
                 )}
+
+                {question.optionsFrom && (
+                  <span className="text-xs text-gray-400">
+                    Options from: {question.optionsFrom.module}
+                  </span>
+                )}
+
+                {question.spreadsheetConfig && (
+                  <span className="text-xs text-gray-400">
+                    {question.spreadsheetConfig.columns.length} columns
+                  </span>
+                )}
               </div>
             </div>
 

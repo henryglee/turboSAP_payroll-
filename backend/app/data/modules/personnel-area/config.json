@@ -1,0 +1,76 @@
+{
+  "slug": "personnel-area",
+  "name": "Personnel Area / Subarea",
+  "description": "4-phase wizard to define Personnel Areas (regions), Personnel Subareas, and company code assignments",
+  "icon": "map-pin",
+  "status": "active",
+  "order": 5,
+  "version": "1.0",
+  "type": "legacy",
+  "route": "/personnel-area-v2",
+
+  "dependencies": ["company-code"],
+
+  "outputs": {
+    "regions": {
+      "description": "Personnel Areas representing organizational regions or divisions",
+      "format": "array",
+      "schema": {
+        "id":            { "type": "string", "required": true, "description": "UUID identifier" },
+        "code":          { "type": "string", "maxLength": 4, "required": true, "description": "4-character uppercase SAP PERSA code (e.g. 1000, 1100)" },
+        "name":          { "type": "string", "required": true, "description": "Region/area display name (e.g. Southwest, Corporate HQ)" },
+        "needsSubareas": { "type": "boolean", "required": false, "description": "Whether this region has personnel subareas defined" }
+      }
+    },
+    "subareas": {
+      "description": "Personnel Subareas within regions (SAP T001P entries)",
+      "format": "array",
+      "schema": {
+        "id":          { "type": "string", "required": true, "description": "UUID identifier" },
+        "regionId":    { "type": "string", "required": true, "description": "Foreign key to regions[].id" },
+        "code":        { "type": "string", "maxLength": 4, "required": true, "description": "4-character uppercase SAP BTRTL code" },
+        "description": { "type": "string", "maxLength": 15, "required": true, "description": "Subarea description (SAP T001P BTEXT, max 15 chars)" },
+        "notes":       { "type": "string", "required": false, "description": "Optional notes" }
+      }
+    },
+    "companyCodeAssignment": {
+      "description": "Mapping of regions to company codes (same for all or per-region)",
+      "format": "object",
+      "derived": true,
+      "schema": {
+        "companyCodeMode":    { "type": "string", "required": true, "enum": ["same", "individual"], "description": "Whether all regions share one company code or each gets its own" },
+        "globalCompanyCode":  { "type": "string", "required": false, "description": "Shared company code when mode = same" },
+        "regionCompanyCodes": { "type": "object", "required": false, "description": "Map of regionId -> companyCode when mode = individual" }
+      }
+    },
+    "orgType": {
+      "description": "Organization structure type selected in phase 1",
+      "format": "scalar",
+      "schema": {
+        "orgType": { "type": "string", "required": true, "enum": ["single", "regional", "divisional"], "description": "Organizational structure type" }
+      }
+    },
+    "differenceFactors": {
+      "description": "Factors that drive subarea differentiation (e.g. pay, benefits, pto)",
+      "format": "array",
+      "schema": {
+        "factor": { "type": "string", "required": true, "description": "Factor name (free-form)" }
+      }
+    }
+  },
+
+  "completion": {
+    "type": "localstorage_key",
+    "key": "turbosap-personnel-area-v2",
+    "rule": "Zustand persisted store with currentScreen = '4.1' (review screen) and regions array with at least one entry"
+  },
+
+  "dataAccess": {
+    "type": "legacy",
+    "adapter": "PersonnelAreaAdapter",
+    "storageKey": "turbosap-personnel-area-v2",
+    "storePath": "state",
+    "storeNotify": null,
+    "notes": "Reads company codes from turbosap.company_code.draft.v1.* via cross-module localStorage scan"
+  }
+}
