@@ -19,6 +19,15 @@ Question CRUD:
 - DELETE /api/modules/{slug}/questions/{id}     - Delete question
 - PUT    /api/modules/{slug}/questions/reorder  - Reorder questions
 
+Output Persistence:
+- GET    /api/modules/outputs/all               - List all persisted outputs
+- GET    /api/modules/{slug}/outputs            - List outputs for a module
+- GET    /api/modules/{slug}/outputs/{sid}      - Get persisted output
+- DELETE /api/modules/{slug}/outputs/{sid}      - Delete persisted output
+
+Legacy Sync:
+- POST   /api/modules/{slug}/sync               - Sync legacy localStorage data
+
 Session (user-facing):
 - POST   /api/modules/{slug}/sessions           - Start session
 - GET    /api/modules/{slug}/sessions/{sid}     - Get session state
@@ -27,6 +36,7 @@ Session (user-facing):
 """
 
 import logging
+import uuid
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
@@ -55,7 +65,9 @@ from ..services.module_runner import (
     SessionNotFoundError,
     get_module_runner,
 )
+from ..services.adapters import get_adapter
 from ..services.legacy_bridge import legacy_bridge
+from ..services.session_output_store import session_output_store
 from ..services.module_service import (
     ModuleAlreadyExistsError,
     ModuleNotFoundError as ModuleServiceNotFoundError,
@@ -74,6 +86,107 @@ from ..services.question_service import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/modules", tags=["Modules"])
+
+
+# =============================================================================
+# Output Persistence Endpoints (must be before /{slug} to avoid route conflict)
+# =============================================================================
+
+
+@router.get("/outputs/all", response_model=Dict[str, Any])
+async def list_all_outputs(
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    List all persisted outputs across all modules.
+
+    Returns {module_slug: {moduleName, sessions: [...]}} for every module
+    that has at least one completed session with saved output.
+    """
+    try:
+        raw = session_output_store.get_all_outputs()
+
+        # Enrich with module names
+        outputs = {}
+        for module_slug, sessions in raw.items():
+            meta = module_service.get_module_metadata(module_slug)
+            module_name = meta.name if meta else module_slug
+            outputs[module_slug] = {
+                "moduleName": module_name,
+                "sessions": sessions,
+            }
+
+        return {"success": True, "outputs": outputs}
+    except Exception as e:
+        logger.error(f"Error listing all outputs: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/{slug}/outputs", response_model=Dict[str, Any])
+async def list_module_outputs(
+    slug: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    List all persisted session outputs for a specific module.
+    """
+    if not module_service.module_exists(slug):
+        raise HTTPException(status_code=404, detail=f"Module '{slug}' not found")
+
+    sessions = session_output_store.list_outputs(slug)
+    return {
+        "success": True,
+        "moduleSlug": slug,
+        "sessions": sessions,
+        "count": len(sessions),
+    }
+
+
+@router.get("/{slug}/outputs/{session_id}", response_model=Dict[str, Any])
+async def get_persisted_output(
+    slug: str,
+    session_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Get persisted output files for a specific session.
+    """
+    output = session_output_store.get_output(slug, session_id)
+    if not output:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Output for session '{session_id}' in module '{slug}' not found",
+        )
+
+    return {
+        "success": True,
+        "moduleSlug": slug,
+        "sessionId": session_id,
+        "metadata": output["metadata"],
+        "files": output["files"],
+    }
+
+
+@router.delete("/{slug}/outputs/{session_id}", response_model=Dict[str, Any])
+async def delete_persisted_output(
+    slug: str,
+    session_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Delete persisted output for a session.
+    """
+    deleted = session_output_store.delete_output(slug, session_id)
+    if not deleted:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Output for session '{session_id}' in module '{slug}' not found",
+        )
+
+    return {
+        "success": True,
+        "message": f"Output for session '{session_id}' deleted successfully",
+    }
 
 
 # =============================================================================
@@ -449,6 +562,69 @@ async def check_legacy_completion(
 
     result = legacy_bridge.validate_completion(slug, client_data)
     return {"success": True, "moduleSlug": slug, **result}
+
+
+@router.post("/{slug}/sync", response_model=Dict[str, Any])
+async def sync_legacy_module(
+    slug: str,
+    client_data: Dict[str, Any] = Body(...),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Sync legacy module data from the frontend to the backend.
+
+    The frontend posts its localStorage state for a legacy module.
+    The backend validates, normalizes, and generates CSV outputs —
+    the same format generic modules produce via module_runner.
+    """
+    if not legacy_bridge.is_legacy(slug):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Module '{slug}' is not a legacy module. Use session endpoints for generic modules.",
+        )
+
+    contract = legacy_bridge.get_contract(slug)
+    if not contract:
+        raise HTTPException(status_code=404, detail=f"Module '{slug}' not found")
+
+    try:
+        adapter = get_adapter(contract)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    result = adapter.process(client_data)
+
+    if not result["valid"]:
+        return {
+            "success": False,
+            "moduleSlug": slug,
+            "errors": result["errors"],
+        }
+
+    # Persist outputs via SessionOutputStore (same as generic modules)
+    session_id = str(uuid.uuid4())
+    user_id = current_user.get("user_id")
+
+    # Combine CSV files + normalized answers JSON
+    outputs = dict(result["files"])
+    outputs["answers.json"] = result["normalized"]
+
+    session_output_store.save_output(
+        module_slug=slug,
+        session_id=session_id,
+        outputs=outputs,
+        metadata={
+            "source": "legacy_sync",
+            "userId": user_id,
+        },
+    )
+
+    return {
+        "success": True,
+        "moduleSlug": slug,
+        "sessionId": session_id,
+        "files": list(result["files"].keys()),
+    }
 
 
 # =============================================================================

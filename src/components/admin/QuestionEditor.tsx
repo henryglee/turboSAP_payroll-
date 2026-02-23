@@ -93,14 +93,14 @@ export function QuestionEditor({
   const selectedSourceQuestion = availableQuestions.find((q) => q.id === optionsFrom.answerKey);
   const sourceColumns = selectedSourceQuestion?.spreadsheetConfig?.columns || [];
 
-  // Spreadsheet config state
-  const [spreadsheetColumns, setSpreadsheetColumns] = useState<SpreadsheetColumn[]>(
+  // Spreadsheet config state (scaffolding for future spreadsheet question editor)
+  const [_spreadsheetColumns, _setSpreadsheetColumns] = useState<SpreadsheetColumn[]>(
     question?.spreadsheetConfig?.columns || [{ key: 'col1', label: 'Column 1', type: 'text' }]
   );
-  const [spreadsheetMinRows, setSpreadsheetMinRows] = useState(
+  const [_spreadsheetMinRows, _setSpreadsheetMinRows] = useState(
     question?.spreadsheetConfig?.minRows || 1
   );
-  const [spreadsheetMaxRows, setSpreadsheetMaxRows] = useState<number | undefined>(
+  const [_spreadsheetMaxRows, _setSpreadsheetMaxRows] = useState<number | undefined>(
     question?.spreadsheetConfig?.maxRows
   );
 
