@@ -4,7 +4,8 @@
  * Extracted from PayrollResultsCard and PaymentMethodPage
  */
 
-import type { PayrollArea, CompanyCode } from '../types';
+import type { PayrollArea, CompanyCode, TaxCompany } from '../types';
+import type { TaxReferenceResponse } from '../api/taxReference';
 import {
   toCSVWithLabels,
   formatDatePadded,
@@ -85,6 +86,42 @@ export interface CompanyCodeRow {
   vat_registration_number: string;
   credit_control_area: string;
   tax_jurisdiction_code: string;
+}
+
+export interface TaxCompanyRow {
+  tax_company_code: string;
+  tax_company_name: string;
+  address: string;
+}
+
+export interface TaxIdRow {
+  tax_authority: string;
+  authority_description: string;
+  tax_type_code: string;
+  tax_type_name: string;
+  paid_by: string;
+  has_local_taxes: string;
+  tax_id: string;
+}
+
+// New grid-based row format including tax company code as the first column
+export interface TaxIdGridRow {
+  tax_company_code: string;
+  tax_authority: string;
+  authority_description: string;
+  county: string;
+  tax_type_code: string;
+  tax_type_name: string;
+  paid_by: string;
+  has_local_taxes: string;
+  tax_id: string;
+}
+
+// SUI Tax Rate grid row: one row per state per tax company
+export interface SuiTaxRateRow {
+  tax_company_code: string;
+  state: string;
+  sui_tax_rate: string;
 }
 
 export interface ExportFile {
@@ -472,6 +509,149 @@ export function generateCalendarIdCSV(areas: PayrollArea[]): string {
   return toCSVWithLabels(rows, columns);
 }
 
+// Generate SUI tax rate CSV from grid rows
+export function generateSuiTaxRateCSVFromGrid(rows: SuiTaxRateRow[]): string {
+  const columns = [
+    { key: 'tax_company_code' as const, label: 'Tax_Company_Code' },
+    { key: 'state' as const, label: 'State' },
+    { key: 'sui_tax_rate' as const, label: 'SUI_Tax_Rate' },
+  ];
+
+  return toCSVWithLabels(rows, columns);
+}
+
+// Helper: expand legacy compact entries into full grid rows with a provided tax company code
+export function expandLegacyTaxIdEntriesToGrid(
+  entries: { authorityCode: string | null; taxId: string }[],
+  taxRef: TaxReferenceResponse,
+  taxCompanyCode: string
+): TaxIdGridRow[] {
+  const rows: TaxIdGridRow[] = [];
+
+  for (const entry of entries) {
+    if (!entry.authorityCode || !entry.taxId.trim()) continue;
+
+    let authority: { code: string; name: string; taxTypes: string[]; hasLocalTaxes?: boolean } | null = null;
+    if (entry.authorityCode === taxRef.federal.code) {
+      authority = {
+        code: taxRef.federal.code,
+        name: taxRef.federal.name,
+        taxTypes: taxRef.federal.taxTypes,
+        hasLocalTaxes: false,
+      };
+    } else if (taxRef.states[entry.authorityCode]) {
+      const st = taxRef.states[entry.authorityCode];
+      authority = {
+        code: st.code,
+        name: st.name,
+        taxTypes: st.taxTypes,
+        hasLocalTaxes: st.hasLocalTaxes,
+      };
+    }
+
+    if (!authority) continue;
+
+    const hasLocal = authority.hasLocalTaxes ? 'Yes' : 'No';
+
+    for (const code of authority.taxTypes) {
+      const tt = taxRef.taxTypeCodes[code];
+      if (!tt) continue;
+
+      rows.push({
+        tax_company_code: taxCompanyCode,
+        tax_authority: authority.code,
+        authority_description: authority.name,
+        county: '',
+        tax_type_code: code,
+        tax_type_name: tt.name,
+        paid_by: tt.paidBy,
+        has_local_taxes: hasLocal,
+        tax_id: entry.taxId,
+      });
+    }
+  }
+
+  return rows;
+}
+
+// New: generate tax_id.csv from full grid rows, with Tax_Company_Code as first column
+export function generateTaxIdCSVFromGrid(rows: TaxIdGridRow[]): string {
+  const columns = [
+    { key: 'tax_company_code' as const, label: 'Tax_Company_Code' },
+    { key: 'tax_authority' as const, label: 'tax_authority' },
+    { key: 'authority_description' as const, label: 'authority_description' },
+    { key: 'county' as const, label: 'county' },
+    { key: 'tax_type_code' as const, label: 'tax_type_code' },
+    { key: 'tax_type_name' as const, label: 'tax_type_name' },
+    { key: 'paid_by' as const, label: 'paid_by' },
+    { key: 'has_local_taxes' as const, label: 'has_local_taxes' },
+    { key: 'tax_id' as const, label: 'tax_id' },
+  ];
+
+  return toCSVWithLabels(rows, columns);
+}
+
+export function generateTaxIdCSV(
+  entries: { authorityCode: string | null; taxId: string }[],
+  taxRef: TaxReferenceResponse
+): string {
+  const rows: TaxIdRow[] = [];
+
+  for (const entry of entries) {
+    if (!entry.authorityCode || !entry.taxId.trim()) continue;
+
+    // Resolve authority (federal or state)
+    let authority: { code: string; name: string; taxTypes: string[]; hasLocalTaxes?: boolean } | null = null;
+    if (entry.authorityCode === taxRef.federal.code) {
+      authority = {
+        code: taxRef.federal.code,
+        name: taxRef.federal.name,
+        taxTypes: taxRef.federal.taxTypes,
+        hasLocalTaxes: false,
+      };
+    } else if (taxRef.states[entry.authorityCode]) {
+      const st = taxRef.states[entry.authorityCode];
+      authority = {
+        code: st.code,
+        name: st.name,
+        taxTypes: st.taxTypes,
+        hasLocalTaxes: st.hasLocalTaxes,
+      };
+    }
+
+    if (!authority) continue;
+
+    const hasLocal = authority.hasLocalTaxes ? 'Yes' : 'No';
+
+    for (const code of authority.taxTypes) {
+      const tt = taxRef.taxTypeCodes[code];
+      if (!tt) continue;
+
+      rows.push({
+        tax_authority: authority.code,
+        authority_description: authority.name,
+        tax_type_code: code,
+        tax_type_name: tt.name,
+        paid_by: tt.paidBy,
+        has_local_taxes: hasLocal,
+        tax_id: entry.taxId,
+      });
+    }
+  }
+
+  const columns = [
+    { key: 'tax_authority' as const, label: 'tax_authority' },
+    { key: 'authority_description' as const, label: 'authority_description' },
+    { key: 'tax_type_code' as const, label: 'tax_type_code' },
+    { key: 'tax_type_name' as const, label: 'tax_type_name' },
+    { key: 'paid_by' as const, label: 'paid_by' },
+    { key: 'has_local_taxes' as const, label: 'has_local_taxes' },
+    { key: 'tax_id' as const, label: 'tax_id' },
+  ];
+
+  return toCSVWithLabels(rows, columns);
+}
+
 export function generatePayrollAreaConfigCSV(areas: PayrollArea[]): string {
   const rows = areas.map(generatePayrollAreaConfigRow);
 
@@ -603,6 +783,38 @@ export function generateCompanyCodeCSV(codes: CompanyCode[]): string {
   return toCSVWithLabels(rows, columns);
 }
 
+export function generateTaxCompanyCSV(companies: TaxCompany[]): string {
+  const rows: TaxCompanyRow[] = companies
+    .filter((c) => c.code && c.name)
+    .map((c) => {
+      // Format address components into a single string
+      const { street, city, state, zipCode, country } = c.address;
+      const addressParts = [
+        street,
+        city,
+        state,
+        zipCode,
+        country
+      ].filter(Boolean);
+      
+      const formattedAddress = addressParts.join(', ');
+      
+      return {
+        tax_company_code: String(c.code ?? ''),
+        tax_company_name: c.name || '',
+        address: formattedAddress,
+      };
+    });
+
+  const columns = [
+    { key: 'tax_company_code' as const, label: 'Tax_Company_Code' },
+    { key: 'tax_company_name' as const, label: 'Tax_Company_Name' },
+    { key: 'address' as const, label: 'Address' },
+  ];
+
+  return toCSVWithLabels(rows, columns);
+}
+
 // ============================================
 // File Registry
 // ============================================
@@ -710,6 +922,16 @@ export const FILE_GENERATORS: Record<string, FileGeneratorConfig> = {
     generate: (data) => {
       const codes = data as CompanyCode[];
       return { content: generateCompanyCodeCSV(codes), rowCount: codes.length };
+    },
+  },
+  'tax-company': {
+    id: 'tax-company',
+    name: 'Tax Company',
+    description: 'Tax company master data',
+    module: 'payroll',
+    generate: (data) => {
+      const companies = data as TaxCompany[];
+      return { content: generateTaxCompanyCSV(companies), rowCount: companies.length };
     },
   },
 };

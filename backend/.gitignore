@@ -30,3 +30,6 @@ questions_current.json
 
 #Deploy
 deploy/*.zip
+uploads/
+
+.qdrant_data

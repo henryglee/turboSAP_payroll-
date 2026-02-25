@@ -6,7 +6,8 @@
 import { useMemo} from 'react';
 import { useConfigStore } from '../store';
 import { useAuthStore } from '../store/auth';
-import type { PayrollArea, CompanyCode } from '../types';
+import type { PayrollArea, CompanyCode, TaxCompany } from '../types';
+import type { TaxIdGridRow, SuiTaxRateRow } from '../utils/fileGenerators';
 import type {
   PaymentMethodRow,
   CheckRangeRow,
@@ -54,6 +55,18 @@ export interface ExportDataResult {
   companyCodes: CompanyCode[];
   companyCodeStatus: ModuleStatus;
 
+  // Tax company data
+  taxCompanies: TaxCompany[];
+  taxCompanyStatus: ModuleStatus;
+
+  // Tax ID data (grid rows)
+  taxIds: TaxIdGridRow[];
+  taxIdStatus: ModuleStatus;
+
+  // SUI Tax Rate data (grid rows)
+  suiTaxRates: SuiTaxRateRow[];
+  suiTaxRateStatus: ModuleStatus;
+
   // User info
   userKey: string;
 
@@ -72,12 +85,60 @@ function companyCodeDraftKey(userKey: string) {
   return `turbosap.company_code.draft.v1.${userKey}`;
 }
 
+function taxCompanyDraftKey(userKey: string) {
+  return `turbosap.tax_company.draft.v1.${userKey}`;
+}
+
+function taxIdGridDraftKey(userKey: string) {
+  return `turbosap.tax_id_grid.draft.v1.${userKey}`;
+}
+
+function suiTaxRateGridDraftKey(userKey: string) {
+  return `turbosap.sui_tax_rate_grid.draft.v1.${userKey}`;
+}
+
 function loadCompanyCodeDraft(userKey: string): CompanyCode[] {
   try {
     const raw = localStorage.getItem(companyCodeDraftKey(userKey));
     return raw ? JSON.parse(raw) : [];
   } catch {
     return [];
+  }
+}
+
+function loadTaxCompanyDraft(userKey: string): TaxCompany[] {
+  try {
+    const raw = localStorage.getItem(taxCompanyDraftKey(userKey));
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export interface TaxIdEntry {
+  authorityCode: string | null;
+  taxId: string;
+}
+
+type TaxIdGridDraftMap = Record<string, TaxIdGridRow[]>;
+
+function loadTaxIdGridDraftMap(userKey: string): TaxIdGridDraftMap {
+  try {
+    const raw = localStorage.getItem(taxIdGridDraftKey(userKey));
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+type SuiTaxRateGridDraftMap = Record<string, SuiTaxRateRow[]>;
+
+function loadSuiTaxRateGridDraftMap(userKey: string): SuiTaxRateGridDraftMap {
+  try {
+    const raw = localStorage.getItem(suiTaxRateGridDraftKey(userKey));
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
   }
 }
 
@@ -136,6 +197,7 @@ export function useExportData(): ExportDataResult {
 
   // Subscribe to company code version to trigger re-computation when localStorage changes
   const companyCodeVersion = useConfigStore((state) => state.companyCodeVersion);
+  const taxCompanyVersion = useConfigStore((state) => (state as any).taxCompanyVersion ?? 0);
 
   
   const paymentData = useMemo((): PaymentData | null => {
@@ -248,6 +310,21 @@ export function useExportData(): ExportDataResult {
     return loadCompanyCodeDraft(userKey);
   }, [userKey, companyCodeVersion]);
 
+  const taxCompanies = useMemo((): TaxCompany[] => {
+    return loadTaxCompanyDraft(userKey);
+  }, [userKey, taxCompanyVersion]);
+
+  const taxIds = useMemo((): TaxIdGridRow[] => {
+    const map = loadTaxIdGridDraftMap(userKey);
+    // Flatten all company sheets into a single array
+    return Object.values(map).flat();
+  }, [userKey, taxCompanyVersion]);
+
+  const suiTaxRates = useMemo((): SuiTaxRateRow[] => {
+    const map = loadSuiTaxRateGridDraftMap(userKey);
+    return Object.values(map).flat();
+  }, [userKey, taxCompanyVersion]);
+
   // Calculate company code status (simplified: complete or not-started)
   // A row is complete only if ALL required fields are filled
   const companyCodeStatus = useMemo((): ModuleStatus => {
@@ -272,6 +349,29 @@ export function useExportData(): ExportDataResult {
     };
   }, [companyCodes]);
 
+  const taxCompanyStatus = useMemo((): ModuleStatus => {
+    if (taxCompanies.length === 0) {
+      return { status: 'not-started', itemCount: 0 };
+    }
+    return { status: 'complete', itemCount: taxCompanies.length };
+  }, [taxCompanies]);
+
+  const taxIdStatus = useMemo((): ModuleStatus => {
+    const valid = taxIds.filter((r) => (r.tax_id || '').trim() !== '');
+    if (valid.length === 0) {
+      return { status: 'not-started', itemCount: 0 };
+    }
+    return { status: 'complete', itemCount: valid.length };
+  }, [taxIds]);
+
+  const suiTaxRateStatus = useMemo((): ModuleStatus => {
+    const valid = suiTaxRates.filter((r) => (r.sui_tax_rate || '').trim() !== '');
+    if (valid.length === 0) {
+      return { status: 'not-started', itemCount: 0 };
+    }
+    return { status: 'complete', itemCount: valid.length };
+  }, [suiTaxRates]);
+
  /**
    * NEW: Explicit Publish Function
    * Gathers all state and pushes to the new S3-backed endpoint
@@ -284,6 +384,9 @@ export function useExportData(): ExportDataResult {
       check_ranges: paymentData?.checkRanges || [],
       pre_notification_required: paymentData?.preNotificationRequired || false,
       company_codes: companyCodes,
+      tax_companies: taxCompanies,
+      tax_ids: taxIds,
+      sui_tax_rates: suiTaxRates,
       published_at: new Date().toISOString(),
       published_by: userKey
     };
@@ -313,6 +416,12 @@ export function useExportData(): ExportDataResult {
     paymentStatus,
     companyCodes,
     companyCodeStatus,
+    taxCompanies,
+    taxCompanyStatus,
+    taxIds,
+    taxIdStatus,
+    suiTaxRates,
+    suiTaxRateStatus,
     userKey,
     publishToS3,
   };

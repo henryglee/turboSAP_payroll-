@@ -1,0 +1,30 @@
+{
+  "version": "1.0",
+  "questions": [
+    {
+      "id": "q_company_codes",
+      "text": "Enter your company codes:",
+      "helpText": "Add one row per company code. Include the 4-digit code, company name, and currency.",
+      "type": "spreadsheet",
+      "order": 1,
+      "spreadsheetConfig": {
+        "columns": [
+          {"key": "code", "label": "Company Code", "type": "text", "required": true},
+          {"key": "name", "label": "Company Name", "type": "text", "required": true},
+          {"key": "currency", "label": "Currency", "type": "text", "required": true}
+        ],
+        "minRows": 1,
+        "maxRows": 20
+      },
+      "outputMapping": {
+        "file": "company_codes.csv",
+        "transform": "direct"
+      }
+    }
+  ],
+  "metadata": {
+    "createdAt": "2026-02-09T00:00:00Z",
+    "createdBy": "system",
+    "description": "Test upstream module for dependency chain"
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "version": "1.0",
+  "questions": [
+    {
+      "id": "q_company_code",
+      "text": "Which company code is this cost center for?",
+      "helpText": "Select from the company codes you configured in the previous module.",
+      "type": "multi_select",
+      "order": 1,
+      "optionsFrom": {
+        "module": "test-company-codes",
+        "answerKey": "q_company_codes",
+        "valueField": "code",
+        "displayField": "name"
+      },
+      "outputMapping": {
+        "file": "cost_centers.csv",
+        "column": "CompanyCode",
+        "transform": "direct"
+      }
+    },
+    {
+      "id": "q_cost_center_code",
+      "text": "What is the cost center code?",
+      "type": "text",
+      "order": 2,
+      "outputMapping": {
+        "file": "cost_centers.csv",
+        "column": "CostCenterCode",
+        "transform": "direct"
+      }
+    },
+    {
+      "id": "q_cost_center_name",
+      "text": "What is the cost center name?",
+      "type": "text",
+      "order": 3,
+      "outputMapping": {
+        "file": "cost_centers.csv",
+        "column": "CostCenterName",
+        "transform": "direct"
+      }
+    }
+  ],
+  "metadata": {
+    "createdAt": "2026-02-09T00:00:00Z",
+    "createdBy": "system",
+    "description": "Test downstream module with dynamic options from test-company-codes",
+    "lastModified": "2026-02-09T21:22:20.330910"
+  }
+}

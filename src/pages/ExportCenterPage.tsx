@@ -4,7 +4,7 @@
  * Directory tree + preview panel layout
  */
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { DashboardLayout } from '../components/layout/DashboardLayout';
 import { useExportData } from '../hooks/useExportData';
 import type { PayrollArea } from '../types';
@@ -16,8 +16,6 @@ import {
   Archive,
   ChevronRight,
   ChevronDown,
-  CheckCircle2,
-  AlertCircle,
   Edit3,
   Save,
   X,
@@ -33,8 +31,18 @@ import {
   generateCheckRangeCSV,
   generatePreNotificationCSV,
   generateCompanyCodeCSV,
+  generateTaxCompanyCSV,
+  generateTaxIdCSVFromGrid,
+  generateSuiTaxRateCSVFromGrid,
 } from '../utils/fileGenerators';
 import { downloadCSV, downloadAsZip } from '../utils/exportUtils';
+// import { getTaxReference, type TaxReferenceResponse } from '../api/taxReference';
+import {
+  listAllOutputs,
+  getPersistedOutput,
+  syncLegacyModule,
+  type ModuleOutputs,
+} from '../api/modules';
 
 // ============================================
 // Types
@@ -44,11 +52,14 @@ interface FileNode {
   id: string;
   name: string;
   type: 'folder' | 'file';
-  module: 'payroll' | 'payment' | 'company-code';
+  module: 'payroll' | 'payment' | 'company-code' | 'config';
   children?: FileNode[];
   generator?: string; // Key into FILE_GENERATORS
   disabled?: boolean;
   rowCount?: number;
+  // For config module files
+  configModuleSlug?: string;
+  configSessionId?: string;
 }
 
 interface ParsedCSV {
@@ -70,6 +81,9 @@ const EMPTY_CSVS: Record<string, string> = {
   'check-range': 'Company_Code,Bank_Account,Check_Number_Range',
   'pre-notification': 'Pre_Notification_Required',
   'company-code': 'Company_Code,Company_Name,Short_Name,Currency,Language,Street,City,State,Zip_Code,Country,PO_Box,Chart_of_Accounts,Fiscal_Year_Variant,VAT_Registration_Number,Credit_Control_Area,Tax_Jurisdiction_Code',
+  'tax-company': 'Tax_Company_Code,Tax_Company_Name,Address',
+  'tax-id-file': 'Tax_Company_Code,tax_authority,authority_description,county,tax_type_code,tax_type_name,paid_by,has_local_taxes,tax_id',
+  'sui-tax-rate-file': 'Tax_Company_Code,State,SUI_Tax_Rate',
 };
 
 // ============================================
@@ -129,29 +143,6 @@ function serializeCSV(data: ParsedCSV): string {
 // Components
 // ============================================
 
-function StatusBadge({ status }: { status: 'complete' | 'not-started' }) {
-  const config = {
-    complete: {
-      icon: CheckCircle2,
-      text: 'Ready',
-      className: 'bg-success/10 text-success border-success/30',
-    },
-    'not-started': {
-      icon: AlertCircle,
-      text: 'Not Started',
-      className: 'bg-secondary text-muted-foreground border-border',
-    },
-  };
-
-  const { icon: Icon, text, className } = config[status];
-
-  return (
-    <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full border', className)}>
-      <Icon className="w-3 h-3" />
-      {text}
-    </span>
-  );
-}
 
 interface FileTreeNodeProps {
   node: FileNode;
@@ -430,17 +421,98 @@ function PreviewPanel({ fileId, content, onContentChange, onDownload, fileName, 
 }
 
 // ============================================
+// Helpers
+// ============================================
+
+function findFileNode(nodes: FileNode[], id: string): FileNode | null {
+  for (const node of nodes) {
+    if (node.id === id) return node;
+    if (node.children) {
+      const found = findFileNode(node.children, id);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+// ============================================
 // Main Component
 // ============================================
 
 export function ExportCenterPage() {
-  const { payrollAreas, payrollStatus, paymentData, paymentStatus, companyCodes, companyCodeStatus, publishToS3 } = useExportData();
+  const {
+    payrollAreas,
+    payrollStatus,
+    paymentData,
+    paymentStatus,
+    companyCodes,
+    companyCodeStatus,
+    taxCompanies,
+    taxCompanyStatus,
+    taxIds,
+    taxIdStatus,
+    suiTaxRates,
+    suiTaxRateStatus,
+    publishToS3,
+  } = useExportData();
 
-  const [expanded, setExpanded] = useState<Set<string>>(new Set(['payroll', 'payment', 'company-code']));
+  const [expanded, setExpanded] = useState<Set<string>>(new Set(['payroll', 'payment', 'company-code', 'config']));
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [editedContents, setEditedContents] = useState<Record<string, string>>({});
   const [isPublishing, setIsPublishing] = useState(false);
-  
+
+  // Config module outputs state
+  const [configOutputs, setConfigOutputs] = useState<Record<string, ModuleOutputs>>({});
+  const [configFileContents, setConfigFileContents] = useState<Record<string, string>>({});
+
+  // const [taxRef, setTaxRef] = useState<TaxReferenceResponse | null>(null);
+
+  // Sync legacy modules then fetch all outputs on mount
+  useEffect(() => {
+    async function syncAndFetch() {
+      // Sync legacy modules from localStorage to backend
+      const legacyModules = [
+        { slug: 'payroll-area', storageKey: 'turbosap-config' },
+        { slug: 'employee-group', storageKey: 'turbosap-employee-group' },
+        { slug: 'personnel-area', storageKey: 'turbosap-personnel-area-v2' },
+      ];
+
+      await Promise.allSettled(
+        legacyModules.map(({ slug, storageKey }) => {
+          try {
+            const raw = localStorage.getItem(storageKey);
+            if (!raw) return Promise.resolve();
+            const data = JSON.parse(raw);
+            return syncLegacyModule(slug, data);
+          } catch {
+            return Promise.resolve();
+          }
+        })
+      );
+
+      // Now fetch all outputs (includes both generic and freshly-synced legacy)
+      try {
+        const response = await listAllOutputs();
+        setConfigOutputs(response.outputs);
+      } catch (err) {
+        console.error('Failed to load config module outputs:', err);
+      }
+    }
+    syncAndFetch();
+  }, []);
+
+  // useEffect(() => {
+  //   async function loadTaxRef() {
+  //     try {
+  //       const data = await getTaxReference();
+  //       setTaxRef(data);
+  //     } catch (err) {
+  //       console.error('Failed to load tax reference for Export Center:', err);
+  //     }
+  //   }
+  //   loadTaxRef();
+  // }, []);
+
   const handlePublish = async () => {
     // Determine the primary company for naming/pathing
     const primary = companyCodes.find(c => c.companyCode && c.companyName);
@@ -468,6 +540,9 @@ export function ExportCenterPage() {
     const payrollDisabled = payrollStatus.status === 'not-started';
     const paymentDisabled = paymentStatus.status === 'not-started';
     const companyCodeDisabled = companyCodeStatus.status === 'not-started';
+    const taxCompanyDisabled = taxCompanyStatus.status === 'not-started';
+    const taxIdDisabled = taxIdStatus.status === 'not-started';
+    const suiTaxRateDisabled = suiTaxRateStatus.status === 'not-started';
     const validCompanyCodes = companyCodes.filter((c) => c.companyCode && c.companyName);
 
     // Get unique calendars and group areas by calendar
@@ -500,6 +575,44 @@ export function ExportCenterPage() {
       disabled: payrollDisabled,
       rowCount: 52, // Approximate
     }));
+
+    // Build Tax ID children per tax company code present in draft
+    const taxIdByCompany = new Map<string, number>();
+    for (const r of taxIds as any[]) {
+      const code = String((r as any).tax_company_code || '');
+      if (!code) continue;
+      taxIdByCompany.set(code, (taxIdByCompany.get(code) || 0) + 1);
+    }
+
+    const taxIdChildren: FileNode[] = Array.from(taxIdByCompany.keys())
+      .sort()
+      .map((code) => ({
+        id: `tax-id-${code}`,
+        name: `tax_id_${code}.csv`,
+        type: 'file' as const,
+        module: 'payroll' as const,
+        disabled: taxIdDisabled,
+        rowCount: taxIdByCompany.get(code) || 0,
+      }));
+
+    // Build SUI Tax Rate children per tax company code present in SUI grid
+    const suiByCompany = new Map<string, number>();
+    for (const r of suiTaxRates as any[]) {
+      const code = String((r as any).tax_company_code || '');
+      if (!code) continue;
+      suiByCompany.set(code, (suiByCompany.get(code) || 0) + 1);
+    }
+
+    const suiTaxRateChildren: FileNode[] = Array.from(suiByCompany.keys())
+      .sort()
+      .map((code) => ({
+        id: `sui-tax-rate-${code}`,
+        name: `sui_tax_rate_${code}.csv`,
+        type: 'file' as const,
+        module: 'payroll' as const,
+        disabled: suiTaxRateDisabled,
+        rowCount: suiByCompany.get(code) || 0,
+      }));
 
     return [
       {
@@ -555,6 +668,40 @@ export function ExportCenterPage() {
         ],
       },
       {
+        id: 'tax-company',
+        name: 'Tax Company Configuration',
+        type: 'folder',
+        module: 'payroll',
+        disabled: taxCompanyDisabled,
+        children: [
+          {
+            id: 'tax-company-file',
+            name: 'tax_company.csv',
+            type: 'file',
+            module: 'payroll',
+            generator: 'tax-company',
+            disabled: taxCompanyDisabled,
+            rowCount: taxCompanies.length,
+          },
+        ],
+      },
+      {
+        id: 'tax-id',
+        name: 'Tax ID Configuration',
+        type: 'folder',
+        module: 'payroll',
+        disabled: taxIdDisabled,
+        children: taxIdChildren,
+      },
+      {
+        id: 'sui-tax-rate',
+        name: 'SUI Tax Rate Configuration',
+        type: 'folder',
+        module: 'payroll',
+        disabled: suiTaxRateDisabled,
+        children: suiTaxRateChildren,
+      },
+      {
         id: 'payment',
         name: 'Payment Configuration',
         type: 'folder',
@@ -608,8 +755,93 @@ export function ExportCenterPage() {
           },
         ],
       },
+      // Config Modules - one folder per module, showing latest session's files
+      ...(Object.keys(configOutputs).length > 0
+        ? [
+            {
+              id: 'config',
+              name: 'Config Modules',
+              type: 'folder' as const,
+              module: 'config' as const,
+              children: Object.entries(configOutputs)
+                .filter(([, moduleData]) => moduleData.sessions.length > 0)
+                .map(([moduleSlug, moduleData]): FileNode => {
+                  // Use the latest session (sessions are sorted by completedAt descending)
+                  const latestSession = moduleData.sessions[0];
+
+                  return {
+                    id: `config-${moduleSlug}`,
+                    name: moduleData.moduleName,
+                    type: 'folder' as const,
+                    module: 'config' as const,
+                    children: latestSession.files
+                      .filter((filename) => filename !== 'answers.json')
+                      .map((filename): FileNode => ({
+                        id: `config-${moduleSlug}-${latestSession.sessionId}-${filename}`,
+                        name: filename,
+                        type: 'file' as const,
+                        module: 'config' as const,
+                        configModuleSlug: moduleSlug,
+                        configSessionId: latestSession.sessionId,
+                      })),
+                  };
+                }),
+            },
+          ]
+        : []),
     ];
-  }, [payrollAreas, payrollStatus, paymentData, paymentStatus, companyCodes, companyCodeStatus]);
+  }, [
+    payrollAreas,
+    payrollStatus,
+    paymentData,
+    paymentStatus,
+    companyCodes,
+    companyCodeStatus,
+    taxCompanies,
+    taxCompanyStatus,
+    taxIds,
+    taxIdStatus,
+    suiTaxRates,
+    suiTaxRateStatus,
+    configOutputs,
+  ]);
+
+  // Fetch config file content when a config file is selected
+  useEffect(() => {
+    async function fetchConfigFileContent() {
+      if (!selectedFile?.startsWith('config-')) return;
+
+      // Check if already loaded
+      if (configFileContents[selectedFile]) return;
+
+      // Find the file node to get moduleSlug and sessionId
+      const fileNode = findFileNode(fileTree, selectedFile);
+      if (!fileNode || !fileNode.configModuleSlug || !fileNode.configSessionId) {
+        console.error('Could not find file node for:', selectedFile);
+        return;
+      }
+
+      const { configModuleSlug, configSessionId } = fileNode;
+      const filename = fileNode.name;
+
+      try {
+        const output = await getPersistedOutput(configModuleSlug, configSessionId);
+        const fileContent = output.files[filename];
+        if (fileContent !== undefined) {
+          const contentStr = typeof fileContent === 'string'
+            ? fileContent
+            : JSON.stringify(fileContent, null, 2);
+          setConfigFileContents((prev) => ({
+            ...prev,
+            [selectedFile]: contentStr,
+          }));
+        }
+      } catch (err) {
+        console.error('Failed to load config file content:', err);
+      }
+    }
+    fetchConfigFileContent();
+  }, [selectedFile, configFileContents, fileTree]);
 
   // Generate file content
   const generateContent = useCallback(
@@ -617,6 +849,11 @@ export function ExportCenterPage() {
       // Return edited content if available
       if (editedContents[fileId]) {
         return editedContents[fileId];
+      }
+
+      // Handle config module files - content is fetched async
+      if (fileId.startsWith('config-')) {
+        return configFileContents[fileId] || 'Loading...';
       }
 
       // Helper to return headers-only if no data
@@ -641,6 +878,28 @@ export function ExportCenterPage() {
         return getEmptyOrGenerated(!!area, () => generatePayDateCSV(area!), 'pay-date');
       }
 
+      // Handle per-tax-company tax-id files
+      if (fileId.startsWith('tax-id-')) {
+        const companyCode = fileId.replace('tax-id-', '');
+        const filtered = (taxIds as any[]).filter((r) => String((r as any).tax_company_code) === companyCode);
+        return getEmptyOrGenerated(
+          filtered.length > 0,
+          () => generateTaxIdCSVFromGrid(filtered as any),
+          'tax-id-file'
+        );
+      }
+
+      // Handle per-tax-company SUI Tax Rate files
+      if (fileId.startsWith('sui-tax-rate-')) {
+        const companyCode = fileId.replace('sui-tax-rate-', '');
+        const filtered = (suiTaxRates as any[]).filter((r) => String((r as any).tax_company_code) === companyCode);
+        return getEmptyOrGenerated(
+          filtered.length > 0,
+          () => generateSuiTaxRateCSVFromGrid(filtered as any),
+          'sui-tax-rate-file'
+        );
+      }
+
       switch (fileId) {
         case 'payroll-areas':
           return getEmptyOrGenerated(payrollAreas.length > 0, () => generatePayrollAreasCSV(payrollAreas));
@@ -656,15 +915,34 @@ export function ExportCenterPage() {
           return getEmptyOrGenerated(!!paymentData, () => generatePreNotificationCSV(paymentData!.preNotificationRequired));
         case 'company-code-file':
           return getEmptyOrGenerated(companyCodes.length > 0, () => generateCompanyCodeCSV(companyCodes), 'company-code');
+        case 'tax-company-file':
+          return getEmptyOrGenerated(taxCompanies.length > 0, () => generateTaxCompanyCSV(taxCompanies), 'tax-company');
+        // no default single tax-id-file; handled above per company
         default:
           return EMPTY_CSVS[fileId] || '';
       }
     },
-    [payrollAreas, paymentData, companyCodes, editedContents]
+    [
+      payrollAreas,
+      paymentData,
+      companyCodes,
+      taxCompanies,
+      taxIds,
+      suiTaxRates,
+      editedContents,
+      configFileContents,
+    ]
   );
 
   // Get file name from ID
   const getFileName = (fileId: string): string => {
+    // Handle config module files: config-{moduleSlug}-{sessionId}-{filename}
+    if (fileId.startsWith('config-')) {
+      const parts = fileId.replace('config-', '').split('-');
+      // Last part is the filename
+      return parts[parts.length - 1];
+    }
+
     // Handle calendar-specific files
     if (fileId.startsWith('pay-period-')) {
       const calendarId = fileId.replace('pay-period-', '');
@@ -673,6 +951,14 @@ export function ExportCenterPage() {
     if (fileId.startsWith('pay-date-')) {
       const calendarId = fileId.replace('pay-date-', '');
       return `pay_date_${calendarId}.csv`;
+    }
+    if (fileId.startsWith('tax-id-')) {
+      const companyCode = fileId.replace('tax-id-', '');
+      return `tax_id_${companyCode}.csv`;
+    }
+    if (fileId.startsWith('sui-tax-rate-')) {
+      const companyCode = fileId.replace('sui-tax-rate-', '');
+      return `sui_tax_rate_${companyCode}.csv`;
     }
 
     const fileMap: Record<string, string> = {
@@ -683,6 +969,9 @@ export function ExportCenterPage() {
       'check-range': 'check_range.csv',
       'pre-notification': 'pre_notification.csv',
       'company-code-file': 'company_code.csv',
+      'tax-company-file': 'tax_company.csv',
+      'tax-id-file': 'tax_id.csv',
+      'sui-tax-rate-file': 'sui_tax_rate.csv',
     };
     return fileMap[fileId] || `${fileId}.csv`;
   };
@@ -752,6 +1041,20 @@ export function ExportCenterPage() {
       files.push({ name: 'company_code.csv', content: generateContent('company-code-file') });
     }
 
+    // Collect tax company files
+    if (taxCompanyStatus.status !== 'not-started') {
+      files.push({ name: 'tax_company.csv', content: generateContent('tax-company-file') });
+    }
+
+    // Collect tax ID files (one per tax company code present)
+    if (taxIdStatus.status !== 'not-started') {
+      const codes = Array.from(new Set((taxIds as any[]).map((r) => String((r as any).tax_company_code)).filter(Boolean)));
+      codes.sort().forEach((code) => {
+        const fileId = `tax-id-${code}`;
+        files.push({ name: getFileName(fileId), content: generateContent(fileId) });
+      });
+    }
+
     if (files.length > 0) {
       await downloadAsZip(files, 'sap_configuration');
     }
@@ -810,52 +1113,6 @@ export function ExportCenterPage() {
         </div>
      </div>
 
-        {/* Module Status Summary */}
-        <div className="shrink-0 grid grid-cols-3 gap-4">
-          <div className="flex items-center gap-3 p-4 bg-card rounded-lg border border-border">
-            <div className="p-2 bg-secondary rounded-lg">
-              <FolderOpen className="w-5 h-5 text-indigo-600" />
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <span className="font-medium text-foreground">Payroll Configuration</span>
-                <StatusBadge status={payrollStatus.status} />
-              </div>
-              <p className="text-sm text-muted-foreground">
-                {payrollStatus.itemCount} payroll area{payrollStatus.itemCount !== 1 ? 's' : ''} configured
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 p-4 bg-card rounded-lg border border-border">
-            <div className="p-2 bg-secondary rounded-lg">
-              <FolderOpen className="w-5 h-5 text-emerald-600" />
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <span className="font-medium text-foreground">Payment Configuration</span>
-                <StatusBadge status={paymentStatus.status} />
-              </div>
-              <p className="text-sm text-muted-foreground">
-                {paymentStatus.itemCount} payment method{paymentStatus.itemCount !== 1 ? 's' : ''} enabled
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 p-4 bg-card rounded-lg border border-border">
-            <div className="p-2 bg-secondary rounded-lg">
-              <FolderOpen className="w-5 h-5 text-amber-600" />
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <span className="font-medium text-foreground">Company Codes</span>
-                <StatusBadge status={companyCodeStatus.status} />
-              </div>
-              <p className="text-sm text-muted-foreground">
-                {companyCodeStatus.itemCount} company code{companyCodeStatus.itemCount !== 1 ? 's' : ''} configured
-              </p>
-            </div>
-          </div>
-        </div>
-
         {/* Main Content: File Tree + Preview */}
         <div className="flex-1 min-h-0 flex gap-6">
           {/* File Tree */}
@@ -885,15 +1142,36 @@ export function ExportCenterPage() {
             onContentChange={handleContentChange}
             onDownload={handleDownloadSingle}
             fileName={selectedFile ? getFileName(selectedFile) : ''}
-            hasData={
-              selectedFile
-                ? selectedFile.startsWith('pay-period-') || selectedFile.startsWith('pay-date-') || ['payroll-areas', 'calendar-id', 'payroll-area-config'].includes(selectedFile)
-                  ? payrollAreas.length > 0
-                  : selectedFile === 'company-code-file'
-                    ? companyCodes.filter((c) => c.companyCode && c.companyName).length > 0
-                    : !!paymentData?.methods.length
-                : false
-            }
+            hasData={(() => {
+              if (!selectedFile) return false;
+              if (selectedFile.startsWith('config-')) return !!configFileContents[selectedFile];
+              if (
+                selectedFile.startsWith('pay-period-') ||
+                selectedFile.startsWith('pay-date-') ||
+                ['payroll-areas', 'calendar-id', 'payroll-area-config'].includes(selectedFile)
+              ) {
+                return payrollAreas.length > 0;
+              }
+              if (selectedFile === 'company-code-file') {
+                return companyCodes.filter((c) => c.companyCode && c.companyName).length > 0;
+              }
+              if (selectedFile === 'tax-company-file') {
+                return taxCompanies.length > 0;
+              }
+              if (selectedFile.startsWith('tax-id-')) {
+                const companyCode = selectedFile.replace('tax-id-', '');
+                return (taxIds as any[])
+                  .filter((r) => String((r as any).tax_company_code) === companyCode)
+                  .some((r) => ((r as any).tax_id || '').trim() !== '');
+              }
+              if (selectedFile.startsWith('sui-tax-rate-')) {
+                const companyCode = selectedFile.replace('sui-tax-rate-', '');
+                return (suiTaxRates as any[])
+                  .filter((r) => String((r as any).tax_company_code) === companyCode)
+                  .some((r) => ((r as any).sui_tax_rate || '').trim() !== '');
+              }
+              return !!paymentData?.methods.length;
+            })()}
           />
         </div>
       </div>

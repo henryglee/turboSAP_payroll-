@@ -9,6 +9,12 @@ import { PaymentMethodPage } from './pages/PaymentMethodPage';
 import { AccountPage } from './pages/AccountPage';
 import { PayrollAreaPage } from './pages/PayrollAreaPage';
 import { CompanyCodePage } from './pages/CompanyCodePage';
+import { EmployeeGroupPage } from './pages/EmployeeGroupPage';
+import { PersonnelAreaPage } from './pages/unused/PersonnelAreaPage';
+import { PersonnelAreaV2Page } from './pages/PersonnelAreaV2Page';
+import { TaxCompanyPage } from './pages/TaxCompanyPage';
+import { TaxIdPage } from './pages/TaxIdPage';
+import { SuiTaxRatePage } from './pages/SuiTaxRatePage';
 import { AIConfigPage } from './pages/AIConfigPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { AdminUsersPage } from './pages/AdminUsersPage';
@@ -23,6 +29,10 @@ import { PaymentMethodConfigPage } from './pages/admin/PaymentMethodConfigPage';
 import { PayrollAreaConfigPage } from './pages/admin/PayrollAreaConfigPage';
 import { ConfigurationManagementPage } from './pages/admin/ConfigurationManagementPage';
 import { DocumentsPage } from './pages/admin/DocumentsPage';
+import { ModulesPage } from './pages/admin/ModulesPage';
+import { ModuleEditorPage } from './pages/admin/ModuleEditorPage';
+import { ModulesListPage } from './pages/ModulesListPage';
+import { ModuleSessionPage } from './pages/ModuleSessionPage';
 import { AuthPage, ProtectedRoute } from './components/auth';
 import { useAuthStore } from './store/auth';
 import { getCurrentUser } from './api/auth';
@@ -91,6 +101,36 @@ function AppContent() {
         }
       />
 
+      {/* Tax Companies - Spreadsheet-style tax company maintenance */}
+      <Route
+        path="/tax-company"
+        element={
+          <ProtectedRoute requireClient>
+            <TaxCompanyPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Tax ID - Tax ID by Tax Authority and Tax Type */}
+      <Route
+        path="/tax-id"
+        element={
+          <ProtectedRoute requireClient>
+            <TaxIdPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* SUI Tax Rate - SUI tax rate per state and tax company */}
+      <Route
+        path="/sui-tax-rate"
+        element={
+          <ProtectedRoute requireClient>
+            <SuiTaxRatePage />
+          </ProtectedRoute>
+        }
+      />
+
       {/* AI Config - Hybrid AI-powered configuration */}
       <Route
         path="/ai-config"
@@ -117,6 +157,24 @@ function AppContent() {
         element={
           <ProtectedRoute requireClient>
             <ExportCenterPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Config-driven Modules - User-facing */}
+      <Route
+        path="/modules"
+        element={
+          <ProtectedRoute requireClient>
+            <ModulesListPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/modules/:slug"
+        element={
+          <ProtectedRoute requireClient>
+            <ModuleSessionPage />
           </ProtectedRoute>
         }
       />
@@ -151,6 +209,36 @@ function AppContent() {
         }
       />
 
+      {/* Employee Group / Subgroup - 5-step wizard for EG/ESG config */}
+      <Route
+        path="/employee-group"
+        element={
+          <ProtectedRoute requireClient>
+            <EmployeeGroupPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Personnel Area / Subarea - Wizard for PA/PSA config */}
+      <Route
+        path="/personnel-area"
+        element={
+          <ProtectedRoute requireClient>
+            <PersonnelAreaPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Personnel Area V2 - Smart 4-phase wizard */}
+      <Route
+        path="/personnel-area-v2"
+        element={
+          <ProtectedRoute requireClient>
+            <PersonnelAreaV2Page />
+          </ProtectedRoute>
+        }
+      />
+
       {/* New Admin Routes - Uses AdminLayout with gold/amber accent */}
       <Route
         path="/admin/dashboard"
@@ -176,15 +264,23 @@ function AppContent() {
           </ProtectedRoute>
         }
       />
-      {/* TODO: Re-enable when /admin/modules page is fixed */}
-      {/* <Route
+      {/* Config-driven Modules - Admin CRUD */}
+      <Route
         path="/admin/modules"
         element={
           <ProtectedRoute requireAdmin>
-            <QuestionsConfigPage />
+            <ModulesPage />
           </ProtectedRoute>
         }
-      /> */}
+      />
+      <Route
+        path="/admin/modules/:slug"
+        element={
+          <ProtectedRoute requireAdmin>
+            <ModuleEditorPage />
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/admin/settings"
         element={
