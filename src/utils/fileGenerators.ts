@@ -109,6 +109,7 @@ export interface TaxIdGridRow {
   tax_company_code: string;
   tax_authority: string;
   authority_description: string;
+  county: string;
   tax_type_code: string;
   tax_type_name: string;
   paid_by: string;
@@ -560,6 +561,7 @@ export function expandLegacyTaxIdEntriesToGrid(
         tax_company_code: taxCompanyCode,
         tax_authority: authority.code,
         authority_description: authority.name,
+        county: '',
         tax_type_code: code,
         tax_type_name: tt.name,
         paid_by: tt.paidBy,
@@ -578,6 +580,7 @@ export function generateTaxIdCSVFromGrid(rows: TaxIdGridRow[]): string {
     { key: 'tax_company_code' as const, label: 'Tax_Company_Code' },
     { key: 'tax_authority' as const, label: 'tax_authority' },
     { key: 'authority_description' as const, label: 'authority_description' },
+    { key: 'county' as const, label: 'county' },
     { key: 'tax_type_code' as const, label: 'tax_type_code' },
     { key: 'tax_type_name' as const, label: 'tax_type_name' },
     { key: 'paid_by' as const, label: 'paid_by' },

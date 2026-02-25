@@ -36,6 +36,7 @@ export function TaxCompanyPage() {
   const [, setHasChanges] = useState(false);
 
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     const loaded = loadDraft(userId);
@@ -65,6 +66,97 @@ export function TaxCompanyPage() {
   useEffect(() => {
     triggerSave();
   }, [rows, triggerSave]);
+
+  const parseCSV = (content: string): { headers: string[]; rows: string[][] } => {
+    const lines = content.split('\n').filter((line) => line.trim());
+    if (lines.length === 0) return { headers: [], rows: [] };
+
+    const parseRow = (line: string): string[] => {
+      const result: string[] = [];
+      let current = '';
+      let inQuotes = false;
+
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (char === '"') {
+          if (inQuotes && line[i + 1] === '"') {
+            current += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (char === ',' && !inQuotes) {
+          result.push(current);
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      result.push(current);
+      return result;
+    };
+
+    const headers = parseRow(lines[0]);
+    const dataRows = lines.slice(1).map(parseRow);
+    return { headers, rows: dataRows };
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = typeof reader.result === 'string' ? reader.result : '';
+      if (!text) return;
+
+      const { headers, rows: csvRows } = parseCSV(text);
+      if (headers.length === 0) return;
+
+      const headerIndex = (name: string) => headers.findIndex((h) => h.trim().toLowerCase() === name.toLowerCase());
+
+      const idxName = headerIndex('name');
+      const idxStreet = headerIndex('street');
+      const idxCity = headerIndex('city');
+      const idxState = headerIndex('state');
+      const idxZipCode = headerIndex('zipcode');
+      const idxCountry = headerIndex('country');
+
+      if (idxName === -1 || idxStreet === -1 || idxCity === -1 || idxState === -1 || idxZipCode === -1 || idxCountry === -1) {
+        alert('CSV is missing one or more required columns. Expected: name, street, city, state, zipcode, country.');
+        return;
+      }
+
+      setRows((prev) => {
+        let currentMaxCode = prev.reduce((max, row) => Math.max(max, row.code), 0);
+        const importedRows: TaxCompany[] = csvRows
+          .filter((r) => r.some((cell) => cell && cell.trim()))
+          .map((r) => {
+            currentMaxCode = currentMaxCode === 0 ? 1000 : currentMaxCode + 1000;
+            return {
+              code: currentMaxCode,
+              name: (r[idxName] || '').slice(0, 40),
+              address: {
+                street: r[idxStreet] || '',
+                city: r[idxCity] || '',
+                state: (r[idxState] || '').slice(0, 2),
+                zipCode: r[idxZipCode] || '',
+                country: r[idxCountry] || 'US',
+              },
+            } as TaxCompany;
+          });
+
+        return importedRows;
+      });
+    };
+    reader.readAsText(file);
+
+    event.target.value = '';
+  };
 
   const handleAddRow = () => {
     setRows((prev) => {
@@ -128,6 +220,12 @@ export function TaxCompanyPage() {
               <Plus className="w-4 h-4" />
               Add Tax Company
             </button>
+            <button
+              onClick={handleImportClick}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Import CSV
+            </button>
             <span className="text-sm text-muted-foreground">
               {rows.length} tax company{rows.length !== 1 ? ' records' : ' record'}
             </span>
@@ -147,6 +245,13 @@ export function TaxCompanyPage() {
         </div>
 
         <div className="flex-1 overflow-auto bg-card border border-border rounded-lg">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            className="hidden"
+            onChange={handleFileChange}
+          />
           <table className="w-full border-collapse text-sm">
             <thead className="sticky top-0 z-10">
               <tr className="bg-[#4a5568] text-white">

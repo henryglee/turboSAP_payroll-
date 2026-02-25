@@ -1,0 +1,116 @@
+{
+  "version": "1.0",
+  "questions": [
+    {
+      "text": "Does your company use off-cycle payroll?",
+      "type": "yes_no",
+      "id": "q_7e453b56",
+      "order": 1
+    },
+    {
+      "text": "Supported Off-Cycle Types",
+      "type": "multi_select",
+      "options": [
+        {
+          "value": "1",
+          "label": "Adjustment"
+        },
+        {
+          "value": "2",
+          "label": "Additional Payment"
+        },
+        {
+          "value": "3",
+          "label": "Regular Period On-Demand"
+        },
+        {
+          "value": "4",
+          "label": "Payroll Result Adjustment"
+        }
+      ],
+      "id": "q_2f5f03af",
+      "order": 2
+    },
+    {
+      "text": "Off-Cycle Reason Codes",
+      "type": "spreadsheet",
+      "spreadsheetConfig": {
+        "columns": [
+          {
+            "key": "reason_code",
+            "label": "Reason Code",
+            "type": "text"
+          },
+          {
+            "key": "description",
+            "label": "Description",
+            "type": "text"
+          },
+          {
+            "key": "category",
+            "label": "Category",
+            "type": "text"
+          },
+          {
+            "key": "taxable",
+            "label": "Taxable",
+            "type": "text"
+          },
+          {
+            "key": "requires_approval",
+            "label": "Requires Approval",
+            "type": "text"
+          }
+        ],
+        "minRows": 1
+      },
+      "id": "q_85c1d868",
+      "order": 3
+    },
+    {
+      "text": "Who Can Run Off-Cycle Payroll?",
+      "type": "multi_select",
+      "options": [
+        {
+          "value": "payroll_admin",
+          "label": "Payroll Admin"
+        },
+        {
+          "value": "hr_admin",
+          "label": "HR Admin"
+        },
+        {
+          "value": "finance",
+          "label": "Finance"
+        }
+      ],
+      "id": "q_7ba79de4",
+      "order": 4
+    },
+    {
+      "text": "Default Payment Method",
+      "type": "single_select",
+      "options": [
+        {
+          "value": "check",
+          "label": "Check"
+        },
+        {
+          "value": "direct_deposit",
+          "label": "Direct Deposit"
+        },
+        {
+          "value": "same_as_regular_payroll",
+          "label": "Same as Regular Payroll"
+        }
+      ],
+      "id": "q_1c65f9b9",
+      "order": 5
+    }
+  ],
+  "metadata": {
+    "createdAt": "2026-02-16T20:07:19.580666",
+    "createdBy": "admin123",
+    "lastModified": "2026-02-16T20:24:22.141860"
+  }
+}
