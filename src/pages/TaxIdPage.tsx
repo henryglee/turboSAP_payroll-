@@ -6,7 +6,7 @@ import type { TaxIdGridRow } from '../utils/fileGenerators';
 import { cn } from '../lib/utils';
 
 // LocalStorage per-user, grid format keyed by tax company code
-const STORAGE_KEY_PREFIX = 'turbosap.tax_id_grid.draft.v1';
+const STORAGE_KEY_PREFIX = 'turbosap.tax_id_grid.draft.v2';
 function getStorageKey(userId: string) {
   return `${STORAGE_KEY_PREFIX}.${userId}`;
 }
@@ -57,6 +57,7 @@ function buildDefaultRows(taxRef: TaxReferenceResponse, taxCompanyCode: string):
         tax_company_code: taxCompanyCode,
         tax_authority: authorityCode,
         authority_description: authorityName,
+        county: '',
         tax_type_code: ttCode,
         tax_type_name: tt.name,
         paid_by: tt.paidBy,
@@ -98,6 +99,7 @@ export function TaxIdPage() {
       tax_company_code: selectedCompanyCode,
       tax_authority: '',
       authority_description: '',
+      county: '',
       tax_type_code: '',
       tax_type_name: '',
       paid_by: '',
@@ -112,13 +114,13 @@ export function TaxIdPage() {
   };
 
   const handleRevert = () => {
-    if (!taxRef || !selectedCompanyCode) return;
-    const ok = window.confirm('This will discard all edits for this tax company and restore the original reference rows. Continue?');
+    if (!selectedCompanyCode) return;
+    const ok = window.confirm('This will discard all edits for this tax company and restore a blank sheet. Continue?');
     if (!ok) return;
-    const def = buildDefaultRows(taxRef, selectedCompanyCode);
-    setRows(def);
-    setDraft((prev) => ({ ...prev, [selectedCompanyCode]: def }));
-    saveGridDraft(userId, { ...draft, [selectedCompanyCode]: def });
+    const empty: TaxIdGridRow[] = [];
+    setRows(empty);
+    setDraft((prev) => ({ ...prev, [selectedCompanyCode]: empty }));
+    saveGridDraft(userId, { ...draft, [selectedCompanyCode]: empty });
   };
 
   // Load tax reference and existing draft
@@ -157,10 +159,8 @@ export function TaxIdPage() {
     const existing = draft[selectedCompanyCode];
     if (existing && existing.length > 0) {
       setRows(existing);
-    } else if (taxRef) {
-      const def = buildDefaultRows(taxRef, selectedCompanyCode);
-      setRows(def);
-      setDraft((prev) => ({ ...prev, [selectedCompanyCode]: def }));
+    } else {
+      setRows([]);
     }
   }, [selectedCompanyCode, draft, taxRef]);
 
@@ -234,6 +234,7 @@ export function TaxIdPage() {
 
       const idxTaxAuthority = headerIndex('tax_authority');
       const idxAuthorityDescription = headerIndex('authority_description');
+      const idxCounty = headerIndex('county');
       const idxTaxTypeCode = headerIndex('tax_type_code');
       const idxTaxTypeName = headerIndex('tax_type_name');
       const idxPaidBy = headerIndex('paid_by');
@@ -259,6 +260,7 @@ export function TaxIdPage() {
           tax_company_code: selectedCompanyCode,
           tax_authority: r[idxTaxAuthority] || '',
           authority_description: r[idxAuthorityDescription] || '',
+          county: idxCounty === -1 ? '' : (r[idxCounty] || ''),
           tax_type_code: r[idxTaxTypeCode] || '',
           tax_type_name: r[idxTaxTypeName] || '',
           paid_by: r[idxPaidBy] || '',
@@ -279,12 +281,22 @@ export function TaxIdPage() {
     { key: 'tax_company_code', label: 'Tax Company Code', width: 140 },
     { key: 'tax_authority', label: 'Tax Authority', width: 100 },
     { key: 'authority_description', label: 'Authority Description', width: 220 },
+    { key: 'county', label: 'County', width: 160 },
     { key: 'tax_type_code', label: 'Tax Type Code', width: 120 },
     { key: 'tax_type_name', label: 'Tax Type Name', width: 220 },
     { key: 'paid_by', label: 'Paid By', width: 100 },
     { key: 'has_local_taxes', label: 'Has Local Taxes', width: 140 },
     { key: 'tax_id', label: 'Tax ID (max 15)', width: 160 },
   ] as const;
+  type ColumnKey = (typeof columns)[number]['key'];
+
+  const [visibleColumns, setVisibleColumns] = useState<Record<ColumnKey, boolean>>(() => {
+    const initial: Record<ColumnKey, boolean> = {} as Record<ColumnKey, boolean>;
+    columns.forEach((c) => {
+      initial[c.key] = true;
+    });
+    return initial;
+  });
 
   // Components tab: grouped view by authority, single Tax ID editor that writes to all rows for that authority
   const authorities = useMemo(() => {
@@ -388,153 +400,228 @@ export function TaxIdPage() {
               className="hidden"
               onChange={handleFileChange}
             />
+            <div className="px-3 py-2 border-b border-border flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+              <span className="font-medium">Columns:</span>
+              {columns.map((c) => (
+                <label key={c.key as string} className="inline-flex items-center gap-1">
+                  <input
+                    type="checkbox"
+                    checked={visibleColumns[c.key]}
+                    onChange={() =>
+                      setVisibleColumns((prev) => ({
+                        ...prev,
+                        [c.key]: !prev[c.key],
+                      }))
+                    }
+                    className="h-3 w-3"
+                  />
+                  <span>{c.label}</span>
+                </label>
+              ))}
+            </div>
             <table className="border-collapse text-sm" style={{ minWidth: '1100px' }}>
               <thead className="sticky top-0 z-10">
                 <tr className="bg-[#4a5568] text-white">
                   <th className="px-2 py-2 text-center font-medium w-10 border-r border-gray-600">#</th>
-                  {columns.map((c) => (
-                    <th key={c.key as string} className="px-3 py-2 text-left font-medium border-r border-gray-600 whitespace-nowrap" style={{ width: (c as any).width, minWidth: (c as any).width }}>
-                      {c.label}
-                    </th>
-                  ))}
+                  {columns
+                    .filter((c) => visibleColumns[c.key])
+                    .map((c) => (
+                      <th
+                        key={c.key as string}
+                        className="px-3 py-2 text-left font-medium border-r border-gray-600 whitespace-nowrap"
+                        style={{ width: (c as any).width, minWidth: (c as any).width }}
+                      >
+                        {c.label}
+                      </th>
+                    ))}
                   <th className="px-3 py-2 text-left font-medium border-gray-600">Action</th>
                 </tr>
                 <tr className="bg-[#5a6778] text-gray-300 text-xs">
                   <th className="px-2 py-1 text-center border-r border-gray-600"></th>
-                  {columns.map((c) => (
-                    <th key={'req-' + (c.key as string)} className="px-3 py-1 text-left border-r border-gray-600">
-                      {c.key === 'tax_id' ? 'Required' : 'Pre-filled'}
-                    </th>
-                  ))}
+                  {columns
+                    .filter((c) => visibleColumns[c.key])
+                    .map((c) => (
+                      <th
+                        key={'req-' + (c.key as string)}
+                        className="px-3 py-1 text-left border-r border-gray-600"
+                      >
+                        {c.key === 'tax_id' ? 'Required' : 'Pre-filled'}
+                      </th>
+                    ))}
                   <th className="px-3 py-1 text-left border-gray-600"></th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((row, idx) => (
-                  <tr key={idx} className={cn('border-b border-border hover:bg-secondary/50 transition-colors', idx % 2 === 0 ? 'bg-card' : 'bg-secondary/20')}>
-                    <td className="px-2 py-1 text-center text-muted-foreground bg-secondary/50 font-mono text-xs border-r border-border">{idx + 1}</td>
+                  <tr
+                    key={idx}
+                    className={cn(
+                      'border-b border-border hover:bg-secondary/50 transition-colors',
+                      idx % 2 === 0 ? 'bg-card' : 'bg-secondary/20'
+                    )}
+                  >
+                    <td className="px-2 py-1 text-center text-muted-foreground bg-secondary/50 font-mono text-xs border-r border-border">
+                      {idx + 1}
+                    </td>
                     {/* tax_company_code (read-only) */}
-                    <td className="px-2 py-1 border-r border-border text-muted-foreground">{row.tax_company_code}</td>
+                    {visibleColumns.tax_company_code && (
+                      <td className="px-2 py-1 border-r border-border text-muted-foreground">
+                        {row.tax_company_code}
+                      </td>
+                    )}
                     {/* tax_authority (editable) */}
-                    <td className="px-2 py-1 border-r border-border">
-                      <input
-                        type="text"
-                        value={row.tax_authority}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setRows((prev) => {
-                            const next = [...prev];
-                            next[idx] = { ...next[idx], tax_authority: val };
-                            return next;
-                          });
-                        }}
-                        className="w-full px-2 py-1 border border-input rounded bg-card text-foreground outline-none"
-                        placeholder="Authority code (e.g., FED, CA)"
-                      />
-                    </td>
+                    {visibleColumns.tax_authority && (
+                      <td className="px-2 py-1 border-r border-border">
+                        <input
+                          type="text"
+                          value={row.tax_authority}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setRows((prev) => {
+                              const next = [...prev];
+                              next[idx] = { ...next[idx], tax_authority: val };
+                              return next;
+                            });
+                          }}
+                          className="w-full px-2 py-1 border border-input rounded bg-card text-foreground outline-none"
+                          placeholder="Tax authority code"
+                        />
+                      </td>
+                    )}
                     {/* authority_description (editable) */}
-                    <td className="px-2 py-1 border-r border-border">
-                      <input
-                        type="text"
-                        value={row.authority_description}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setRows((prev) => {
-                            const next = [...prev];
-                            next[idx] = { ...next[idx], authority_description: val };
-                            return next;
-                          });
-                        }}
-                        className="w-full px-2 py-1 border border-input rounded bg-card text-foreground outline-none"
-                        placeholder="Authority name"
-                      />
-                    </td>
+                    {visibleColumns.authority_description && (
+                      <td className="px-2 py-1 border-r border-border">
+                        <input
+                          type="text"
+                          value={row.authority_description}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setRows((prev) => {
+                              const next = [...prev];
+                              next[idx] = { ...next[idx], authority_description: val };
+                              return next;
+                            });
+                          }}
+                          className="w-full px-2 py-1 border border-input rounded bg-card text-foreground outline-none"
+                          placeholder="Authority name"
+                        />
+                      </td>
+                    )}
+                    {/* county (editable) */}
+                    {visibleColumns.county && (
+                      <td className="px-2 py-1 border-r border-border">
+                        <input
+                          type="text"
+                          value={row.county}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setRows((prev) => {
+                              const next = [...prev];
+                              next[idx] = { ...next[idx], county: val };
+                              return next;
+                            });
+                          }}
+                          className="w-full px-2 py-1 border border-input rounded bg-card text-foreground outline-none"
+                          placeholder="County"
+                        />
+                      </td>
+                    )}
                     {/* tax_type_code (editable) */}
-                    <td className="px-2 py-1 border-r border-border">
-                      <input
-                        type="text"
-                        value={row.tax_type_code}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setRows((prev) => {
-                            const next = [...prev];
-                            next[idx] = { ...next[idx], tax_type_code: val };
-                            return next;
-                          });
-                        }}
-                        className="w-full px-2 py-1 border border-input rounded bg-card text-foreground outline-none"
-                        placeholder="Tax type code"
-                      />
-                    </td>
+                    {visibleColumns.tax_type_code && (
+                      <td className="px-2 py-1 border-r border-border">
+                        <input
+                          type="text"
+                          value={row.tax_type_code}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setRows((prev) => {
+                              const next = [...prev];
+                              next[idx] = { ...next[idx], tax_type_code: val };
+                              return next;
+                            });
+                          }}
+                          className="w-full px-2 py-1 border border-input rounded bg-card text-foreground outline-none"
+                          placeholder="Tax type code"
+                        />
+                      </td>
+                    )}
                     {/* tax_type_name (editable) */}
-                    <td className="px-2 py-1 border-r border-border">
-                      <input
-                        type="text"
-                        value={row.tax_type_name}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setRows((prev) => {
-                            const next = [...prev];
-                            next[idx] = { ...next[idx], tax_type_name: val };
-                            return next;
-                          });
-                        }}
-                        className="w-full px-2 py-1 border border-input rounded bg-card text-foreground outline-none"
-                        placeholder="Tax type name"
-                      />
-                    </td>
+                    {visibleColumns.tax_type_name && (
+                      <td className="px-2 py-1 border-r border-border">
+                        <input
+                          type="text"
+                          value={row.tax_type_name}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setRows((prev) => {
+                              const next = [...prev];
+                              next[idx] = { ...next[idx], tax_type_name: val };
+                              return next;
+                            });
+                          }}
+                          className="w-full px-2 py-1 border border-input rounded bg-card text-foreground outline-none"
+                          placeholder="Tax type name"
+                        />
+                      </td>
+                    )}
                     {/* paid_by (editable) */}
-                    <td className="px-2 py-1 border-r border-border">
-                      <input
-                        type="text"
-                        value={row.paid_by}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setRows((prev) => {
-                            const next = [...prev];
-                            next[idx] = { ...next[idx], paid_by: val };
-                            return next;
-                          });
-                        }}
-                        className="w-full px-2 py-1 border border-input rounded bg-card text-foreground outline-none"
-                        placeholder="employee / employer"
-                      />
-                    </td>
+                    {visibleColumns.paid_by && (
+                      <td className="px-2 py-1 border-r border-border">
+                        <input
+                          type="text"
+                          value={row.paid_by}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setRows((prev) => {
+                              const next = [...prev];
+                              next[idx] = { ...next[idx], paid_by: val };
+                              return next;
+                            });
+                          }}
+                          className="w-full px-2 py-1 border border-input rounded bg-card text-foreground outline-none"
+                          placeholder="employee / employer"
+                        />
+                      </td>
+                    )}
                     {/* has_local_taxes (editable) */}
-                    <td className="px-2 py-1 border-r border-border">
-                      <input
-                        type="text"
-                        value={row.has_local_taxes}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setRows((prev) => {
-                            const next = [...prev];
-                            next[idx] = { ...next[idx], has_local_taxes: val };
-                            return next;
-                          });
-                        }}
-                        className="w-full px-2 py-1 border border-input rounded bg-card text-foreground outline-none"
-                        placeholder="Yes / No"
-                      />
-                    </td>
+                    {visibleColumns.has_local_taxes && (
+                      <td className="px-2 py-1 border-r border-border">
+                        <input
+                          type="text"
+                          value={row.has_local_taxes}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setRows((prev) => {
+                              const next = [...prev];
+                              next[idx] = { ...next[idx], has_local_taxes: val };
+                              return next;
+                            });
+                          }}
+                          className="w-full px-2 py-1 border border-input rounded bg-card text-foreground outline-none"
+                          placeholder="Yes / No"
+                        />
+                      </td>
+                    )}
                     {/* tax_id editable */}
-                    <td className="px-2 py-1">
-                      <input
-                        type="text"
-                        value={row.tax_id}
-                        maxLength={15}
-                        onChange={(e) => {
-                          const val = e.target.value.slice(0, 15);
-                          setRows((prev) => {
-                            const next = [...prev];
-                            next[idx] = { ...next[idx], tax_id: val };
-                            return next;
-                          });
-                        }}
-                        className="w-full px-2 py-1 border border-input rounded bg-card text-foreground outline-none"
-                        placeholder="Enter Tax ID"
-                      />
-                    </td>
+                    {visibleColumns.tax_id && (
+                      <td className="px-2 py-1">
+                        <input
+                          type="text"
+                          value={row.tax_id}
+                          maxLength={15}
+                          onChange={(e) => {
+                            const val = e.target.value.slice(0, 15);
+                            setRows((prev) => {
+                              const next = [...prev];
+                              next[idx] = { ...next[idx], tax_id: val };
+                              return next;
+                            });
+                          }}
+                          className="w-full px-2 py-1 border border-input rounded bg-card text-foreground outline-none"
+                          placeholder="Enter Tax ID"
+                        />
+                      </td>
+                    )}
                     <td className="px-2 py-1">
                       <button
                         type="button"
@@ -546,13 +633,6 @@ export function TaxIdPage() {
                     </td>
                   </tr>
                 ))}
-                {rows.length === 0 && (
-                  <tr>
-                    <td colSpan={columns.length + 2} className="px-6 py-12 text-center text-muted-foreground">
-                      {taxCompanies.length === 0 ? 'Create a Tax Company first.' : 'Select a Tax Company to initialize its Tax ID sheet.'}
-                    </td>
-                  </tr>
-                )}
               </tbody>
             </table>
           </div>

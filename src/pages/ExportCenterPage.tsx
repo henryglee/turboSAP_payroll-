@@ -83,7 +83,7 @@ const EMPTY_CSVS: Record<string, string> = {
   'pre-notification': 'Pre_Notification_Required',
   'company-code': 'Company_Code,Company_Name,Short_Name,Currency,Language,Street,City,State,Zip_Code,Country,PO_Box,Chart_of_Accounts,Fiscal_Year_Variant,VAT_Registration_Number,Credit_Control_Area,Tax_Jurisdiction_Code',
   'tax-company': 'Tax_Company_Code,Tax_Company_Name,Address',
-  'tax-id-file': 'Tax_Company_Code,tax_authority,authority_description,tax_type_code,tax_type_name,paid_by,has_local_taxes,tax_id',
+  'tax-id-file': 'Tax_Company_Code,tax_authority,authority_description,county,tax_type_code,tax_type_name,paid_by,has_local_taxes,tax_id',
   'sui-tax-rate-file': 'Tax_Company_Code,State,SUI_Tax_Rate',
 };
 
